@@ -1,0 +1,26 @@
+{
+  "name": "listsync",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "postinstall": "prisma generate",
+    "db:setup": "prisma generate && prisma db push",
+    "deploy:build": "cp prisma/schema.production.prisma prisma/schema.prisma && prisma generate && prisma db push && next build"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.13.0",
+    "@vercel/blob": "^0.23.4",
+    "next": "14.2.3",
+    "react": "^18",
+    "react-dom": "^18"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.5.0",
+    "postcss": "^8.5.12",
+    "prisma": "^5.13.0",
+    "tailwindcss": "^4.2.4"
+  }
+}

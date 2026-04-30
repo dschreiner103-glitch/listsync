@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment (enthält Passwörter/Keys – NIEMALS committen!)
+.env
+.env.local
+.env.production
+
+# Datenbank (lokal)
+prisma/dev.db
+prisma/dev.db-journal
+
+# Uploads (lokale Bilder)
+public/uploads/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,52 @@
+// Dieses Schema wird für Vercel-Deployment (PostgreSQL) verwendet
+// Lokale Entwicklung nutzt prisma/schema.prisma (SQLite)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Listing {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String    @default("")
+  price       Float
+  buyPrice    Float     @default(0)
+  condition   String    @default("Gut")
+  category    String    @default("Sonstiges")
+  brand       String    @default("")
+  size        String    @default("")
+  color       String    @default("")
+  shipping    String    @default("[]")
+  shipSize    String    @default("")
+  status      String    @default("aktiv")
+  platforms   String    @default("[]")
+  images      String    @default("[]")
+  views       Int       @default(0)
+  days        Int       @default(0)
+  relistedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model PlatformAccount {
+  id        Int      @id @default(autoincrement())
+  platform  String   @unique
+  connected Boolean  @default(false)
+  apiKey    String?
+  username  String?
+  data      String   @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Settings {
+  id         Int   @id @default(1)
+  relistDays Int   @default(5)
+  dayGoal    Float @default(150)
+  monthGoal  Float @default(500)
+}

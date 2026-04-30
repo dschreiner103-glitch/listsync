@@ -1,0 +1,34 @@
+import { prisma } from '@/lib/prisma'
+import { NextResponse } from 'next/server'
+
+export async function PATCH(req, { params }) {
+  const data = await req.json()
+  const update = {}
+  if (data.status    !== undefined) update.status    = data.status
+  if (data.price     !== undefined) update.price     = Number(data.price)
+  if (data.platforms !== undefined) update.platforms = JSON.stringify(data.platforms)
+  if (data.images    !== undefined) update.images    = JSON.stringify(data.images)
+  if (data.views     !== undefined) update.views     = Number(data.views)
+  if (data.days      !== undefined) update.days      = Number(data.days)
+  if (data.relistedAt !== undefined) update.relistedAt = new Date(data.relistedAt)
+  if (data.brand    !== undefined) update.brand    = data.brand
+  if (data.size     !== undefined) update.size     = data.size
+  if (data.color    !== undefined) update.color    = data.color
+  if (data.shipping !== undefined) update.shipping = JSON.stringify(data.shipping)
+  if (data.shipSize !== undefined) update.shipSize = data.shipSize
+
+  const listing = await prisma.listing.update({
+    where: { id: Number(params.id) },
+    data: update
+  })
+  return NextResponse.json({
+    ...listing,
+    platforms: JSON.parse(listing.platforms),
+    images: JSON.parse(listing.images || '[]')
+  })
+}
+
+export async function DELETE(_, { params }) {
+  await prisma.listing.delete({ where: { id: Number(params.id) } })
+  return NextResponse.json({ ok: true })
+}

@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "ListSync",
+  "version": "1.1",
+  "description": "Automatisch auf Vinted & Kleinanzeigen posten",
+  "permissions": ["tabs", "scripting", "storage", "activeTab"],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://www.vinted.de/*",
+    "https://www.kleinanzeigen.de/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://localhost:3000/*"],
+      "js": ["content/listsync-bridge.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://www.vinted.de/items/new*"],
+      "js": ["content/vinted.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.kleinanzeigen.de/p-anzeige-aufgeben-schritt2*",
+        "https://www.kleinanzeigen.de/anzeige/aufgeben*"
+      ],
+      "js": ["content/kleinanzeigen.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
