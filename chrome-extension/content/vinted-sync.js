@@ -232,6 +232,13 @@ async function runSync() {
   // Try API first
   setSyncStatus('Lade Verkäufe…')
   let rawSales = await fetchAllSales()
+
+  // DEBUG: erstes Item in der Konsole ausgeben damit wir die Felder sehen
+  if (rawSales.length > 0) {
+    console.log('[ListSync DEBUG] Erstes Verkauf-Item von Vinted API:', JSON.stringify(rawSales[0], null, 2))
+    console.log('[ListSync DEBUG] Alle Keys:', Object.keys(rawSales[0]))
+  }
+
   let sales = rawSales.map(normalizeSale)
 
   setSyncStatus('Lade Einkäufe…')
