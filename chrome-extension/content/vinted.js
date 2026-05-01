@@ -401,6 +401,24 @@ async function fill() {
     await wait(800)
   }
 
+  // ── DEBUG: alle sichtbaren Formular-Elemente ausgeben ────────────────────
+  const debugFields = []
+  document.querySelectorAll('input, textarea, select, [role="radio"], [role="combobox"], [role="listbox"]').forEach(el => {
+    if (el.offsetParent !== null) {
+      debugFields.push({
+        tag: el.tagName,
+        type: el.type || el.getAttribute('role') || '',
+        name: el.name || el.id || '',
+        placeholder: el.placeholder || '',
+        value: el.value || el.textContent?.trim()?.substring(0, 50) || '',
+        testid: el.dataset?.testid || '',
+        class: el.className?.substring(0, 60) || '',
+      })
+    }
+  })
+  console.log('[ListSync DEBUG] Sichtbare Felder nach Kategorie:', JSON.stringify(debugFields, null, 2))
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ── 3. Felder die nach Kategorie erscheinen ───────────────────────────────
 
   // Zustand – Vinted zeigt das oft als Klick-Karten/Radio-Buttons
