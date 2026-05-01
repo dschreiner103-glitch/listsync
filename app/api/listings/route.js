@@ -1,17 +1,32 @@
 import { prisma } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
-export async function GET() {
-  const listings = await prisma.listing.findMany({ orderBy: { createdAt: 'desc' } })
-  return NextResponse.json(listings.map(l => ({
+function parseListing(l) {
+  return {
     ...l,
     platforms: JSON.parse(l.platforms),
     images:    JSON.parse(l.images   || '[]'),
     shipping:  JSON.parse(l.shipping || '[]'),
-  })))
+  }
+}
+
+export async function GET() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+
+  const listings = await prisma.listing.findMany({
+    where:   { userId: Number(session.user.id) },
+    orderBy: { createdAt: 'desc' },
+  })
+  return NextResponse.json(listings.map(parseListing))
 }
 
 export async function POST(req) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+
   const data = await req.json()
   const listing = await prisma.listing.create({
     data: {
@@ -28,12 +43,8 @@ export async function POST(req) {
       shipSize:    data.shipSize || '',
       platforms:   JSON.stringify(data.platforms || []),
       images:      JSON.stringify(data.images    || []),
+      userId:      Number(session.user.id),
     }
   })
-  return NextResponse.json({
-    ...listing,
-    platforms: JSON.parse(listing.platforms),
-    images:    JSON.parse(listing.images),
-    shipping:  JSON.parse(listing.shipping),
-  }, { status: 201 })
+  return NextResponse.json(parseListing(listing), { status: 201 })
 }

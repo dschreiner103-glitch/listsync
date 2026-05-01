@@ -1,3 +1,5 @@
+import SessionWrapper from '@/components/SessionWrapper'
+
 export const metadata = { title: 'ListSync', description: 'Crosslisting Tool für Reseller' }
 
 export default function RootLayout({ children }) {
@@ -12,7 +14,9 @@ export default function RootLayout({ children }) {
           .line-clamp-1 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
         `}</style>
       </head>
-      <body className="bg-gray-50 text-gray-900">{children}</body>
+      <body className="bg-gray-50 text-gray-900">
+        <SessionWrapper>{children}</SessionWrapper>
+      </body>
     </html>
   )
 }

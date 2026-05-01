@@ -1,5 +1,6 @@
 'use client'
 import { usePathname, useRouter } from 'next/navigation'
+import { useSession, signOut } from 'next-auth/react'
 
 const NAV = [
   { href:'/dashboard', icon:'⊞', label:'Dashboard' },
@@ -9,8 +10,14 @@ const NAV = [
 ]
 
 export default function Sidebar({ activeCount = 0 }) {
-  const pathname = usePathname()
-  const router   = useRouter()
+  const pathname    = usePathname()
+  const router      = useRouter()
+  const { data: session } = useSession()
+
+  const userName  = session?.user?.name  || session?.user?.email || 'User'
+  const userInit  = userName.charAt(0).toUpperCase()
+  const userEmail = session?.user?.email || ''
+
   return (
     <aside className="hidden md:flex flex-col w-60 fixed inset-y-0 left-0 bg-white border-r border-gray-100 z-20">
       <div className="px-5 py-5 border-b border-gray-100 flex items-center gap-2.5">
@@ -41,8 +48,22 @@ export default function Sidebar({ activeCount = 0 }) {
       </nav>
       <div className="px-4 py-4 border-t border-gray-100">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">D</div>
-          <div><p className="text-sm font-semibold text-gray-900">Denny S.</p><p className="text-xs text-gray-400">Freemium</p></div>
+          <div className="w-8 h-8 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+            {userInit}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+            <p className="text-xs text-gray-400 truncate">{userEmail}</p>
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            title="Abmelden"
+            className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
       </div>
     </aside>
