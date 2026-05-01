@@ -16,6 +16,8 @@
     .status-sub  { font-size: 11px; color: #9ca3af; margin-top: 1px; }
     .btn { display: block; width: 100%; padding: 10px; background: #4f46e5; color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; text-align: center; text-decoration: none; margin-bottom: 8px; }
     .btn:hover { background: #4338ca; }
+    .btn-green { background: #16a34a; }
+    .btn-green:hover { background: #15803d; }
     .section { margin-top: 10px; }
     .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; margin-bottom: 6px; }
     .account-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: white; border-radius: 8px; border: 1.5px solid #e5e7eb; cursor: pointer; margin-bottom: 4px; }
@@ -27,14 +29,18 @@
     .add-account input { flex: 1; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; }
     .add-account button { padding: 7px 12px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
     .del-btn { font-size: 11px; color: #ef4444; cursor: pointer; padding: 0 4px; border: none; background: none; line-height: 1; }
+    .sync-result { font-size: 11px; color: #374151; padding: 8px 10px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0; margin-top: 6px; display: none; }
+    .sync-result.show { display: block; }
+    .divider { height: 1px; background: #f3f4f6; margin: 10px 0; }
     .info { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 10px; line-height: 1.5; }
   </style>
 </head>
 <body>
   <div class="header">
     <div style="width:32px;height:32px;background:rgba(255,255,255,.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🔗</div>
-    <div><h1>ListSync</h1><p>Chrome Extension</p></div>
+    <div><h1>ListSync</h1><p>Chrome Extension v1.3</p></div>
   </div>
+
   <div class="content">
     <div class="status">
       <div class="dot" id="dot"></div>
@@ -46,6 +52,8 @@
 
     <a href="https://project-dle5b.vercel.app" target="_blank" class="btn">ListSync öffnen →</a>
 
+    <div class="divider"></div>
+
     <div class="section">
       <div class="section-title">Vinted Accounts</div>
       <div id="accountList"></div>
@@ -55,8 +63,20 @@
       </div>
     </div>
 
-    <p class="info">Klicke in ListSync auf „Crossposten" und wähle Vinted – die Extension füllt alles mit dem aktiven Account aus.</p>
+    <div class="divider"></div>
+
+    <div class="section">
+      <div class="section-title">🔄 Vinted Sync</div>
+      <button class="btn btn-green" id="syncBtn">Vinted-Historie importieren</button>
+      <div class="sync-result" id="syncResult"></div>
+      <p style="font-size:11px;color:#9ca3af;margin-top:6px;line-height:1.5">
+        Importiert alle Verkäufe &amp; Einkäufe in die Buchhaltung. Du musst auf Vinted eingeloggt sein.
+      </p>
+    </div>
+
+    <p class="info">Klicke in ListSync auf „Crossposten" → Extension füllt Vinted automatisch aus.</p>
   </div>
+
   <script src="popup.js"></script>
 </body>
 </html>

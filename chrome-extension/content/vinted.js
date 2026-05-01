@@ -1,33 +1,58 @@
 'use strict'
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 async function getListing() {
   return new Promise(resolve =>
     chrome.storage.local.get('pendingListing', r => resolve(r.pendingListing || null))
   )
 }
 
-function fillReact(el, value) {
+const wait = ms => new Promise(r => setTimeout(r, ms))
+
+function setNativeValue(el, value) {
   const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
   const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
   if (setter) setter.call(el, value)
+  else el.value = value
   el.dispatchEvent(new Event('input',  { bubbles: true }))
   el.dispatchEvent(new Event('change', { bubbles: true }))
   el.dispatchEvent(new Event('blur',   { bubbles: true }))
 }
 
-function waitFor(selectors, timeout = 20000) {
+function waitFor(selectors, timeout = 15000) {
   const sels = Array.isArray(selectors) ? selectors : [selectors]
   return new Promise((resolve, reject) => {
-    for (const s of sels) { const el = document.querySelector(s); if (el) return resolve(el) }
+    const find = () => {
+      for (const s of sels) {
+        try { const el = document.querySelector(s); if (el) return el } catch {}
+      }
+      return null
+    }
+    const found = find()
+    if (found) return resolve(found)
     const ob = new MutationObserver(() => {
-      for (const s of sels) { const el = document.querySelector(s); if (el) { ob.disconnect(); return resolve(el) } }
+      const el = find()
+      if (el) { ob.disconnect(); clearTimeout(tid); resolve(el) }
     })
-    ob.observe(document.body, { childList: true, subtree: true })
-    setTimeout(() => { ob.disconnect(); reject(new Error('Timeout')) }, timeout)
+    ob.observe(document.body, { childList: true, subtree: true, attributes: true })
+    const tid = setTimeout(() => { ob.disconnect(); reject(new Error('Timeout: ' + sels[0])) }, timeout)
   })
 }
 
-const wait = ms => new Promise(r => setTimeout(r, ms))
+// Find input by nearby label text (fallback)
+function findByLabel(text) {
+  for (const l of document.querySelectorAll('label')) {
+    if (l.textContent.toLowerCase().includes(text.toLowerCase())) {
+      if (l.htmlFor) { const el = document.getElementById(l.htmlFor); if (el) return el }
+      const el = l.querySelector('input, textarea') || l.parentElement?.querySelector('input, textarea')
+      if (el) return el
+    }
+  }
+  return null
+}
+
+// ── Banner ────────────────────────────────────────────────────────────────────
 
 function showBanner(listing, accountName) {
   if (document.getElementById('ls-banner')) return
@@ -37,8 +62,8 @@ function showBanner(listing, accountName) {
   d.innerHTML = `
     <span style="font-size:20px">🔗</span>
     <div style="flex:1;min-width:0">
-      <div style="font-weight:700;font-size:13px">ListSync${accountName ? ' · ' + accountName : ''} – wird ausgefüllt…</div>
-      <div style="font-size:11px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${listing.title} · ${listing.price} €</div>
+      <div style="font-weight:700;font-size:13px">ListSync${accountName ? ' · ' + accountName : ''}</div>
+      <div id="ls-status" style="font-size:11px;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${listing.title} · ${listing.price} €</div>
     </div>
     <button onclick="document.getElementById('ls-banner').remove();document.body.style.paddingTop=''"
       style="background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:7px;padding:5px 10px;cursor:pointer;font-size:12px;font-weight:600">✕</button>
@@ -47,86 +72,172 @@ function showBanner(listing, accountName) {
   document.body.style.paddingTop = '54px'
 }
 
-async function fillAutocomplete(selectors, value) {
-  try {
-    const el = await waitFor(selectors, 6000)
-    await wait(300)
-    fillReact(el, value)
-    await wait(900)
-    const opt = document.querySelector('[role="option"], [class*="suggestion"] li, [class*="autocomplete"] li')
-    if (opt) opt.click()
-  } catch {}
+function setStatus(msg, done = false) {
+  const el = document.getElementById('ls-status')
+  if (el) el.textContent = msg
+  if (done) {
+    const b = document.getElementById('ls-banner')
+    if (b) b.style.background = '#16a34a'
+  }
+  console.log('[ListSync]', msg)
 }
 
+// ── Fill helpers ──────────────────────────────────────────────────────────────
+
+async function fillField(selectors, value, labelHint, name) {
+  if (value === undefined || value === null || value === '') return false
+  try {
+    let el = null
+    try { el = await waitFor(selectors, 7000) } catch {}
+    if (!el && labelHint) el = findByLabel(labelHint)
+    if (!el) { console.warn('[ListSync] Nicht gefunden:', name); return false }
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    await wait(200)
+    el.focus()
+    await wait(100)
+    setNativeValue(el, String(value))
+    await wait(200)
+    // Retry once if value didn't stick
+    if (el.value !== String(value)) {
+      el.focus(); setNativeValue(el, String(value)); await wait(200)
+    }
+    setStatus('✓ ' + name)
+    return true
+  } catch(e) {
+    console.warn('[ListSync] Fehler bei', name, e.message)
+    return false
+  }
+}
+
+async function fillAutocomplete(selectors, value, labelHint, name) {
+  if (!value) return false
+  try {
+    let el = null
+    try { el = await waitFor(selectors, 7000) } catch {}
+    if (!el && labelHint) el = findByLabel(labelHint)
+    if (!el) { console.warn('[ListSync] Nicht gefunden:', name); return false }
+
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    await wait(200)
+    el.focus()
+    setNativeValue(el, value)
+    await wait(1200) // wait for dropdown to appear
+
+    // Click first visible option
+    const optSels = [
+      '[role="option"]:not([aria-disabled="true"])',
+      '[class*="suggestion"] li:first-child',
+      '[class*="autocomplete"] li:first-child',
+      '[class*="dropdown"] [role="option"]:first-child',
+      '[class*="Dropdown"] li:first-child',
+    ]
+    for (const s of optSels) {
+      const opt = document.querySelector(s)
+      if (opt && opt.offsetParent !== null) { opt.click(); await wait(300); break }
+    }
+    setStatus('✓ ' + name)
+    return true
+  } catch(e) {
+    console.warn('[ListSync] Autocomplete Fehler:', name, e.message)
+    return false
+  }
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
+
 async function fill() {
-  await wait(1500)
+  await wait(2500) // Vinted React braucht Zeit zum Booten
+
   const listing = await getListing()
   if (!listing) return
 
   const { activeVintedAccount } = await new Promise(r => chrome.storage.local.get('activeVintedAccount', r))
   showBanner(listing, activeVintedAccount)
+  setStatus('Starte…')
+  await wait(500)
 
   // Titel
-  try {
-    const el = await waitFor([
-      'input[data-testid="item-title-input"]',
-      'input#title', 'input[name="title"]',
-      'input[placeholder*="Titel"]', 'input[placeholder*="title"]',
-    ])
-    await wait(400); fillReact(el, listing.title.substring(0, 60))
-    console.log('[ListSync] ✓ Titel')
-  } catch(e) { console.warn('[ListSync] Titel:', e.message) }
+  await fillField([
+    'input[data-testid="item-title-input"]',
+    'input[data-testid="upload-form-title-field"]',
+    'input[data-testid="title"]',
+    'input#title', 'input[name="title"]',
+    'input[placeholder*="Titel"]',
+    'input[placeholder*="title"]',
+    'input[placeholder*="Name des Artikels"]',
+    'input[placeholder*="Artikelname"]',
+  ], listing.title.substring(0, 60), 'titel', 'Titel')
+  await wait(400)
 
   // Beschreibung
-  try {
-    const el = await waitFor([
-      'textarea[data-testid="item-description-input"]',
-      'textarea#description', 'textarea[name="description"]',
-      'textarea[placeholder*="Beschreibung"]',
-    ])
-    await wait(300); fillReact(el, listing.description || '')
-    console.log('[ListSync] ✓ Beschreibung')
-  } catch(e) { console.warn('[ListSync] Beschreibung:', e.message) }
+  await fillField([
+    'textarea[data-testid="item-description-input"]',
+    'textarea[data-testid="upload-form-description-field"]',
+    'textarea[data-testid="description"]',
+    'textarea#description', 'textarea[name="description"]',
+    'textarea[placeholder*="Beschreibung"]',
+    'textarea[placeholder*="description"]',
+    'textarea[placeholder*="Artikelbeschreibung"]',
+  ], listing.description || '', 'beschreibung', 'Beschreibung')
+  await wait(400)
 
   // Preis
-  try {
-    const el = await waitFor([
-      'input[data-testid="item-price-input"]',
-      'input#price', 'input[name="price"]',
-      'input[placeholder*="Preis"]', 'input[placeholder*="price"]',
-    ])
-    await wait(300); fillReact(el, String(listing.price).replace('.', ','))
-    console.log('[ListSync] ✓ Preis')
-  } catch(e) { console.warn('[ListSync] Preis:', e.message) }
+  await fillField([
+    'input[data-testid="item-price-input"]',
+    'input[data-testid="upload-form-price-field"]',
+    'input[data-testid="price"]',
+    'input#price', 'input[name="price"]',
+    'input[placeholder*="Preis"]',
+    'input[placeholder*="price"]',
+    'input[type="number"]',
+  ], String(listing.price).replace('.', ','), 'preis', 'Preis')
+  await wait(400)
 
   // Marke
   if (listing.brand) {
     await fillAutocomplete([
+      'input[data-testid="item-brand-input"]',
       'input[data-testid="brand-input"]',
-      'input[placeholder*="Marke"]', 'input[placeholder*="Brand"]', 'input[name="brand"]',
-    ], listing.brand)
-    console.log('[ListSync] ✓ Marke')
+      'input[data-testid="upload-form-brand-field"]',
+      'input#brand', 'input[name="brand"]',
+      'input[placeholder*="Marke"]',
+      'input[placeholder*="brand"]',
+      'input[placeholder*="Brand"]',
+    ], listing.brand, 'marke', 'Marke')
+    await wait(500)
   }
 
   // Größe
   if (listing.size) {
     await fillAutocomplete([
+      'input[data-testid="item-size-input"]',
       'input[data-testid="size-input"]',
-      'input[placeholder*="Größe"]', 'input[placeholder*="size"]', 'input[name="size"]',
-    ], listing.size)
-    console.log('[ListSync] ✓ Größe')
+      'input[data-testid="upload-form-size-field"]',
+      'input#size', 'input[name="size"]',
+      'input[placeholder*="Größe"]',
+      'input[placeholder*="size"]',
+    ], listing.size, 'größe', 'Größe')
+    await wait(500)
   }
 
   // Farbe
   if (listing.color) {
     await fillAutocomplete([
+      'input[data-testid="item-color-input"]',
       'input[data-testid="color-input"]',
-      'input[placeholder*="Farbe"]', 'input[placeholder*="color"]', 'input[name="color"]',
-    ], listing.color)
-    console.log('[ListSync] ✓ Farbe')
+      'input[data-testid="upload-form-color-field"]',
+      'input#color', 'input[name="color"]',
+      'input[placeholder*="Farbe"]',
+      'input[placeholder*="color"]',
+    ], listing.color, 'farbe', 'Farbe')
+    await wait(500)
   }
 
-  console.log('[ListSync] ✓ Felder fertig – Bilder kommen via MAIN-World')
+  setStatus('✅ Felder fertig – Bilder werden geladen…')
+  await wait(4000) // Bilder kommen von background.js via MAIN-World
+  setStatus('✅ Fertig! Bitte prüfen und absenden.', true)
+  await chrome.storage.local.remove('pendingListing')
 }
 
 if (document.readyState === 'loading') {

@@ -62,4 +62,19 @@ model Settings {
   address          String  @default("")
   taxId            String  @default("")
   kleinunternehmer Boolean @default(true)
+  nextReceiptNo    Int     @default(1)
+}
+
+model Receipt {
+  id          Int      @id @default(autoincrement())
+  receiptNo   String   @unique
+  type        String   @default("sale")
+  listingId   Int?
+  userId      Int?
+  issuedAt    DateTime @default(now())
+  periodFrom  DateTime?
+  periodTo    DateTime?
+  totalNet    Float    @default(0)
+  data        String   @default("{}")
+  createdAt   DateTime @default(now())
 }
