@@ -169,70 +169,67 @@ const CATEGORY_MAP = {
   'Sonstiges':                    [], // offen lassen
 }
 
+async function clickOption(text) {
+  // Sucht sichtbare Option mit passendem Text und klickt sie
+  const sels = [
+    '[role="option"]', '[role="menuitem"]', '[role="listitem"]',
+    'li', 'button', '[class*="item"]', '[class*="option"]',
+  ]
+  for (const s of sels) {
+    for (const el of document.querySelectorAll(s)) {
+      if (el.offsetParent !== null && el.textContent.trim().toLowerCase().includes(text.toLowerCase())) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        await wait(200)
+        el.click()
+        await wait(700)
+        return true
+      }
+    }
+  }
+  return false
+}
+
 async function fillCategory(category) {
   if (!category || category === 'Sonstiges') return false
 
-  // Pfad bestimmen: entweder direktes Mapping oder "/" getrennt vom User
-  let path = CATEGORY_MAP[category] || category.split('/').map(s => s.trim()).filter(Boolean)
+  const path = CATEGORY_MAP[category] || category.split('/').map(s => s.trim()).filter(Boolean)
   if (!path.length) return false
 
   try {
-    // Kategorie-Button finden und klicken
-    const triggerSels = [
-      '[data-testid="category-select-button"]',
-      '[data-testid="item-category-select"]',
-      '[data-testid="select-category"]',
-      'button[class*="category"]',
-      'div[class*="CategorySelect"]',
-      '[class*="category-select"]',
-    ]
+    // Dropdown-Trigger finden: Element mit "Wähle eine Kategorie" oder ähnlichem Text
     let trigger = null
-    for (const s of triggerSels) {
-      trigger = document.querySelector(s); if (trigger) break
-    }
-    // Fallback: Button mit "Kategorie" im Text
-    if (!trigger) {
-      for (const btn of document.querySelectorAll('button, [role="button"]')) {
-        if (btn.textContent.toLowerCase().includes('kategorie')) { trigger = btn; break }
+    for (const el of document.querySelectorAll('*')) {
+      const t = el.textContent?.trim()
+      if (
+        el.offsetParent !== null &&
+        el.children.length <= 3 &&  // kein Container mit vielen Kindern
+        (t === 'Wähle eine Kategorie' || t === 'Kategorie wählen' || t === 'Select category')
+      ) {
+        trigger = el
+        break
       }
     }
-    if (!trigger) { console.warn('[ListSync] Kategorie-Button nicht gefunden'); return false }
+    // Fallback: data-testid oder class
+    if (!trigger) {
+      const fbSels = [
+        '[data-testid*="category"]', '[class*="CategorySelect"]',
+        '[class*="category-select"]', 'select[name*="category"]',
+      ]
+      for (const s of fbSels) { trigger = document.querySelector(s); if (trigger) break }
+    }
+
+    if (!trigger) { console.warn('[ListSync] Kategorie-Trigger nicht gefunden'); return false }
 
     trigger.scrollIntoView({ behavior: 'smooth', block: 'center' })
     await wait(300)
     trigger.click()
-    await wait(1000)
+    await wait(900)
 
-    // Durch jeden Pfadschritt klicken
+    // Durch Pfadschritte klicken
     for (const step of path) {
       setStatus(`Kategorie: ${step}…`)
-      // Option mit passendem Text suchen
-      const allOptions = document.querySelectorAll(
-        '[role="option"], [role="menuitem"], [class*="CategoryItem"], [class*="category-item"], li[class*="item"], button[class*="option"]'
-      )
-      let found = false
-      for (const opt of allOptions) {
-        if (opt.offsetParent !== null && opt.textContent.trim().toLowerCase().includes(step.toLowerCase())) {
-          opt.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          await wait(200)
-          opt.click()
-          await wait(800)
-          found = true
-          break
-        }
-      }
-      if (!found) {
-        console.warn('[ListSync] Kategorie-Schritt nicht gefunden:', step)
-        break
-      }
-    }
-
-    // Bestätigen falls Modal ein OK-Button hat
-    await wait(300)
-    const confirmSels = ['button[data-testid*="confirm"]', 'button[data-testid*="submit"]', 'button[data-testid*="save"]']
-    for (const s of confirmSels) {
-      const btn = document.querySelector(s)
-      if (btn && btn.offsetParent !== null) { btn.click(); await wait(500); break }
+      const found = await clickOption(step)
+      if (!found) { console.warn('[ListSync] Kategorie-Schritt nicht gefunden:', step); break }
     }
 
     setStatus('✓ Kategorie')
