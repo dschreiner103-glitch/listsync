@@ -6,7 +6,7 @@ import { PLATFORMS } from '@/components/Badge'
 
 function fmt(n) { return (n||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'}) }
 
-export default function MonthlyReceipt() {
+function MonthlyReceiptInner() {
   const params   = useSearchParams()
   const ids      = params.get('ids')?.split(',').filter(Boolean) || []
   const month    = params.get('month') || ''
@@ -27,6 +27,7 @@ export default function MonthlyReceipt() {
   }, [])
 
   if (loading) return <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'sans-serif',color:'#9ca3af'}}>Lade…</div>
+
 
   const totalRevenue = listings.reduce((s,l) => s + l.price, 0)
   const totalProfit  = listings.reduce((s,l) => s + l.price - (l.buyPrice||0), 0)
@@ -130,5 +131,13 @@ export default function MonthlyReceipt() {
         <button className="btn-p" onClick={() => window.print()}>🖨️ Als PDF drucken</button>
       </div>
     </>
+  )
+}
+
+export default function MonthlyReceipt() {
+  return (
+    <Suspense fallback={<div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',fontFamily:'sans-serif',color:'#9ca3af'}}>Lade…</div>}>
+      <MonthlyReceiptInner />
+    </Suspense>
   )
 }
