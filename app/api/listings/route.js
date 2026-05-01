@@ -23,6 +23,25 @@ export async function GET() {
   return NextResponse.json(listings.map(parseListing))
 }
 
+export async function DELETE(req) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+  const userId = Number(session.user.id)
+
+  // Optional: ?ids=1,2,3 löscht nur diese IDs, sonst alles
+  const url  = new URL(req.url)
+  const ids  = url.searchParams.get('ids')
+
+  if (ids) {
+    const idList = ids.split(',').map(Number).filter(Boolean)
+    await prisma.listing.deleteMany({ where: { userId, id: { in: idList } } })
+    return NextResponse.json({ ok: true, deleted: idList.length })
+  }
+
+  const { count } = await prisma.listing.deleteMany({ where: { userId } })
+  return NextResponse.json({ ok: true, deleted: count })
+}
+
 export async function POST(req) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })

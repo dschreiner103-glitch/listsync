@@ -92,6 +92,8 @@ export default function Buchhaltung() {
   const [listings, setListings]   = useState([])
   const [loading, setLoading]     = useState(true)
   const [saving, setSaving]       = useState(null) // id of row being saved
+  const [deleting, setDeleting]   = useState(null) // id of row being deleted
+  const [confirmClear, setConfirmClear] = useState(false)
   const [month, setMonth]         = useState('')
   const [year, setYear]           = useState(String(new Date().getFullYear()))
   const [statusFilter, setStatus] = useState('alle')
@@ -165,6 +167,19 @@ export default function Buchhaltung() {
     setSaving(null)
   }
 
+  async function deleteRow(id) {
+    setDeleting(id)
+    await fetch(`/api/listings/${id}`, { method: 'DELETE' })
+    setListings(prev => prev.filter(l => l.id !== id))
+    setDeleting(null)
+  }
+
+  async function clearAll() {
+    setConfirmClear(false)
+    await fetch('/api/listings', { method: 'DELETE' })
+    setListings([])
+  }
+
   function patchDate(id, dateStr) {
     if (!dateStr) return
     patch(id, { updatedAt: new Date(dateStr).toISOString() })
@@ -177,6 +192,25 @@ export default function Buchhaltung() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Confirm clear modal */}
+      {confirmClear && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
+            <h3 className="text-lg font-extrabold text-gray-900 mb-2">Tabelle wirklich leeren?</h3>
+            <p className="text-sm text-gray-500 mb-5">Alle {listings.length} Einträge werden unwiderruflich gelöscht.</p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => setConfirmClear(false)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-sm">
+                Abbrechen
+              </button>
+              <button onClick={clearAll}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold text-sm">
+                Ja, alles löschen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <Sidebar />
       <main className="md:ml-60 pb-20 md:pb-8">
         <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
@@ -187,7 +221,7 @@ export default function Buchhaltung() {
               <h1 className="text-2xl font-extrabold text-gray-900">📊 Buchhaltung</h1>
               <p className="text-gray-400 text-sm mt-0.5">Klicke auf Zellen um sie zu bearbeiten · Spalten sortieren per Klick</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button onClick={() => downloadCSV(sorted)}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm">
                 ⬇ CSV
@@ -195,6 +229,10 @@ export default function Buchhaltung() {
               <button onClick={() => router.push('/belege')}
                 className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm">
                 🧾 Belege
+              </button>
+              <button onClick={() => setConfirmClear(true)}
+                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl font-semibold text-sm">
+                🗑 Alles löschen
               </button>
             </div>
           </div>
@@ -344,12 +382,22 @@ export default function Buchhaltung() {
                           </td>
 
                           <td className="px-3 py-2.5">
-                            <button
-                              onClick={() => window.open(`/belege/${l.id}`, '_blank')}
-                              className="text-xs px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg font-semibold whitespace-nowrap"
-                            >
-                              Beleg
-                            </button>
+                            <div className="flex gap-1.5 items-center">
+                              <button
+                                onClick={() => window.open(`/belege/${l.id}`, '_blank')}
+                                className="text-xs px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg font-semibold whitespace-nowrap"
+                              >
+                                Beleg
+                              </button>
+                              <button
+                                onClick={() => deleteRow(l.id)}
+                                disabled={deleting === l.id}
+                                title="Eintrag löschen"
+                                className="text-xs px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg font-semibold disabled:opacity-40"
+                              >
+                                {deleting === l.id ? '…' : '🗑'}
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       )
