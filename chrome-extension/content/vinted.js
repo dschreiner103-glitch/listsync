@@ -146,27 +146,26 @@ async function fillAutocomplete(selectors, value, labelHint, name) {
 
 // ── Kategorie-Auswahl (mehrstufiges Klick-Menü) ───────────────────────────────
 
-// Mapping ListSync-Kategorien → Vinted Klick-Pfad
-// Muss zu den Werten in components/Badge.js CATEGORIES passen
+// Mapping ListSync-Kategorien → Vinted Klick-Pfad (bis zu 3 Ebenen)
 const CATEGORY_MAP = {
   'Damen – Kleidung':             ['Damen', 'Kleidung'],
   'Damen – Schuhe':               ['Damen', 'Schuhe'],
-  'Damen – Taschen & Accessoires':['Damen', 'Taschen & Geldbörsen'],
+  'Damen – Taschen & Accessoires':['Damen', 'Taschen'],
   'Herren – Kleidung':            ['Herren', 'Kleidung'],
   'Herren – Schuhe':              ['Herren', 'Schuhe'],
   'Herren – Accessoires':         ['Herren', 'Accessoires'],
-  'Kinder – Kleidung':            ['Kinder'],
+  'Kinder – Kleidung':            ['Kinder', 'Kleidung'],
   'Kinder – Schuhe':              ['Kinder', 'Schuhe'],
   'Kinder – Spielzeug':           ['Kinder', 'Spielzeug'],
-  'Elektronik & Gadgets':         ['Unterhaltung', 'Elektronik'],
-  'Handys & Tablets':             ['Unterhaltung', 'Handys'],
-  'Computer & Laptops':           ['Unterhaltung', 'Computer & Laptops'],
-  'Sport & Outdoor':              ['Sport'],
+  'Elektronik & Gadgets':         ['Heimelektronik'],
+  'Handys & Tablets':             ['Heimelektronik', 'Handys'],
+  'Computer & Laptops':           ['Heimelektronik', 'Computer'],
+  'Sport & Outdoor':              ['Sport & Freizeit'],
   'Haushalt & Garten':            ['Haus & Garten'],
   'Bücher & Medien':              ['Unterhaltung', 'Bücher'],
-  'Schmuck & Uhren':              ['Damen', 'Schmuck & Uhren'],
-  'Kosmetik & Pflege':            ['Damen', 'Beauty'],
-  'Sonstiges':                    [], // offen lassen
+  'Schmuck & Uhren':              ['Damen', 'Schmuck'],
+  'Kosmetik & Pflege':            ['Damen', 'Pflege & Beauty'],
+  'Sonstiges':                    [],
 }
 
 async function clickOption(text) {
@@ -242,6 +241,28 @@ async function fillCategory(category) {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+// Wartet bis ein neues Feld nach Kategorie-Auswahl sichtbar wird
+async function waitForAttributeFields(timeout = 8000) {
+  const fieldSels = [
+    'input[placeholder*="Marke"]', 'input[placeholder*="brand"]',
+    'input[placeholder*="Größe"]', 'input[placeholder*="size"]',
+    '[data-testid*="brand"]', '[data-testid*="size"]',
+    '[data-testid*="condition"]', 'select[name*="condition"]',
+  ]
+  return new Promise(resolve => {
+    const check = () => {
+      for (const s of fieldSels) {
+        if (document.querySelector(s)) return true
+      }
+      return false
+    }
+    if (check()) return resolve(true)
+    const ob = new MutationObserver(() => { if (check()) { ob.disconnect(); resolve(true) } })
+    ob.observe(document.body, { childList: true, subtree: true })
+    setTimeout(() => { ob.disconnect(); resolve(false) }, timeout)
+  })
+}
+
 async function fill() {
   await wait(2500) // Vinted React braucht Zeit zum Booten
 
@@ -253,91 +274,81 @@ async function fill() {
   setStatus('Starte…')
   await wait(500)
 
-  // Titel
+  // ── 1. Basis-Felder (immer sichtbar) ─────────────────────────────────────
+
   await fillField([
-    'input[data-testid="item-title-input"]',
-    'input[data-testid="upload-form-title-field"]',
-    'input[data-testid="title"]',
+    'input[data-testid="item-title-input"]', 'input[data-testid="title"]',
     'input#title', 'input[name="title"]',
-    'input[placeholder*="Titel"]',
-    'input[placeholder*="title"]',
-    'input[placeholder*="Name des Artikels"]',
-    'input[placeholder*="Artikelname"]',
+    'input[placeholder*="Titel"]', 'input[placeholder*="Name des Artikels"]',
   ], listing.title.substring(0, 60), 'titel', 'Titel')
   await wait(400)
 
-  // Beschreibung
   await fillField([
-    'textarea[data-testid="item-description-input"]',
-    'textarea[data-testid="upload-form-description-field"]',
-    'textarea[data-testid="description"]',
+    'textarea[data-testid="item-description-input"]', 'textarea[data-testid="description"]',
     'textarea#description', 'textarea[name="description"]',
-    'textarea[placeholder*="Beschreibung"]',
-    'textarea[placeholder*="description"]',
-    'textarea[placeholder*="Artikelbeschreibung"]',
-  ], listing.description || '', 'beschreibung', 'Beschreibung')
+    'textarea[placeholder*="Beschreibung"]', 'textarea[placeholder*="Artikelbeschreibung"]',
+  ], listing.description || listing.title, 'beschreibung', 'Beschreibung')
   await wait(400)
 
-  // Preis
   await fillField([
-    'input[data-testid="item-price-input"]',
-    'input[data-testid="upload-form-price-field"]',
-    'input[data-testid="price"]',
+    'input[data-testid="item-price-input"]', 'input[data-testid="price"]',
     'input#price', 'input[name="price"]',
-    'input[placeholder*="Preis"]',
-    'input[placeholder*="price"]',
-    'input[type="number"]',
+    'input[placeholder*="Preis"]', 'input[type="number"]',
   ], String(listing.price).replace('.', ','), 'preis', 'Preis')
   await wait(400)
 
-  // Kategorie
-  if (listing.category) {
+  // ── 2. Kategorie auswählen (öffnet weitere Felder) ───────────────────────
+
+  if (listing.category && listing.category !== 'Sonstiges') {
+    setStatus('Kategorie wird ausgewählt…')
     await fillCategory(listing.category)
-    await wait(600)
+    // Warten bis die neuen Felder erscheinen
+    setStatus('Warte auf Attribut-Felder…')
+    await waitForAttributeFields(8000)
+    await wait(800)
   }
 
-  // Marke
-  if (listing.brand) {
+  // ── 3. Felder die nach Kategorie erscheinen ───────────────────────────────
+
+  // Zustand
+  if (listing.condition) {
     await fillAutocomplete([
-      'input[data-testid="item-brand-input"]',
-      'input[data-testid="brand-input"]',
-      'input[data-testid="upload-form-brand-field"]',
-      'input#brand', 'input[name="brand"]',
-      'input[placeholder*="Marke"]',
-      'input[placeholder*="brand"]',
-      'input[placeholder*="Brand"]',
-    ], listing.brand, 'marke', 'Marke')
-    await wait(500)
+      '[data-testid*="condition"]', 'select[name*="condition"]',
+      'input[placeholder*="Zustand"]', 'input[placeholder*="condition"]',
+    ], listing.condition, 'zustand', 'Zustand')
+    await wait(400)
   }
 
   // Größe
   if (listing.size) {
     await fillAutocomplete([
-      'input[data-testid="item-size-input"]',
-      'input[data-testid="size-input"]',
-      'input[data-testid="upload-form-size-field"]',
-      'input#size', 'input[name="size"]',
-      'input[placeholder*="Größe"]',
-      'input[placeholder*="size"]',
+      'input[data-testid*="size"]', 'input#size', 'input[name="size"]',
+      'input[placeholder*="Größe"]', 'input[placeholder*="size"]',
+      'select[name*="size"]',
     ], listing.size, 'größe', 'Größe')
+    await wait(500)
+  }
+
+  // Marke
+  if (listing.brand) {
+    await fillAutocomplete([
+      'input[data-testid*="brand"]', 'input#brand', 'input[name="brand"]',
+      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]',
+    ], listing.brand, 'marke', 'Marke')
     await wait(500)
   }
 
   // Farbe
   if (listing.color) {
     await fillAutocomplete([
-      'input[data-testid="item-color-input"]',
-      'input[data-testid="color-input"]',
-      'input[data-testid="upload-form-color-field"]',
-      'input#color', 'input[name="color"]',
-      'input[placeholder*="Farbe"]',
-      'input[placeholder*="color"]',
+      'input[data-testid*="color"]', 'input#color', 'input[name="color"]',
+      'input[placeholder*="Farbe"]', 'input[placeholder*="color"]',
     ], listing.color, 'farbe', 'Farbe')
     await wait(500)
   }
 
   setStatus('✅ Felder fertig – Bilder werden geladen…')
-  await wait(4000) // Bilder kommen von background.js via MAIN-World
+  await wait(4000)
   setStatus('✅ Fertig! Bitte prüfen und absenden.', true)
   await chrome.storage.local.remove('pendingListing')
 }
