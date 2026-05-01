@@ -146,7 +146,8 @@ async function fillAutocomplete(selectors, value, labelHint, name) {
 
 // ── Kategorie-Auswahl (mehrstufiges Klick-Menü) ───────────────────────────────
 
-// Mapping ListSync-Kategorien → Vinted Klick-Pfad (bis zu 3 Ebenen)
+// Mapping ListSync-Kategorien → Vinted Klick-Pfad
+// Top-Level auf Vinted: Damen, Herren, Kinder, Home, Elektronik
 const CATEGORY_MAP = {
   'Damen – Kleidung':             ['Damen', 'Kleidung'],
   'Damen – Schuhe':               ['Damen', 'Schuhe'],
@@ -157,14 +158,14 @@ const CATEGORY_MAP = {
   'Kinder – Kleidung':            ['Kinder', 'Kleidung'],
   'Kinder – Schuhe':              ['Kinder', 'Schuhe'],
   'Kinder – Spielzeug':           ['Kinder', 'Spielzeug'],
-  'Elektronik & Gadgets':         ['Heimelektronik'],
-  'Handys & Tablets':             ['Heimelektronik', 'Handys'],
-  'Computer & Laptops':           ['Heimelektronik', 'Computer'],
-  'Sport & Outdoor':              ['Sport & Freizeit'],
-  'Haushalt & Garten':            ['Haus & Garten'],
+  'Elektronik & Gadgets':         ['Elektronik'],
+  'Handys & Tablets':             ['Elektronik', 'Handys'],
+  'Computer & Laptops':           ['Elektronik', 'Computer'],
+  'Sport & Outdoor':              ['Sport'],
+  'Haushalt & Garten':            ['Home'],
   'Bücher & Medien':              ['Unterhaltung', 'Bücher'],
   'Schmuck & Uhren':              ['Damen', 'Schmuck'],
-  'Kosmetik & Pflege':            ['Damen', 'Pflege & Beauty'],
+  'Kosmetik & Pflege':            ['Damen', 'Beauty'],
   'Sonstiges':                    [],
 }
 
@@ -224,11 +225,31 @@ async function fillCategory(category) {
     trigger.click()
     await wait(900)
 
-    // Durch Pfadschritte klicken
+    // Suchbox nutzen wenn vorhanden (zuverlässiger als hierarchisch klicken)
+    const searchBox = document.querySelector(
+      'input[placeholder*="Finde"], input[placeholder*="Suche"], input[placeholder*="Search"], input[placeholder*="category"]'
+    )
+    if (searchBox) {
+      // Den spezifischsten Pfadteil suchen (letzter Schritt)
+      const searchTerm = path[path.length - 1] || path[0]
+      setStatus(`Suche Kategorie: ${searchTerm}…`)
+      searchBox.focus()
+      setNativeValue(searchBox, searchTerm)
+      await wait(800)
+      // Erstes Ergebnis klicken
+      const found = await clickOption(searchTerm)
+      if (found) { setStatus('✓ Kategorie'); return true }
+      // Fallback: erstes sichtbares Listenelement klicken
+      setNativeValue(searchBox, path[0])
+      await wait(600)
+    }
+
+    // Hierarchisch durch Pfad klicken
     for (const step of path) {
       setStatus(`Kategorie: ${step}…`)
       const found = await clickOption(step)
       if (!found) { console.warn('[ListSync] Kategorie-Schritt nicht gefunden:', step); break }
+      await wait(600)
     }
 
     setStatus('✓ Kategorie')
