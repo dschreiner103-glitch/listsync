@@ -222,8 +222,8 @@ async function clickOption(text) {
 }
 
 // Klickt ein Vinted-Katalog-Item per id="catalog-N" (goldener Selektor)
+// KEIN scrollIntoView – Vinted schließt Dropdown bei Scroll-Events!
 async function clickCatalogItem(text) {
-  // Alle sichtbaren catalog-* Elemente (Vinted-spezifisch, kein Navbar-Treffer)
   const items = document.querySelectorAll('[id^="catalog-"]:not(#catalog-search-input)')
   const target = text.toLowerCase().trim()
 
@@ -234,28 +234,24 @@ async function clickCatalogItem(text) {
     const t = (el.innerText || el.textContent || '').trim()
     if (t.toLowerCase() === target) {
       console.log('[ListSync] ✓ catalog-item exakt:', el.id, '"' + t + '"')
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      await wait(200)
-      el.click()
+      el.click()  // KEIN scrollIntoView!
       await wait(1200)
       return true
     }
   }
-  // 2. Startswith-Match (z.B. "Kleidung" trifft "Kleidung & Accessoires")
+  // 2. Startswith-Match
   for (const el of items) {
     const rect = el.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) continue
     const t = (el.innerText || el.textContent || '').trim().toLowerCase()
     if (t.startsWith(target) || target.startsWith(t)) {
       console.log('[ListSync] ✓ catalog-item partial:', el.id, '"' + t + '"')
-      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-      await wait(200)
-      el.click()
+      el.click()  // KEIN scrollIntoView!
       await wait(1200)
       return true
     }
   }
-  // Debug: alle sichtbaren catalog-Items ausgeben
+  // Debug
   const visible = [...items]
     .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
     .map(e => `${e.id}: "${(e.innerText||'').trim().substring(0,30)}"`)
@@ -309,9 +305,7 @@ async function findAndClickText(text) {
   candidates.sort((a, b) => a.score - b.score)
   const { el } = candidates[0]
   console.log('[ListSync] Klicke:', el.tagName, '"' + (el.innerText || '').trim().substring(0, 30) + '"')
-  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  await wait(300)
-  el.click()
+  el.click()  // KEIN scrollIntoView – schließt Vinted-Dropdown!
   await wait(1200)
   return true
 }
@@ -359,9 +353,7 @@ async function fillCategory(category) {
 
     if (!trigger) { console.warn('[ListSync] Kategorie-Trigger nicht gefunden'); return false }
 
-    trigger.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    await wait(400)
-    trigger.click()
+    trigger.click()   // KEIN scrollIntoView – schließt Dropdown bei Scroll
     await wait(1500)  // mehr Zeit für React-Render
 
     // Suchbox leeren (damit kein vorheriger Text filtert)
