@@ -195,24 +195,24 @@ async function fillCategory(category) {
   if (!path.length) return false
 
   try {
-    // Dropdown-Trigger finden: Element mit "Wähle eine Kategorie" oder ähnlichem Text
+    // Dropdown-Trigger per XPath finden (schnell, kein DOM-Loop)
     let trigger = null
-    for (const el of document.querySelectorAll('*')) {
-      const t = el.textContent?.trim()
-      if (
-        el.offsetParent !== null &&
-        el.children.length <= 3 &&  // kein Container mit vielen Kindern
-        (t === 'Wähle eine Kategorie' || t === 'Kategorie wählen' || t === 'Select category')
-      ) {
-        trigger = el
-        break
-      }
+    const phrases = ['Wähle eine Kategorie', 'Kategorie wählen', 'Select category', 'Choose a category']
+    for (const phrase of phrases) {
+      try {
+        const result = document.evaluate(
+          `//*[normalize-space(text())="${phrase}"] | //*[@placeholder="${phrase}"]`,
+          document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+        )
+        if (result.singleNodeValue) { trigger = result.singleNodeValue; break }
+      } catch {}
     }
-    // Fallback: data-testid oder class
+    // Fallback: gezielte CSS-Selektoren
     if (!trigger) {
       const fbSels = [
         '[data-testid*="category"]', '[class*="CategorySelect"]',
         '[class*="category-select"]', 'select[name*="category"]',
+        'button[class*="category"]', '[aria-label*="ategorie"]',
       ]
       for (const s of fbSels) { trigger = document.querySelector(s); if (trigger) break }
     }
