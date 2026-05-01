@@ -144,6 +144,105 @@ async function fillAutocomplete(selectors, value, labelHint, name) {
   }
 }
 
+// ── Kategorie-Auswahl (mehrstufiges Klick-Menü) ───────────────────────────────
+
+// Mapping ListSync-Kategorien → Vinted Klick-Pfad
+// Muss zu den Werten in components/Badge.js CATEGORIES passen
+const CATEGORY_MAP = {
+  'Damen – Kleidung':             ['Damen', 'Kleidung'],
+  'Damen – Schuhe':               ['Damen', 'Schuhe'],
+  'Damen – Taschen & Accessoires':['Damen', 'Taschen & Geldbörsen'],
+  'Herren – Kleidung':            ['Herren', 'Kleidung'],
+  'Herren – Schuhe':              ['Herren', 'Schuhe'],
+  'Herren – Accessoires':         ['Herren', 'Accessoires'],
+  'Kinder – Kleidung':            ['Kinder'],
+  'Kinder – Schuhe':              ['Kinder', 'Schuhe'],
+  'Kinder – Spielzeug':           ['Kinder', 'Spielzeug'],
+  'Elektronik & Gadgets':         ['Unterhaltung', 'Elektronik'],
+  'Handys & Tablets':             ['Unterhaltung', 'Handys'],
+  'Computer & Laptops':           ['Unterhaltung', 'Computer & Laptops'],
+  'Sport & Outdoor':              ['Sport'],
+  'Haushalt & Garten':            ['Haus & Garten'],
+  'Bücher & Medien':              ['Unterhaltung', 'Bücher'],
+  'Schmuck & Uhren':              ['Damen', 'Schmuck & Uhren'],
+  'Kosmetik & Pflege':            ['Damen', 'Beauty'],
+  'Sonstiges':                    [], // offen lassen
+}
+
+async function fillCategory(category) {
+  if (!category || category === 'Sonstiges') return false
+
+  // Pfad bestimmen: entweder direktes Mapping oder "/" getrennt vom User
+  let path = CATEGORY_MAP[category] || category.split('/').map(s => s.trim()).filter(Boolean)
+  if (!path.length) return false
+
+  try {
+    // Kategorie-Button finden und klicken
+    const triggerSels = [
+      '[data-testid="category-select-button"]',
+      '[data-testid="item-category-select"]',
+      '[data-testid="select-category"]',
+      'button[class*="category"]',
+      'div[class*="CategorySelect"]',
+      '[class*="category-select"]',
+    ]
+    let trigger = null
+    for (const s of triggerSels) {
+      trigger = document.querySelector(s); if (trigger) break
+    }
+    // Fallback: Button mit "Kategorie" im Text
+    if (!trigger) {
+      for (const btn of document.querySelectorAll('button, [role="button"]')) {
+        if (btn.textContent.toLowerCase().includes('kategorie')) { trigger = btn; break }
+      }
+    }
+    if (!trigger) { console.warn('[ListSync] Kategorie-Button nicht gefunden'); return false }
+
+    trigger.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    await wait(300)
+    trigger.click()
+    await wait(1000)
+
+    // Durch jeden Pfadschritt klicken
+    for (const step of path) {
+      setStatus(`Kategorie: ${step}…`)
+      // Option mit passendem Text suchen
+      const allOptions = document.querySelectorAll(
+        '[role="option"], [role="menuitem"], [class*="CategoryItem"], [class*="category-item"], li[class*="item"], button[class*="option"]'
+      )
+      let found = false
+      for (const opt of allOptions) {
+        if (opt.offsetParent !== null && opt.textContent.trim().toLowerCase().includes(step.toLowerCase())) {
+          opt.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          await wait(200)
+          opt.click()
+          await wait(800)
+          found = true
+          break
+        }
+      }
+      if (!found) {
+        console.warn('[ListSync] Kategorie-Schritt nicht gefunden:', step)
+        break
+      }
+    }
+
+    // Bestätigen falls Modal ein OK-Button hat
+    await wait(300)
+    const confirmSels = ['button[data-testid*="confirm"]', 'button[data-testid*="submit"]', 'button[data-testid*="save"]']
+    for (const s of confirmSels) {
+      const btn = document.querySelector(s)
+      if (btn && btn.offsetParent !== null) { btn.click(); await wait(500); break }
+    }
+
+    setStatus('✓ Kategorie')
+    return true
+  } catch(e) {
+    console.warn('[ListSync] Kategorie Fehler:', e.message)
+    return false
+  }
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function fill() {
@@ -193,6 +292,12 @@ async function fill() {
     'input[type="number"]',
   ], String(listing.price).replace('.', ','), 'preis', 'Preis')
   await wait(400)
+
+  // Kategorie
+  if (listing.category) {
+    await fillCategory(listing.category)
+    await wait(600)
+  }
 
   // Marke
   if (listing.brand) {
