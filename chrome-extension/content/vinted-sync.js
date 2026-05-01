@@ -31,7 +31,7 @@ function setSyncStatus(msg) {
   if (el) el.textContent = msg
 }
 
-// ── Fetch Vinted API with session cookies (content script has page cookies) ──
+// ── Fetch Vinted API with session cookies ────────────────────────────────────
 
 async function callVintedAPI(path) {
   try {
@@ -47,51 +47,52 @@ async function callVintedAPI(path) {
   } catch { return null }
 }
 
-// ── Parse sold items ──────────────────────────────────────────────────────────
+// ── Schritt 1: aktuelle User-ID ermitteln ─────────────────────────────────────
 
-// Vinted API endpoint candidates (their internal API changes sometimes)
-const SALES_ENDPOINTS = [
-  '/api/v2/current_user/sold_items',
-  '/api/v2/users/current/sold_items',
-  '/api/v2/items?status[]=2&owned=1',         // status 2 = sold
-  '/api/v2/items?order=newest_first&owned=1&status[]=sold',
-]
-const PURCHASE_ENDPOINTS = [
-  '/api/v2/current_user/bought_items',
-  '/api/v2/users/current/bought_items',
-  '/api/v2/transactions?type=buy',
-]
-
-async function tryEndpoints(endpoints, label) {
-  for (const ep of endpoints) {
-    setSyncStatus(`Lade ${label}…`)
-    const data = await callVintedAPI(`${ep}?page=1&per_page=1`)
-    if (data && (data.items || data.data?.items || data.transactions)) {
-      return ep // found working endpoint
-    }
+async function getCurrentUserId() {
+  const candidates = [
+    '/api/v2/users/current',
+    '/api/v2/profile',
+    '/api/v2/account',
+  ]
+  for (const ep of candidates) {
+    const data = await callVintedAPI(ep)
+    const id = data?.user?.id || data?.id || data?.current_user?.id
+    if (id) { console.log('[ListSync] User-ID gefunden:', id, 'via', ep); return id }
   }
+  // Fallback: aus dem DOM lesen (Vinted speichert User-ID in data-Attributen)
+  const el = document.querySelector('[data-current-user-id]')
+  if (el) return el.getAttribute('data-current-user-id')
+  // Fallback: aus window.__INITIAL_STATE__ (Vinted SSR)
+  try {
+    const state = window.__INITIAL_STATE__ || window.__PRELOADED_STATE__
+    if (state) {
+      const id = state?.currentUser?.id || state?.session?.user?.id
+      if (id) return id
+    }
+  } catch {}
   return null
 }
 
-async function fetchAll(endpoint, label) {
+// ── Schritt 2: Items per User-ID laden ───────────────────────────────────────
+
+async function fetchAll(baseUrl, label) {
   const items = []
   let page = 1
   while (true) {
     setSyncStatus(`Lade ${label}… Seite ${page}`)
-    const data = await callVintedAPI(`${endpoint}?page=${page}&per_page=50`)
+    const sep = baseUrl.includes('?') ? '&' : '?'
+    const data = await callVintedAPI(`${baseUrl}${sep}page=${page}&per_page=50`)
     if (!data) break
-    // Vinted wraps items differently depending on endpoint
     const batch = data.items || data.data?.items || data.transactions || data.orders || []
     if (!batch.length) break
-    // Flatten nested item if transaction wraps it
     const flat = batch.map(entry => {
       if (entry.item) {
-        // Merge transaction-level date fields onto the item
         return {
           ...entry.item,
           transaction: entry,
-          sold_at:  entry.updated_at || entry.created_at || entry.sold_at,
-          bought_at: entry.updated_at || entry.created_at || entry.bought_at,
+          sold_at:   entry.updated_at_ts || entry.updated_at || entry.created_at_ts || entry.created_at,
+          bought_at: entry.updated_at_ts || entry.updated_at || entry.created_at_ts || entry.created_at,
         }
       }
       return entry
@@ -104,16 +105,51 @@ async function fetchAll(endpoint, label) {
   return items
 }
 
-async function fetchAllSales() {
-  const ep = await tryEndpoints(SALES_ENDPOINTS, 'Verkäufe')
-  if (!ep) return []
-  return fetchAll(ep, 'Verkäufe')
+async function fetchAllSales(userId) {
+  // Versuche User-ID-basierte Endpunkte zuerst, dann generische
+  const endpoints = userId ? [
+    `/api/v2/users/${userId}/items?item_statuses[]=sold`,
+    `/api/v2/users/${userId}/items?status[]=sold`,
+    `/api/v2/users/${userId}/items?statuses[]=2`,
+    `/api/v2/users/${userId}/sold_items`,
+  ] : []
+  // Generische Fallbacks
+  endpoints.push(
+    '/api/v2/items?status[]=sold&owned=1',
+    '/api/v2/items?item_statuses[]=sold&owned=1',
+    '/api/v2/items?statuses[]=2&owned=1',
+  )
+  for (const ep of endpoints) {
+    setSyncStatus(`Lade Verkäufe… (${ep.split('?')[0].split('/').pop()})`)
+    const test = await callVintedAPI(`${ep}${ep.includes('?')?'&':'?'}page=1&per_page=1`)
+    if (test && (test.items?.length >= 0 || test.data?.items?.length >= 0)) {
+      console.log('[ListSync] Verkäufe-Endpunkt:', ep)
+      return fetchAll(ep, 'Verkäufe')
+    }
+  }
+  return []
 }
 
-async function fetchAllPurchases() {
-  const ep = await tryEndpoints(PURCHASE_ENDPOINTS, 'Einkäufe')
-  if (!ep) return []
-  return fetchAll(ep, 'Einkäufe')
+async function fetchAllPurchases(userId) {
+  const endpoints = userId ? [
+    `/api/v2/users/${userId}/items?item_statuses[]=bought`,
+    `/api/v2/users/${userId}/bought_items`,
+    `/api/v2/transactions?buyer_id=${userId}`,
+  ] : []
+  endpoints.push(
+    '/api/v2/transactions?as=buyer',
+    '/api/v2/transactions?type=buy',
+    '/api/v2/orders?as=buyer',
+  )
+  for (const ep of endpoints) {
+    setSyncStatus(`Lade Einkäufe… (${ep.split('?')[0].split('/').pop()})`)
+    const test = await callVintedAPI(`${ep}${ep.includes('?')?'&':'?'}page=1&per_page=1`)
+    if (test && (test.items || test.transactions || test.orders)) {
+      console.log('[ListSync] Einkäufe-Endpunkt:', ep)
+      return fetchAll(ep, 'Einkäufe')
+    }
+  }
+  return []
 }
 
 // Fallback: scrape DOM if API doesn't work
