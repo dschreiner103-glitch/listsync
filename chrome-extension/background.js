@@ -3,6 +3,10 @@ const BASE_URL = 'https://project-dle5b.vercel.app'
 // ── Message listener ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'PING') {
+    sendResponse({ ok: true })
+    return true
+  }
   if (msg.type === 'POST_LISTING') {
     handlePost(msg.listing, msg.platforms)
       .then(() => sendResponse({ ok: true }))
