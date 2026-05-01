@@ -189,6 +189,61 @@ async function clickOption(text) {
   return false
 }
 
+// Findet und klickt das Element mit dem passendsten Text unter allen sichtbaren Elementen
+async function findAndClickText(text) {
+  const all = document.querySelectorAll(
+    'li, ul > *, [role="option"], [role="menuitem"], [role="radio"], ' +
+    'button, a, label, div[tabindex], span[tabindex], ' +
+    '[class*="item"], [class*="Item"], [class*="option"], [class*="Option"], ' +
+    '[class*="cell"], [class*="Cell"], [class*="row"], [class*="Row"]'
+  )
+
+  const candidates = []
+  for (const el of all) {
+    const rect = el.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) continue
+    // innerText respektiert CSS display:none und gibt nur sichtbaren Text
+    const raw = (el.innerText || el.textContent || '').trim()
+    if (!raw) continue
+    const firstLine = raw.split('\n')[0].trim()
+    const lower = firstLine.toLowerCase()
+    const target = text.toLowerCase()
+
+    if (firstLine === text) { candidates.push({ el, score: 1 }); continue }
+    if (lower === target)   { candidates.push({ el, score: 2 }); continue }
+    // Erste Zeile beginnt oder endet mit dem Zieltext (z.B. "Herren 1.234 Artikel")
+    if (lower.startsWith(target + ' ') || lower.endsWith(' ' + target)) {
+      candidates.push({ el, score: 3 }); continue
+    }
+    if (lower.includes(target) && firstLine.length < text.length + 30) {
+      candidates.push({ el, score: 4 }); continue
+    }
+  }
+
+  if (!candidates.length) {
+    // Debug: alle sichtbaren Elemente mit Text ausgeben
+    const visible = []
+    for (const el of all) {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.height > 0) {
+        const t = (el.innerText || el.textContent || '').trim().substring(0, 40)
+        if (t) visible.push(`${el.tagName}:${el.className.substring(0,20)}: "${t}"`)
+      }
+    }
+    console.log('[ListSync] Sichtbare Elemente (kein Treffer für "' + text + '"):', visible.slice(0, 40))
+    return false
+  }
+
+  candidates.sort((a, b) => a.score - b.score)
+  const { el } = candidates[0]
+  console.log('[ListSync] Klicke:', el.tagName, el.className.substring(0, 30), '"' + (el.innerText || el.textContent || '').trim().substring(0, 30) + '"')
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  await wait(300)
+  el.click()
+  await wait(1200)
+  return true
+}
+
 async function fillCategory(category) {
   if (!category || category === 'Sonstiges') return false
 
@@ -196,60 +251,62 @@ async function fillCategory(category) {
   if (!path.length) return false
 
   try {
-    // Dropdown-Trigger per XPath finden (schnell, kein DOM-Loop)
+    // Dropdown-Trigger finden
     let trigger = null
-    const phrases = ['Wähle eine Kategorie', 'Kategorie wählen', 'Select category', 'Choose a category']
-    for (const phrase of phrases) {
-      try {
-        const result = document.evaluate(
-          `//*[normalize-space(text())="${phrase}"] | //*[@placeholder="${phrase}"]`,
-          document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
-        )
-        if (result.singleNodeValue) { trigger = result.singleNodeValue; break }
-      } catch {}
-    }
-    // Fallback: gezielte CSS-Selektoren
+
+    // 1. Gezielte data-testid Selektoren
+    const fbSels = [
+      '[data-testid*="category"]', '[data-testid*="Category"]',
+      '[class*="CategorySelect"]', '[class*="category-select"]',
+      'select[name*="category"]', 'button[class*="category"]',
+      '[aria-label*="ategorie"]',
+    ]
+    for (const s of fbSels) { trigger = document.querySelector(s); if (trigger) break }
+
+    // 2. XPath – exakten Text suchen
     if (!trigger) {
-      const fbSels = [
-        '[data-testid*="category"]', '[class*="CategorySelect"]',
-        '[class*="category-select"]', 'select[name*="category"]',
-        'button[class*="category"]', '[aria-label*="ategorie"]',
-      ]
-      for (const s of fbSels) { trigger = document.querySelector(s); if (trigger) break }
+      for (const phrase of ['Wähle eine Kategorie', 'Kategorie wählen', 'Select category', 'Kategorie']) {
+        try {
+          const res = document.evaluate(
+            `//*[normalize-space(.)="${phrase}"] | //*[@placeholder="${phrase}"]`,
+            document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+          )
+          if (res.singleNodeValue) { trigger = res.singleNodeValue; break }
+        } catch {}
+      }
+    }
+
+    // 3. Letzter Fallback: beliebiges Element das "Kategorie" enthält
+    if (!trigger) {
+      for (const el of document.querySelectorAll('button, [role="button"], div[class*="select"], div[class*="Select"]')) {
+        if ((el.innerText || el.textContent || '').includes('Kategorie')) {
+          trigger = el; break
+        }
+      }
     }
 
     if (!trigger) { console.warn('[ListSync] Kategorie-Trigger nicht gefunden'); return false }
 
     trigger.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    await wait(300)
+    await wait(400)
     trigger.click()
-    await wait(900)
+    await wait(1500)  // mehr Zeit für React-Render
 
-    // Suchbox nutzen wenn vorhanden (zuverlässiger als hierarchisch klicken)
+    // Suchbox leeren (damit kein vorheriger Text filtert)
     const searchBox = document.querySelector(
-      'input[placeholder*="Finde"], input[placeholder*="Suche"], input[placeholder*="Search"], input[placeholder*="category"]'
+      'input[type="search"], input[placeholder*="Finde"], input[placeholder*="Suche"], input[placeholder*="Search"]'
     )
-    if (searchBox) {
-      // Den spezifischsten Pfadteil suchen (letzter Schritt)
-      const searchTerm = path[path.length - 1] || path[0]
-      setStatus(`Suche Kategorie: ${searchTerm}…`)
-      searchBox.focus()
-      setNativeValue(searchBox, searchTerm)
-      await wait(800)
-      // Erstes Ergebnis klicken
-      const found = await clickOption(searchTerm)
-      if (found) { setStatus('✓ Kategorie'); return true }
-      // Fallback: erstes sichtbares Listenelement klicken
-      setNativeValue(searchBox, path[0])
-      await wait(600)
-    }
+    if (searchBox) { setNativeValue(searchBox, ''); await wait(500) }
 
     // Hierarchisch durch Pfad klicken
     for (const step of path) {
       setStatus(`Kategorie: ${step}…`)
-      const found = await clickOption(step)
-      if (!found) { console.warn('[ListSync] Kategorie-Schritt nicht gefunden:', step); break }
-      await wait(600)
+      await wait(400)
+      const found = await findAndClickText(step)
+      if (!found) {
+        console.warn('[ListSync] Kategorie-Schritt nicht gefunden:', step)
+        return false
+      }
     }
 
     setStatus('✓ Kategorie')
