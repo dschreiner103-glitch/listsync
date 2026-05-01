@@ -27,16 +27,21 @@ export async function PATCH(req, { params }) {
 
   const data = await req.json()
   const update = {}
+  if (data.title      !== undefined) update.title      = data.title
   if (data.status     !== undefined) update.status     = data.status
   if (data.price      !== undefined) update.price      = Number(data.price)
+  if (data.buyPrice   !== undefined) update.buyPrice   = Number(data.buyPrice)
   if (data.platforms  !== undefined) update.platforms  = JSON.stringify(data.platforms)
   if (data.images     !== undefined) update.images     = JSON.stringify(data.images)
   if (data.views      !== undefined) update.views      = Number(data.views)
   if (data.days       !== undefined) update.days       = Number(data.days)
   if (data.relistedAt !== undefined) update.relistedAt = new Date(data.relistedAt)
+  if (data.updatedAt  !== undefined) update.updatedAt  = new Date(data.updatedAt)
   if (data.brand      !== undefined) update.brand      = data.brand
   if (data.size       !== undefined) update.size       = data.size
   if (data.color      !== undefined) update.color      = data.color
+  if (data.condition  !== undefined) update.condition  = data.condition
+  if (data.description!== undefined) update.description= data.description
   if (data.shipping   !== undefined) update.shipping   = JSON.stringify(data.shipping)
   if (data.shipSize   !== undefined) update.shipSize   = data.shipSize
 
