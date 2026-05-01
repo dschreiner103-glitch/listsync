@@ -80,9 +80,23 @@ async function fetchAll(endpoint, label) {
     setSyncStatus(`Lade ${label}… Seite ${page}`)
     const data = await callVintedAPI(`${endpoint}?page=${page}&per_page=50`)
     if (!data) break
-    const batch = data.items || data.data?.items || data.transactions || []
+    // Vinted wraps items differently depending on endpoint
+    const batch = data.items || data.data?.items || data.transactions || data.orders || []
     if (!batch.length) break
-    items.push(...batch)
+    // Flatten nested item if transaction wraps it
+    const flat = batch.map(entry => {
+      if (entry.item) {
+        // Merge transaction-level date fields onto the item
+        return {
+          ...entry.item,
+          transaction: entry,
+          sold_at:  entry.updated_at || entry.created_at || entry.sold_at,
+          bought_at: entry.updated_at || entry.created_at || entry.bought_at,
+        }
+      }
+      return entry
+    })
+    items.push(...flat)
     if (batch.length < 50) break
     page++
     await wait(600)
@@ -126,35 +140,62 @@ function scrapeSoldDOM() {
 function parseDate(item, fields) {
   for (const f of fields) {
     const val = f.split('.').reduce((o, k) => o?.[k], item)
-    if (val) {
+    if (!val) continue
+    // Unix timestamp (Sekunden oder Millisekunden)
+    if (typeof val === 'number') {
+      const ms = val > 1e10 ? val : val * 1000
+      const d = new Date(ms)
+      if (!isNaN(d.getTime()) && d.getFullYear() > 2010) return d.toISOString()
+    }
+    // String
+    if (typeof val === 'string') {
       const d = new Date(val)
-      if (!isNaN(d.getTime())) return d.toISOString()
+      if (!isNaN(d.getTime()) && d.getFullYear() > 2010) return d.toISOString()
     }
   }
-  return null // null = kein Datum bekannt, API import nutzt dann updatedAt der DB
+  return null
 }
+
+// Alle realistischen Datumsfelder die Vinted zurückgeben könnte (snake_case + camelCase)
+const SALE_DATE_FIELDS = [
+  'transaction.updated_at', 'transaction.created_at',
+  'transaction.updatedAt', 'transaction.createdAt',
+  'active_bid.updated_at', 'active_bid.created_at',
+  'shipment.created_at', 'shipment.updated_at',
+  'sold_at', 'soldAt',
+  'closed_at', 'closedAt',
+  'transaction_date', 'transactionDate',
+  'last_push_up_at', 'lastPushUpAt',
+  'updated_at', 'updatedAt',
+  'created_at', 'createdAt',
+]
+
+const PURCHASE_DATE_FIELDS = [
+  'transaction.updated_at', 'transaction.created_at',
+  'transaction.updatedAt', 'transaction.createdAt',
+  'bought_at', 'boughtAt',
+  'purchased_at', 'purchasedAt',
+  'payment_date', 'paymentDate',
+  'shipment.created_at',
+  'updated_at', 'updatedAt',
+  'created_at', 'createdAt',
+]
 
 function normalizeSale(item) {
   return {
     title:       item.title || item.name || '(kein Titel)',
-    price:       parseFloat(item.price_numeric || item.price || 0),
+    price:       parseFloat(item.price_numeric || item.price_amount?.amount || item.price || 0),
     buyPrice:    0,
     status:      'verkauft',
     platforms:   ['vinted'],
     images:      item.photos?.map(p => p.url || p.full_size_url || p.src || p.full_size) || [],
     brand:       item.brand?.title || item.brand_title || '',
-    size:        item.size?.title || item.size_title || '',
+    size:        item.size?.title  || item.size_title  || '',
     color:       item.color?.title || item.color_title || '',
     condition:   item.status?.title || item.status_title || 'Gut',
     description: item.description || '',
-    // Alle möglichen Datumsfelder die Vinted liefern könnte
-    soldAt: parseDate(item, [
-      'transaction.updated_at', 'transaction.created_at',
-      'active_bid.updated_at', 'active_bid.created_at',
-      'sold_at', 'transaction_date', 'closed_at',
-      'updated_at', 'created_at',
-    ]),
-    vintedId: String(item.id || ''),
+    soldAt:      parseDate(item, SALE_DATE_FIELDS),
+    vintedId:    String(item.id || ''),
   }
 }
 
@@ -162,22 +203,18 @@ function normalizePurchase(item) {
   return {
     title:       item.title || item.name || '(kein Titel)',
     price:       0,
-    buyPrice:    parseFloat(item.price_numeric || item.price || 0),
+    buyPrice:    parseFloat(item.price_numeric || item.price_amount?.amount || item.price || 0),
     status:      'inaktiv',
     platforms:   ['vinted'],
     images:      item.photos?.map(p => p.url || p.full_size_url || p.src || p.full_size) || [],
     brand:       item.brand?.title || item.brand_title || '',
-    size:        item.size?.title || item.size_title || '',
+    size:        item.size?.title  || item.size_title  || '',
     color:       item.color?.title || item.color_title || '',
     condition:   item.status?.title || item.status_title || 'Gut',
     description: item.description || '',
-    boughtAt: parseDate(item, [
-      'transaction.updated_at', 'transaction.created_at',
-      'bought_at', 'purchased_at', 'payment_date',
-      'updated_at', 'created_at',
-    ]),
-    vintedId: String(item.id || ''),
-    type:     'purchase',
+    boughtAt:    parseDate(item, PURCHASE_DATE_FIELDS),
+    vintedId:    String(item.id || ''),
+    type:        'purchase',
   }
 }
 
