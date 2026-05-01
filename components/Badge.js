@@ -30,12 +30,56 @@ export const PLATFORMS = PLT
 export const CONDITIONS = ['Neu mit Etikett','Neu ohne Etikett','Sehr gut','Gut','Akzeptabel']
 
 export const CATEGORIES = [
-  'Damen – Kleidung','Damen – Schuhe','Damen – Taschen & Accessoires',
-  'Herren – Kleidung','Herren – Schuhe','Herren – Accessoires',
-  'Kinder – Kleidung','Kinder – Schuhe','Kinder – Spielzeug',
-  'Elektronik & Gadgets','Handys & Tablets','Computer & Laptops',
-  'Sport & Outdoor','Haushalt & Garten','Bücher & Medien',
-  'Schmuck & Uhren','Kosmetik & Pflege','Sonstiges'
+  // ── Damen ──────────────────────────────────────────────────────────
+  'Damen – Kleidung',
+  'Damen – Kleidung – Jacken & Mäntel',
+  'Damen – Kleidung – Kleider',
+  'Damen – Kleidung – Röcke',
+  'Damen – Kleidung – Tops & T-Shirts',
+  'Damen – Kleidung – Hosen & Jeans',
+  'Damen – Kleidung – Pullover & Strickpullover',
+  'Damen – Kleidung – Blazer & Anzüge',
+  'Damen – Kleidung – Shorts',
+  'Damen – Kleidung – Unterwäsche & Socken',
+  'Damen – Kleidung – Sportkleidung',
+  'Damen – Schuhe',
+  'Damen – Taschen',
+  'Damen – Accessoires',
+  'Damen – Beauty',
+  // ── Herren ─────────────────────────────────────────────────────────
+  'Herren – Kleidung',
+  'Herren – Kleidung – Jeans',
+  'Herren – Kleidung – Jacken & Mäntel',
+  'Herren – Kleidung – Tops & T-Shirts',
+  'Herren – Kleidung – Pullover & Sweater',
+  'Herren – Kleidung – Hosen',
+  'Herren – Kleidung – Shorts',
+  'Herren – Kleidung – Anzüge & Blazer',
+  'Herren – Kleidung – Unterwäsche & Socken',
+  'Herren – Kleidung – Sportkleidung',
+  'Herren – Schuhe',
+  'Herren – Accessoires',
+  // ── Kinder ─────────────────────────────────────────────────────────
+  'Kinder – Mädchen',
+  'Kinder – Mädchen – Kleider',
+  'Kinder – Mädchen – Jacken & Mäntel',
+  'Kinder – Mädchen – Shirts & Tops',
+  'Kinder – Mädchen – Hosen & Shorts',
+  'Kinder – Mädchen – Schuhe',
+  'Kinder – Mädchen – Sportkleidung',
+  'Kinder – Jungs',
+  'Kinder – Jungs – Jacken & Mäntel',
+  'Kinder – Jungs – Shirts & Tops',
+  'Kinder – Jungs – Hosen & Shorts',
+  'Kinder – Jungs – Schuhe',
+  'Kinder – Jungs – Sportkleidung',
+  'Kinder – Spielzeug',
+  // ── Sonstiges ──────────────────────────────────────────────────────
+  'Elektronik',
+  'Home & Living',
+  'Sport & Outdoor',
+  'Unterhaltung',
+  'Sonstiges',
 ]
 
 export const BRANDS = [
@@ -57,9 +101,10 @@ export const SIZES_KIDS     = ['56','62','68','74','80','86','92','98','104','11
 export function getSizes(category) {
   if (!category) return SIZES_CLOTHING
   const c = category.toLowerCase()
-  if (c.includes('schuh')) return SIZES_SHOES
-  if (c.includes('kinder')) return SIZES_KIDS
+  if (c.includes('schuh')) return c.includes('kinder') || c.includes('mädchen') || c.includes('jungs') ? SIZES_KIDS : SIZES_SHOES
+  if (c.includes('kinder') || c.includes('mädchen') || c.includes('jungs')) return SIZES_KIDS
   if (c.includes('kleidung') || c.includes('damen') || c.includes('herren')) return SIZES_CLOTHING
+  if (c.includes('sport')) return SIZES_CLOTHING
   return []
 }
 

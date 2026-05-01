@@ -146,27 +146,59 @@ async function fillAutocomplete(selectors, value, labelHint, name) {
 
 // ── Kategorie-Auswahl (mehrstufiges Klick-Menü) ───────────────────────────────
 
-// Mapping ListSync-Kategorien → Vinted Klick-Pfad
-// Top-Level auf Vinted: Damen, Herren, Kinder, Home, Elektronik
+// Mapping ListSync-Kategorien → Vinted Klick-Pfad (3 Ebenen)
+// Bestätigt live durch DOM-Analyse auf vinted.de/items/new
 const CATEGORY_MAP = {
-  'Damen – Kleidung':             ['Damen', 'Kleidung'],
-  'Damen – Schuhe':               ['Damen', 'Schuhe'],
-  'Damen – Taschen & Accessoires':['Damen', 'Taschen'],
-  'Herren – Kleidung':            ['Herren', 'Kleidung'],
-  'Herren – Schuhe':              ['Herren', 'Schuhe'],
-  'Herren – Accessoires':         ['Herren', 'Accessoires'],
-  'Kinder – Kleidung':            ['Kinder', 'Kleidung'],
-  'Kinder – Schuhe':              ['Kinder', 'Schuhe'],
-  'Kinder – Spielzeug':           ['Kinder', 'Spielzeug'],
-  'Elektronik & Gadgets':         ['Elektronik'],
-  'Handys & Tablets':             ['Elektronik', 'Handys'],
-  'Computer & Laptops':           ['Elektronik', 'Computer'],
-  'Sport & Outdoor':              ['Sport'],
-  'Haushalt & Garten':            ['Home'],
-  'Bücher & Medien':              ['Unterhaltung', 'Bücher'],
-  'Schmuck & Uhren':              ['Damen', 'Schmuck'],
-  'Kosmetik & Pflege':            ['Damen', 'Beauty'],
-  'Sonstiges':                    [],
+  // ── Damen ──────────────────────────────────────────────────────────────
+  'Damen – Kleidung':                         ['Damen', 'Kleidung'],
+  'Damen – Kleidung – Jacken & Mäntel':       ['Damen', 'Kleidung', 'Jacken & Mäntel'],
+  'Damen – Kleidung – Kleider':               ['Damen', 'Kleidung', 'Kleider'],
+  'Damen – Kleidung – Röcke':                 ['Damen', 'Kleidung', 'Röcke'],
+  'Damen – Kleidung – Tops & T-Shirts':       ['Damen', 'Kleidung', 'Tops & T-Shirts'],
+  'Damen – Kleidung – Hosen & Jeans':         ['Damen', 'Kleidung', 'Hosen'],
+  'Damen – Kleidung – Pullover & Strickpullover': ['Damen', 'Kleidung', 'Pullover & Strickpullover'],
+  'Damen – Kleidung – Blazer & Anzüge':       ['Damen', 'Kleidung', 'Blazer & Anzüge'],
+  'Damen – Kleidung – Shorts':                ['Damen', 'Kleidung', 'Shorts'],
+  'Damen – Kleidung – Unterwäsche & Socken':  ['Damen', 'Kleidung', 'Unterwäsche & Socken'],
+  'Damen – Kleidung – Sportkleidung':         ['Damen', 'Kleidung', 'Sportkleidung'],
+  'Damen – Schuhe':                           ['Damen', 'Schuhe'],
+  'Damen – Taschen':                          ['Damen', 'Taschen'],
+  'Damen – Accessoires':                      ['Damen', 'Accessoires'],
+  'Damen – Beauty':                           ['Damen', 'Beauty'],
+  // ── Herren ─────────────────────────────────────────────────────────────
+  'Herren – Kleidung':                        ['Herren', 'Kleidung'],
+  'Herren – Kleidung – Jeans':                ['Herren', 'Kleidung', 'Jeans'],
+  'Herren – Kleidung – Jacken & Mäntel':      ['Herren', 'Kleidung', 'Jacken & Mäntel'],
+  'Herren – Kleidung – Tops & T-Shirts':      ['Herren', 'Kleidung', 'Tops & T-Shirts'],
+  'Herren – Kleidung – Pullover & Sweater':   ['Herren', 'Kleidung', 'Pullover & Sweater'],
+  'Herren – Kleidung – Hosen':                ['Herren', 'Kleidung', 'Hosen'],
+  'Herren – Kleidung – Shorts':               ['Herren', 'Kleidung', 'Shorts'],
+  'Herren – Kleidung – Anzüge & Blazer':      ['Herren', 'Kleidung', 'Anzüge & Blazer'],
+  'Herren – Kleidung – Unterwäsche & Socken': ['Herren', 'Kleidung', 'Unterwäsche & Socken'],
+  'Herren – Kleidung – Sportkleidung':        ['Herren', 'Kleidung', 'Sportartikel'],
+  'Herren – Schuhe':                          ['Herren', 'Schuhe'],
+  'Herren – Accessoires':                     ['Herren', 'Accessoires'],
+  // ── Kinder ─────────────────────────────────────────────────────────────
+  'Kinder – Mädchen':                         ['Kinder', 'Mädchen'],
+  'Kinder – Mädchen – Kleider':               ['Kinder', 'Mädchen', 'Kleider'],
+  'Kinder – Mädchen – Jacken & Mäntel':       ['Kinder', 'Mädchen', 'Outerwear'],
+  'Kinder – Mädchen – Shirts & Tops':         ['Kinder', 'Mädchen', 'Shirts, Tops & Blusen'],
+  'Kinder – Mädchen – Hosen & Shorts':        ['Kinder', 'Mädchen', 'Hosen & Shorts'],
+  'Kinder – Mädchen – Schuhe':                ['Kinder', 'Mädchen', 'Schuhe'],
+  'Kinder – Mädchen – Sportkleidung':         ['Kinder', 'Mädchen', 'Sportkleidung'],
+  'Kinder – Jungs':                           ['Kinder', 'Jungs'],
+  'Kinder – Jungs – Jacken & Mäntel':         ['Kinder', 'Jungs', 'Outerwear'],
+  'Kinder – Jungs – Shirts & Tops':           ['Kinder', 'Jungs', 'Shirts & Tops'],
+  'Kinder – Jungs – Hosen & Shorts':          ['Kinder', 'Jungs', 'Hosen & Shorts'],
+  'Kinder – Jungs – Schuhe':                  ['Kinder', 'Jungs', 'Schuhe'],
+  'Kinder – Jungs – Sportkleidung':           ['Kinder', 'Jungs', 'Sportkleidung'],
+  'Kinder – Spielzeug':                       ['Kinder', 'Spielzeug'],
+  // ── Sonstiges ──────────────────────────────────────────────────────────
+  'Elektronik':                               ['Elektronik'],
+  'Home & Living':                            ['Home'],
+  'Sport & Outdoor':                          ['Sport'],
+  'Unterhaltung':                             ['Unterhaltung'],
+  'Sonstiges':                                [],
 }
 
 async function clickOption(text) {
