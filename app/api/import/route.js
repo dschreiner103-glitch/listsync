@@ -39,7 +39,9 @@ export async function POST(req) {
           color:       item.color || '',
           condition:   item.condition || 'Gut',
           category:    'Sonstiges',
-          updatedAt:   item.soldAt ? new Date(item.soldAt) : new Date(),
+          // soldAt null = Datum unbekannt, createdAt wird als updatedAt gesetzt damit nicht heute erscheint
+          createdAt:   item.soldAt ? new Date(item.soldAt) : undefined,
+          updatedAt:   item.soldAt ? new Date(item.soldAt) : undefined,
         }
       })
       created++
@@ -69,7 +71,8 @@ export async function POST(req) {
           color:       item.color || '',
           condition:   item.condition || 'Gut',
           category:    'Sonstiges',
-          updatedAt:   item.boughtAt ? new Date(item.boughtAt) : new Date(),
+          createdAt:   item.boughtAt ? new Date(item.boughtAt) : undefined,
+          updatedAt:   item.boughtAt ? new Date(item.boughtAt) : undefined,
         }
       })
       created++

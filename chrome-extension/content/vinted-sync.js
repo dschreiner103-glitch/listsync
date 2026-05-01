@@ -110,15 +110,29 @@ function scrapeSoldDOM() {
     const title = card.querySelector('[class*="title"], h3, h2')?.textContent?.trim()
     const price = card.querySelector('[class*="price"], [data-testid*="price"]')?.textContent?.trim()
     const img   = card.querySelector('img')?.src
+    // Try to extract date from card (time element, data-date, aria-label etc.)
+    const timeEl = card.querySelector('time')
+    const dateStr = timeEl?.getAttribute('datetime') || timeEl?.textContent?.trim() || null
     if (title) {
       const priceNum = parseFloat((price || '0').replace(/[^0-9,.]/g, '').replace(',', '.')) || 0
-      items.push({ title, price: priceNum, image: img, source: 'dom' })
+      items.push({ title, price: priceNum, image: img, dateStr, source: 'dom' })
     }
   })
   return items
 }
 
 // ── Normalize items to ListSync format ────────────────────────────────────────
+
+function parseDate(item, fields) {
+  for (const f of fields) {
+    const val = f.split('.').reduce((o, k) => o?.[k], item)
+    if (val) {
+      const d = new Date(val)
+      if (!isNaN(d.getTime())) return d.toISOString()
+    }
+  }
+  return null // null = kein Datum bekannt, API import nutzt dann updatedAt der DB
+}
 
 function normalizeSale(item) {
   return {
@@ -127,14 +141,20 @@ function normalizeSale(item) {
     buyPrice:    0,
     status:      'verkauft',
     platforms:   ['vinted'],
-    images:      item.photos?.map(p => p.url || p.full_size_url || p.src) || [],
+    images:      item.photos?.map(p => p.url || p.full_size_url || p.src || p.full_size) || [],
     brand:       item.brand?.title || item.brand_title || '',
     size:        item.size?.title || item.size_title || '',
     color:       item.color?.title || item.color_title || '',
     condition:   item.status?.title || item.status_title || 'Gut',
     description: item.description || '',
-    soldAt:      item.active_bid?.updated_at || item.updated_at || new Date().toISOString(),
-    vintedId:    String(item.id || ''),
+    // Alle möglichen Datumsfelder die Vinted liefern könnte
+    soldAt: parseDate(item, [
+      'transaction.updated_at', 'transaction.created_at',
+      'active_bid.updated_at', 'active_bid.created_at',
+      'sold_at', 'transaction_date', 'closed_at',
+      'updated_at', 'created_at',
+    ]),
+    vintedId: String(item.id || ''),
   }
 }
 
@@ -145,15 +165,19 @@ function normalizePurchase(item) {
     buyPrice:    parseFloat(item.price_numeric || item.price || 0),
     status:      'inaktiv',
     platforms:   ['vinted'],
-    images:      item.photos?.map(p => p.url || p.full_size_url || p.src) || [],
+    images:      item.photos?.map(p => p.url || p.full_size_url || p.src || p.full_size) || [],
     brand:       item.brand?.title || item.brand_title || '',
     size:        item.size?.title || item.size_title || '',
     color:       item.color?.title || item.color_title || '',
     condition:   item.status?.title || item.status_title || 'Gut',
     description: item.description || '',
-    boughtAt:    item.updated_at || new Date().toISOString(),
-    vintedId:    String(item.id || ''),
-    type:        'purchase',
+    boughtAt: parseDate(item, [
+      'transaction.updated_at', 'transaction.created_at',
+      'bought_at', 'purchased_at', 'payment_date',
+      'updated_at', 'created_at',
+    ]),
+    vintedId: String(item.id || ''),
+    type:     'purchase',
   }
 }
 
