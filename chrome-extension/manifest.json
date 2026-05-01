@@ -6,6 +6,7 @@
   "permissions": ["tabs", "scripting", "storage", "activeTab"],
   "host_permissions": [
     "http://localhost:3000/*",
+    "https://project-dle5b.vercel.app/*",
     "https://www.vinted.de/*",
     "https://www.kleinanzeigen.de/*"
   ],
@@ -14,7 +15,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["http://localhost:3000/*"],
+      "matches": ["http://localhost:3000/*", "https://project-dle5b.vercel.app/*"],
       "js": ["content/listsync-bridge.js"],
       "run_at": "document_idle"
     },

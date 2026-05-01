@@ -19,10 +19,11 @@ async function fetchImageAsBase64(url) {
 }
 
 async function handlePost(listing, platforms) {
-  // Bilder als Base64 im Background laden (hat CORS-Zugriff auf localhost)
+  // Bilder als Base64 im Background laden (hat CORS-Zugriff auf localhost und Vercel)
+  const BASE_URL = 'https://project-dle5b.vercel.app'
   const imageData = []
   for (const url of (listing.images || []).slice(0, 8)) {
-    const data = await fetchImageAsBase64(`http://localhost:3000${url}`)
+    const data = await fetchImageAsBase64(`${BASE_URL}${url}`)
     if (data) imageData.push(data)
   }
   const fullListing = { ...listing, imageData }
