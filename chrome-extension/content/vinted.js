@@ -189,7 +189,50 @@ async function clickOption(text) {
   return false
 }
 
+// Klickt ein Vinted-Katalog-Item per id="catalog-N" (goldener Selektor)
+async function clickCatalogItem(text) {
+  // Alle sichtbaren catalog-* Elemente (Vinted-spezifisch, kein Navbar-Treffer)
+  const items = document.querySelectorAll('[id^="catalog-"]:not(#catalog-search-input)')
+  const target = text.toLowerCase().trim()
+
+  // 1. Exakter Match
+  for (const el of items) {
+    const rect = el.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) continue
+    const t = (el.innerText || el.textContent || '').trim()
+    if (t.toLowerCase() === target) {
+      console.log('[ListSync] ✓ catalog-item exakt:', el.id, '"' + t + '"')
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      await wait(200)
+      el.click()
+      await wait(1200)
+      return true
+    }
+  }
+  // 2. Startswith-Match (z.B. "Kleidung" trifft "Kleidung & Accessoires")
+  for (const el of items) {
+    const rect = el.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) continue
+    const t = (el.innerText || el.textContent || '').trim().toLowerCase()
+    if (t.startsWith(target) || target.startsWith(t)) {
+      console.log('[ListSync] ✓ catalog-item partial:', el.id, '"' + t + '"')
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+      await wait(200)
+      el.click()
+      await wait(1200)
+      return true
+    }
+  }
+  // Debug: alle sichtbaren catalog-Items ausgeben
+  const visible = [...items]
+    .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+    .map(e => `${e.id}: "${(e.innerText||'').trim().substring(0,30)}"`)
+  console.log('[ListSync] catalog-Items (kein Treffer für "' + text + '"):', visible)
+  return false
+}
+
 // Findet und klickt das Element mit dem passendsten Text unter allen sichtbaren Elementen
+// Fallback für nicht-Katalog-Dropdowns
 async function findAndClickText(text) {
   const all = document.querySelectorAll(
     'li, ul > *, [role="option"], [role="menuitem"], [role="radio"], ' +
@@ -202,7 +245,6 @@ async function findAndClickText(text) {
   for (const el of all) {
     const rect = el.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) continue
-    // innerText respektiert CSS display:none und gibt nur sichtbaren Text
     const raw = (el.innerText || el.textContent || '').trim()
     if (!raw) continue
     const firstLine = raw.split('\n')[0].trim()
@@ -211,7 +253,6 @@ async function findAndClickText(text) {
 
     if (firstLine === text) { candidates.push({ el, score: 1 }); continue }
     if (lower === target)   { candidates.push({ el, score: 2 }); continue }
-    // Erste Zeile beginnt oder endet mit dem Zieltext (z.B. "Herren 1.234 Artikel")
     if (lower.startsWith(target + ' ') || lower.endsWith(' ' + target)) {
       candidates.push({ el, score: 3 }); continue
     }
@@ -221,22 +262,21 @@ async function findAndClickText(text) {
   }
 
   if (!candidates.length) {
-    // Debug: alle sichtbaren Elemente mit Text ausgeben
     const visible = []
     for (const el of all) {
       const r = el.getBoundingClientRect()
       if (r.width > 0 && r.height > 0) {
         const t = (el.innerText || el.textContent || '').trim().substring(0, 40)
-        if (t) visible.push(`${el.tagName}:${el.className.substring(0,20)}: "${t}"`)
+        if (t) visible.push(`${el.tagName}: "${t}"`)
       }
     }
-    console.log('[ListSync] Sichtbare Elemente (kein Treffer für "' + text + '"):', visible.slice(0, 40))
+    console.log('[ListSync] Kein Treffer für "' + text + '":', visible.slice(0, 20))
     return false
   }
 
   candidates.sort((a, b) => a.score - b.score)
   const { el } = candidates[0]
-  console.log('[ListSync] Klicke:', el.tagName, el.className.substring(0, 30), '"' + (el.innerText || el.textContent || '').trim().substring(0, 30) + '"')
+  console.log('[ListSync] Klicke:', el.tagName, '"' + (el.innerText || '').trim().substring(0, 30) + '"')
   el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   await wait(300)
   el.click()
@@ -298,11 +338,11 @@ async function fillCategory(category) {
     )
     if (searchBox) { setNativeValue(searchBox, ''); await wait(500) }
 
-    // Hierarchisch durch Pfad klicken
+    // Hierarchisch durch Pfad klicken (Vinted-spezifisch: id="catalog-N")
     for (const step of path) {
       setStatus(`Kategorie: ${step}…`)
       await wait(400)
-      const found = await findAndClickText(step)
+      const found = await clickCatalogItem(step)
       if (!found) {
         console.warn('[ListSync] Kategorie-Schritt nicht gefunden:', step)
         return false
