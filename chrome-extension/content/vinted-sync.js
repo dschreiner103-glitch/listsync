@@ -156,29 +156,34 @@ function parseDate(item, fields) {
   return null
 }
 
-// Alle realistischen Datumsfelder die Vinted zurückgeben könnte (snake_case + camelCase)
+// Alle realistischen Datumsfelder die Vinted zurückgeben könnte
+// Vinted nutzt oft _ts-Suffix für Unix-Timestamps (Sekunden)
 const SALE_DATE_FIELDS = [
-  'transaction.updated_at', 'transaction.created_at',
-  'transaction.updatedAt', 'transaction.createdAt',
-  'active_bid.updated_at', 'active_bid.created_at',
-  'shipment.created_at', 'shipment.updated_at',
-  'sold_at', 'soldAt',
-  'closed_at', 'closedAt',
+  'transaction.updated_at_ts', 'transaction.created_at_ts',
+  'transaction.updated_at',    'transaction.created_at',
+  'transaction.updatedAt',     'transaction.createdAt',
+  'active_bid.updated_at_ts',  'active_bid.created_at_ts',
+  'active_bid.updated_at',     'active_bid.created_at',
+  'shipment.created_at_ts',    'shipment.updated_at_ts',
+  'shipment.created_at',       'shipment.updated_at',
+  'sold_at_ts', 'sold_at', 'soldAt',
+  'closed_at_ts', 'closed_at', 'closedAt',
   'transaction_date', 'transactionDate',
-  'last_push_up_at', 'lastPushUpAt',
-  'updated_at', 'updatedAt',
-  'created_at', 'createdAt',
+  'last_push_up_at_ts', 'last_push_up_at', 'lastPushUpAt',
+  'updated_at_ts', 'updated_at', 'updatedAt',
+  'created_at_ts', 'created_at', 'createdAt',
 ]
 
 const PURCHASE_DATE_FIELDS = [
-  'transaction.updated_at', 'transaction.created_at',
-  'transaction.updatedAt', 'transaction.createdAt',
-  'bought_at', 'boughtAt',
-  'purchased_at', 'purchasedAt',
-  'payment_date', 'paymentDate',
-  'shipment.created_at',
-  'updated_at', 'updatedAt',
-  'created_at', 'createdAt',
+  'transaction.updated_at_ts', 'transaction.created_at_ts',
+  'transaction.updated_at',    'transaction.created_at',
+  'transaction.updatedAt',     'transaction.createdAt',
+  'bought_at_ts',  'bought_at',  'boughtAt',
+  'purchased_at_ts','purchased_at','purchasedAt',
+  'payment_date_ts','payment_date','paymentDate',
+  'shipment.created_at_ts', 'shipment.created_at',
+  'updated_at_ts', 'updated_at', 'updatedAt',
+  'created_at_ts', 'created_at', 'createdAt',
 ]
 
 function normalizeSale(item) {
