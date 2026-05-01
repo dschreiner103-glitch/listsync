@@ -26,10 +26,10 @@
     },
     {
       "matches": [
-        "https://www.vinted.de/member/sold-items*",
-        "https://www.vinted.de/member/orders*",
-        "https://www.vinted.de/member/inbox*",
-        "https://www.vinted.de/member/profile*"
+        "https://www.vinted.de/",
+        "https://www.vinted.de/?*",
+        "https://www.vinted.de/catalog*",
+        "https://www.vinted.de/member*"
       ],
       "js": ["content/vinted-sync.js"],
       "run_at": "document_idle"

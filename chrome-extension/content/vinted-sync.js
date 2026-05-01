@@ -1,6 +1,5 @@
 'use strict'
-// Läuft auf vinted.de/member/sold-items und /member/orders
-// Scrapt Verkäufe und Käufe und sendet sie an background.js
+// Läuft auf vinted.de – scrapt Verkäufe und Käufe über interne API
 
 const wait = ms => new Promise(r => setTimeout(r, ms))
 
@@ -50,38 +49,57 @@ async function callVintedAPI(path) {
 
 // ── Parse sold items ──────────────────────────────────────────────────────────
 
-async function fetchAllSales() {
+// Vinted API endpoint candidates (their internal API changes sometimes)
+const SALES_ENDPOINTS = [
+  '/api/v2/current_user/sold_items',
+  '/api/v2/users/current/sold_items',
+  '/api/v2/items?status[]=2&owned=1',         // status 2 = sold
+  '/api/v2/items?order=newest_first&owned=1&status[]=sold',
+]
+const PURCHASE_ENDPOINTS = [
+  '/api/v2/current_user/bought_items',
+  '/api/v2/users/current/bought_items',
+  '/api/v2/transactions?type=buy',
+]
+
+async function tryEndpoints(endpoints, label) {
+  for (const ep of endpoints) {
+    setSyncStatus(`Lade ${label}…`)
+    const data = await callVintedAPI(`${ep}?page=1&per_page=1`)
+    if (data && (data.items || data.data?.items || data.transactions)) {
+      return ep // found working endpoint
+    }
+  }
+  return null
+}
+
+async function fetchAll(endpoint, label) {
   const items = []
   let page = 1
   while (true) {
-    setSyncStatus(`Lade Verkäufe… Seite ${page}`)
-    const data = await callVintedAPI(`/api/v2/current_user/sold_items?page=${page}&per_page=50`)
+    setSyncStatus(`Lade ${label}… Seite ${page}`)
+    const data = await callVintedAPI(`${endpoint}?page=${page}&per_page=50`)
     if (!data) break
-    const batch = data.items || data.data?.items || []
+    const batch = data.items || data.data?.items || data.transactions || []
     if (!batch.length) break
     items.push(...batch)
     if (batch.length < 50) break
     page++
-    await wait(500)
+    await wait(600)
   }
   return items
 }
 
+async function fetchAllSales() {
+  const ep = await tryEndpoints(SALES_ENDPOINTS, 'Verkäufe')
+  if (!ep) return []
+  return fetchAll(ep, 'Verkäufe')
+}
+
 async function fetchAllPurchases() {
-  const items = []
-  let page = 1
-  while (true) {
-    setSyncStatus(`Lade Einkäufe… Seite ${page}`)
-    const data = await callVintedAPI(`/api/v2/current_user/bought_items?page=${page}&per_page=50`)
-    if (!data) break
-    const batch = data.items || data.data?.items || []
-    if (!batch.length) break
-    items.push(...batch)
-    if (batch.length < 50) break
-    page++
-    await wait(500)
-  }
-  return items
+  const ep = await tryEndpoints(PURCHASE_ENDPOINTS, 'Einkäufe')
+  if (!ep) return []
+  return fetchAll(ep, 'Einkäufe')
 }
 
 // Fallback: scrape DOM if API doesn't work
