@@ -260,6 +260,77 @@ async function fillCategory(category) {
   }
 }
 
+// ── Universelle Feld-Ausfüll-Funktion ────────────────────────────────────────
+
+// Füllt ein Feld egal ob Input, Select, Radio, Klick-Karte oder Autocomplete
+async function fillAny(labelTexts, value, name) {
+  if (!value) return false
+  const labels = Array.isArray(labelTexts) ? labelTexts : [labelTexts]
+
+  // 1. Input/Textarea per Label finden
+  for (const labelText of labels) {
+    const el = findByLabel(labelText)
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.focus()
+      setNativeValue(el, value)
+      await wait(400)
+      // Dropdown-Option klicken falls autocomplete
+      const opt = document.querySelector('[role="option"]:not([aria-disabled="true"])')
+      if (opt && opt.offsetParent !== null) { opt.click(); await wait(400) }
+      setStatus('✓ ' + name)
+      return true
+    }
+  }
+
+  // 2. Radio-Buttons / Klick-Karten mit passendem Text
+  const clickables = document.querySelectorAll(
+    '[role="radio"], [role="option"], [role="button"], label, button, [class*="Chip"], [class*="chip"], [class*="tag"], [class*="Tag"]'
+  )
+  for (const el of clickables) {
+    if (el.offsetParent !== null && el.textContent.trim().toLowerCase() === value.toLowerCase()) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await wait(200)
+      el.click()
+      await wait(400)
+      setStatus('✓ ' + name)
+      return true
+    }
+  }
+
+  // 3. Native select
+  for (const sel of document.querySelectorAll('select')) {
+    for (const opt of sel.options) {
+      if (opt.text.toLowerCase().includes(value.toLowerCase())) {
+        setNativeValue(sel, opt.value)
+        await wait(300)
+        setStatus('✓ ' + name)
+        return true
+      }
+    }
+  }
+
+  // 4. Dropdown öffnen und Option wählen (falls noch geschlossen)
+  for (const labelText of labels) {
+    try {
+      const result = document.evaluate(
+        `//*[contains(normalize-space(text()),"${labelText}")]`,
+        document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
+      )
+      const trigger = result.singleNodeValue
+      if (trigger && trigger.offsetParent !== null) {
+        trigger.click()
+        await wait(700)
+        const found = await clickOption(value)
+        if (found) { setStatus('✓ ' + name); return true }
+      }
+    } catch {}
+  }
+
+  console.warn('[ListSync] Feld nicht gefunden:', name)
+  return false
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 // Wartet bis ein neues Feld nach Kategorie-Auswahl sichtbar wird
@@ -269,6 +340,7 @@ async function waitForAttributeFields(timeout = 8000) {
     'input[placeholder*="Größe"]', 'input[placeholder*="size"]',
     '[data-testid*="brand"]', '[data-testid*="size"]',
     '[data-testid*="condition"]', 'select[name*="condition"]',
+    '[role="radio"]', '[class*="Chip"]', '[class*="chip"]',
   ]
   return new Promise(resolve => {
     const check = () => {
@@ -331,22 +403,24 @@ async function fill() {
 
   // ── 3. Felder die nach Kategorie erscheinen ───────────────────────────────
 
-  // Zustand
+  // Zustand – Vinted zeigt das oft als Klick-Karten/Radio-Buttons
   if (listing.condition) {
-    await fillAutocomplete([
-      '[data-testid*="condition"]', 'select[name*="condition"]',
-      'input[placeholder*="Zustand"]', 'input[placeholder*="condition"]',
-    ], listing.condition, 'zustand', 'Zustand')
+    // Vinted Zustand-Mapping (unsere Werte → Vinted-Labels)
+    const condMap = {
+      'Neu mit Etikett': 'Neu mit Etikett',
+      'Neu ohne Etikett': 'Neu ohne Etikett',
+      'Sehr gut': 'Sehr gut',
+      'Gut': 'Gut',
+      'Befriedigend': 'Befriedigend',
+    }
+    const condValue = condMap[listing.condition] || listing.condition
+    await fillAny(['Zustand', 'Condition', 'Zustand des Artikels'], condValue, 'Zustand')
     await wait(400)
   }
 
   // Größe
   if (listing.size) {
-    await fillAutocomplete([
-      'input[data-testid*="size"]', 'input#size', 'input[name="size"]',
-      'input[placeholder*="Größe"]', 'input[placeholder*="size"]',
-      'select[name*="size"]',
-    ], listing.size, 'größe', 'Größe')
+    await fillAny(['Größe', 'Size', 'Kleidergröße'], listing.size, 'Größe')
     await wait(500)
   }
 
@@ -354,19 +428,21 @@ async function fill() {
   if (listing.brand) {
     await fillAutocomplete([
       'input[data-testid*="brand"]', 'input#brand', 'input[name="brand"]',
-      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]',
+      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]', 'input[placeholder*="Brand"]',
     ], listing.brand, 'marke', 'Marke')
     await wait(500)
   }
 
   // Farbe
   if (listing.color) {
-    await fillAutocomplete([
-      'input[data-testid*="color"]', 'input#color', 'input[name="color"]',
-      'input[placeholder*="Farbe"]', 'input[placeholder*="color"]',
-    ], listing.color, 'farbe', 'Farbe')
-    await wait(500)
+    await fillAny(['Farbe', 'Color', 'Hauptfarbe'], listing.color, 'Farbe')
+    await wait(400)
   }
+
+  // Material – überspringen wenn nicht gesetzt
+  // Versand – Standard Vinted-Versand auswählen
+  await fillAny(['Versand', 'Versandoptionen', 'Shipping'], 'Vinted-Versand', 'Versand')
+  await wait(400)
 
   setStatus('✅ Felder fertig – Bilder werden geladen…')
   await wait(4000)
