@@ -3,6 +3,14 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
+export async function GET(_, { params }) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+  const listing = await prisma.listing.findFirst({ where: { id: Number(params.id), userId: Number(session.user.id) } })
+  if (!listing) return NextResponse.json({ error: 'Nicht gefunden' }, { status: 404 })
+  return NextResponse.json({ ...listing, platforms: JSON.parse(listing.platforms), images: JSON.parse(listing.images||'[]'), shipping: JSON.parse(listing.shipping||'[]') })
+}
+
 async function ownsListing(userId, id) {
   const listing = await prisma.listing.findFirst({
     where: { id: Number(id), userId: Number(userId) },

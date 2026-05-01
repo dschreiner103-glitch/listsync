@@ -3,10 +3,12 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 
 const NAV = [
-  { href:'/dashboard', icon:'⊞', label:'Dashboard' },
-  { href:'/listings',  icon:'≡',  label:'Meine Listings' },
+  { href:'/dashboard',    icon:'⊞', label:'Dashboard' },
+  { href:'/listings',     icon:'≡', label:'Meine Listings' },
   { primary: true },
-  { href:'/settings',  icon:'⚙', label:'Einstellungen' },
+  { href:'/buchhaltung',  icon:'📊', label:'Buchhaltung' },
+  { href:'/belege',       icon:'🧾', label:'Belege' },
+  { href:'/settings',     icon:'⚙', label:'Einstellungen' },
 ]
 
 export default function Sidebar({ activeCount = 0 }) {

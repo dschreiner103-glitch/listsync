@@ -65,7 +65,7 @@ function showBanner(listing) {
   d.id = 'ls-banner'
   d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#4f46e5;color:#fff;font-family:sans-serif;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 16px rgba(0,0,0,.4)'
   const imgs = (listing.images||[]).slice(0,6).map((u,i) =>
-    `<img src="http://localhost:3000${u}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:2px solid rgba(255,255,255,.4)">`
+    `<img src="${u.startsWith('http') ? u : 'https://project-dle5b.vercel.app' + u}" style="width:36px;height:36px;object-fit:cover;border-radius:6px;border:2px solid rgba(255,255,255,.4)">`
   ).join('')
   d.innerHTML = `
     <span style="font-size:20px">🔗</span>

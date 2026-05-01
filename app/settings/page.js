@@ -5,18 +5,20 @@ import MobileNav from '@/components/MobileNav'
 import { PLATFORMS } from '@/components/Badge'
 
 export default function Settings() {
-  const [goals, setGoals]           = useState({ day: 150, month: 500 })
+  const [goals, setGoals]           = useState({ day: 0, month: 0 })
   const [relistDays, setRelistDays] = useState(5)
+  const [business, setBusiness]     = useState({ shopName:'', address:'', taxId:'', kleinunternehmer:true })
   const [platforms, setPlatforms]   = useState({})
-  const [modal, setModal]           = useState(null) // { id, name, type }
+  const [modal, setModal]           = useState(null)
   const [creds, setCreds]           = useState({ apiKey: '', username: '', password: '' })
   const [toast, setToast]           = useState(null)
   const [saving, setSaving]         = useState(false)
 
   useEffect(() => {
     fetch('/api/settings').then(r=>r.json()).then(s=>{
-      if (s.dayGoal)    setGoals({ day: s.dayGoal, month: s.monthGoal })
-      if (s.relistDays) setRelistDays(s.relistDays)
+      if (s.dayGoal    !== undefined) setGoals({ day: s.dayGoal, month: s.monthGoal })
+      if (s.relistDays !== undefined) setRelistDays(s.relistDays)
+      setBusiness({ shopName: s.shopName||'', address: s.address||'', taxId: s.taxId||'', kleinunternehmer: s.kleinunternehmer !== false })
     })
     fetch('/api/platforms').then(r=>r.json()).then(list=>{
       const map = {}
@@ -36,7 +38,7 @@ export default function Settings() {
       await fetch('/api/settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dayGoal: goals.day, monthGoal: goals.month, relistDays })
+        body: JSON.stringify({ dayGoal: goals.day, monthGoal: goals.month, relistDays, ...business })
       })
       showToast('✅ Einstellungen gespeichert!')
     } catch { showToast('Fehler beim Speichern', 'red') }
@@ -87,6 +89,37 @@ export default function Settings() {
       <main className="md:ml-60 pb-20 md:pb-8">
         <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
           <h1 className="text-2xl font-extrabold text-gray-900">Einstellungen</h1>
+
+          {/* Business info */}
+          <div id="business" className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
+            <h2 className="font-bold text-gray-900">🏪 Geschäftsinfo (für Belege)</h2>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Name / Shopname</label>
+              <input type="text" value={business.shopName} onChange={e=>setBusiness(b=>({...b,shopName:e.target.value}))}
+                placeholder="Dein Name oder Shopname"
+                className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm"/>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Adresse</label>
+              <textarea rows={3} value={business.address} onChange={e=>setBusiness(b=>({...b,address:e.target.value}))}
+                placeholder={"Musterstraße 1\n12345 Musterstadt"}
+                className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm resize-none"/>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Steuernummer (optional)</label>
+              <input type="text" value={business.taxId} onChange={e=>setBusiness(b=>({...b,taxId:e.target.value}))}
+                placeholder="12/345/67890"
+                className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm"/>
+            </div>
+            <div className="flex items-center gap-3">
+              <input type="checkbox" id="klein" checked={business.kleinunternehmer}
+                onChange={e=>setBusiness(b=>({...b,kleinunternehmer:e.target.checked}))}
+                className="w-4 h-4 accent-indigo-600"/>
+              <label htmlFor="klein" className="text-sm font-semibold text-gray-700">
+                Kleinunternehmer nach §19 UStG (keine Umsatzsteuer)
+              </label>
+            </div>
+          </div>
 
           {/* Goals */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">

@@ -57,8 +57,12 @@ model PlatformAccount {
 }
 
 model Settings {
-  id         Int   @id @default(1)
-  relistDays Int   @default(5)
-  dayGoal    Float @default(150)
-  monthGoal  Float @default(500)
+  id               Int     @id @default(1)
+  relistDays       Int     @default(5)
+  dayGoal          Float   @default(0)
+  monthGoal        Float   @default(0)
+  shopName         String  @default("")
+  address          String  @default("")
+  taxId            String  @default("")
+  kleinunternehmer Boolean @default(true)
 }
