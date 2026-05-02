@@ -1,181 +1,41 @@
 'use client'
 import { useState } from 'react'
 
-// ── Kompletter Kategorie-Baum (exakt wie Vinted DE) ──────────────────────────
+// ── Exakter Vinted DE Kategorie-Baum (direkt aus der Vinted-Navigation) ────────
 const TREE = [
   {
     label: '👩 Damen', children: [
       {
         label: 'Kleidung', children: [
-          {
-            label: 'Jacken & Mäntel', children: [
-              { label: 'Lederjacken' },
-              { label: 'Winterjacken' },
-              { label: 'Übergangsjacken' },
-              { label: 'Parkas' },
-              { label: 'Trenchcoats & Mäntel' },
-              { label: 'Bomberjacken' },
-              { label: 'Regenjacken' },
-              { label: 'Westen' },
-              { label: 'Daunenjacken' },
-              { label: 'Fleecejacken' },
-            ]
-          },
-          {
-            label: 'Kleider', children: [
-              { label: 'Minikleid' },
-              { label: 'Midikleid' },
-              { label: 'Maxikleid' },
-              { label: 'Abendkleider' },
-              { label: 'Freizeitkleider' },
-              { label: 'Blusen- & Hemdblusenkleider' },
-              { label: 'Jerseykleider' },
-              { label: 'Träger- & Strandkleider' },
-              { label: 'Cocktailkleider' },
-            ]
-          },
-          {
-            label: 'Röcke', children: [
-              { label: 'Miniröcke' },
-              { label: 'Midiröcke' },
-              { label: 'Maxiröcke' },
-              { label: 'Bleistiftröcke' },
-              { label: 'A-Linien-Röcke' },
-              { label: 'Jeansröcke' },
-            ]
-          },
-          {
-            label: 'Tops & T-Shirts', children: [
-              { label: 'T-Shirts' },
-              { label: 'Tanktops & Trägertops' },
-              { label: 'Poloshirts' },
-              { label: 'Bauchfreie Tops' },
-              { label: 'Schulterfreie Tops' },
-              { label: 'Blusen & Tuniken' },
-            ]
-          },
-          {
-            label: 'Hosen & Jeans', children: [
-              { label: 'Jeans' },
-              { label: 'Chinos & Stoffhosen' },
-              { label: 'Leggings' },
-              { label: 'Hosen mit weitem Bein' },
-              { label: 'Jogginghosen' },
-              { label: 'Cargo-Hosen' },
-              { label: 'Anzug- & Bundfaltenhosen' },
-              { label: 'Lederoptik-Hosen' },
-            ]
-          },
-          {
-            label: 'Shorts', children: [
-              { label: 'Jeans-Shorts' },
-              { label: 'Stoff-Shorts' },
-              { label: 'Sportshorts' },
-              { label: 'Radlerhosen' },
-            ]
-          },
-          {
-            label: 'Pullover & Strickpullover', children: [
-              { label: 'Pullover' },
-              { label: 'Strickjacken' },
-              { label: 'Hoodies & Sweatshirts' },
-              { label: 'Westen' },
-              { label: 'Rollkragenpullover' },
-              { label: 'Oversize-Pullover' },
-              { label: 'Cardigan' },
-            ]
-          },
-          {
-            label: 'Blazer & Anzüge', children: [
-              { label: 'Blazer' },
-              { label: 'Hosenanzüge' },
-              { label: 'Kostüme' },
-              { label: 'Businessjacken' },
-            ]
-          },
-          {
-            label: 'Unterwäsche & Socken', children: [
-              { label: 'BHs' },
-              { label: 'Slips & Strings' },
-              { label: 'Shapewear' },
-              { label: 'Socken & Strümpfe' },
-              { label: 'Strumpfhosen' },
-              { label: 'Nachtwäsche' },
-            ]
-          },
-          {
-            label: 'Sportkleidung', children: [
-              { label: 'Sport-BHs' },
-              { label: 'Sport-Leggings' },
-              { label: 'Sport-Tops & T-Shirts' },
-              { label: 'Sport-Jacken' },
-              { label: 'Trainingsanzüge' },
-              { label: 'Yoga-Kleidung' },
-            ]
-          },
-          {
-            label: 'Bademode', children: [
-              { label: 'Bikinis' },
-              { label: 'Badeanzüge' },
-              { label: 'Strandhosen & Pareos' },
-              { label: 'Badekleider' },
-            ]
-          },
-          {
-            label: 'Overalls & Jumpsuits', children: [
-              { label: 'Overalls' },
-              { label: 'Jumpsuits' },
-              { label: 'Hosenanzüge (einteilig)' },
-            ]
-          },
-          {
-            label: 'Hemden & Blusen', children: [
-              { label: 'Hemdblusen' },
-              { label: 'Klassische Blusen' },
-              { label: 'Oversize-Hemden' },
-            ]
-          },
+          { label: 'Jacken & Mäntel' },
+          { label: 'Pullover & Strickpullover' },
+          { label: 'Blazer & Anzüge' },
+          { label: 'Kleider' },
+          { label: 'Röcke' },
+          { label: 'Skorts' },
+          { label: 'Tops & T-Shirts' },
+          { label: 'Jeans' },
+          { label: 'Hosen & Leggings' },
+          { label: 'Shorts' },
+          { label: 'Jumpsuits & Playsuits' },
+          { label: 'Bademode' },
+          { label: 'Unterwäsche & Nachtwäsche' },
+          { label: 'Umstandskleidung' },
+          { label: 'Activewear' },
+          { label: 'Kostüme & Besonderes' },
+          { label: 'Sonstiges' },
         ]
       },
       {
         label: 'Schuhe', children: [
-          {
-            label: 'Sneakers', children: [
-              { label: 'Low-Top Sneakers' },
-              { label: 'High-Top Sneakers' },
-              { label: 'Plateau-Sneakers' },
-              { label: 'Chunky Sneakers' },
-            ]
-          },
-          {
-            label: 'Stiefel & Stiefeletten', children: [
-              { label: 'Ankle Boots' },
-              { label: 'Kniestiefel' },
-              { label: 'Overknee-Stiefel' },
-              { label: 'Chelsea Boots' },
-              { label: 'Cowboy-Stiefel' },
-            ]
-          },
-          {
-            label: 'Pumps & Absatzschuhe', children: [
-              { label: 'Klassische Pumps' },
-              { label: 'Pfennigabsatz (Stilettos)' },
-              { label: 'Kitten Heels' },
-              { label: 'Plateaupumps' },
-            ]
-          },
-          {
-            label: 'Sandalen', children: [
-              { label: 'Flache Sandalen' },
-              { label: 'Sandaletten mit Absatz' },
-              { label: 'Gladiator-Sandalen' },
-              { label: 'Slides & Pantoletten' },
-            ]
-          },
+          { label: 'Sneakers' },
+          { label: 'Stiefel & Stiefeletten' },
+          { label: 'Pumps & Absätze' },
+          { label: 'Sandalen' },
           { label: 'Ballerinas & Flats' },
           { label: 'Sportschuhe' },
           { label: 'Hausschuhe & Pantoffeln' },
-          { label: 'Espadrilles & Mokassins' },
+          { label: 'Sonstige Schuhe' },
         ]
       },
       {
@@ -187,34 +47,21 @@ const TREE = [
           { label: 'Shopper & Totes' },
           { label: 'Geldbörsen & Kartenetuis' },
           { label: 'Koffer & Trolleys' },
-          { label: 'Bauchtaschen & Gürteltaschen' },
-          { label: 'Bucket Bags' },
+          { label: 'Gürteltaschen' },
+          { label: 'Sonstige Taschen' },
         ]
       },
       {
         label: 'Accessoires', children: [
-          {
-            label: 'Schmuck', children: [
-              { label: 'Halsketten & Anhänger' },
-              { label: 'Ohrringe' },
-              { label: 'Ringe' },
-              { label: 'Armbänder' },
-              { label: 'Schmucksets' },
-            ]
-          },
-          {
-            label: 'Uhren', children: [
-              { label: 'Armbanduhren' },
-              { label: 'Smartwatches' },
-            ]
-          },
+          { label: 'Schmuck' },
+          { label: 'Uhren' },
           { label: 'Sonnenbrillen & Brillen' },
           { label: 'Schals & Tücher' },
           { label: 'Mützen, Hüte & Caps' },
           { label: 'Gürtel' },
           { label: 'Handschuhe' },
           { label: 'Haaraccessoires' },
-          { label: 'Strümpfe & Strumpfhosen' },
+          { label: 'Sonstige Accessoires' },
         ]
       },
       {
@@ -225,6 +72,7 @@ const TREE = [
           { label: 'Haarpflege' },
           { label: 'Körperpflege' },
           { label: 'Nagelpflege' },
+          { label: 'Sonstige Beauty' },
         ]
       },
     ]
@@ -234,152 +82,35 @@ const TREE = [
     label: '👨 Herren', children: [
       {
         label: 'Kleidung', children: [
-          {
-            label: 'Jeans', children: [
-              { label: 'Slim Fit Jeans' },
-              { label: 'Regular Fit Jeans' },
-              { label: 'Loose Fit Jeans' },
-              { label: 'Skinny Jeans' },
-              { label: 'Straight Jeans' },
-              { label: 'Bootcut Jeans' },
-              { label: 'Jogger Jeans' },
-            ]
-          },
-          {
-            label: 'Jacken & Mäntel', children: [
-              { label: 'Lederjacken' },
-              { label: 'Winterjacken' },
-              { label: 'Übergangsjacken' },
-              { label: 'Parkas' },
-              { label: 'Trenchcoats & Mäntel' },
-              { label: 'Bomberjacken' },
-              { label: 'Regenjacken' },
-              { label: 'Westen' },
-              { label: 'Daunenjacken' },
-              { label: 'Fleecejacken' },
-              { label: 'Softshell-Jacken' },
-            ]
-          },
-          {
-            label: 'Tops & T-Shirts', children: [
-              { label: 'T-Shirts' },
-              { label: 'Poloshirts' },
-              { label: 'Hemden' },
-              { label: 'Tanktops' },
-              { label: 'Oversize T-Shirts' },
-              { label: 'Langarmshirts' },
-            ]
-          },
-          {
-            label: 'Hosen', children: [
-              { label: 'Chinos & Stoffhosen' },
-              { label: 'Cargo-Hosen' },
-              { label: 'Jogginghosen' },
-              { label: 'Anzughosen' },
-              { label: 'Leinenhosen' },
-            ]
-          },
-          {
-            label: 'Shorts', children: [
-              { label: 'Jeans-Shorts' },
-              { label: 'Cargo-Shorts' },
-              { label: 'Sport-Shorts' },
-              { label: 'Badeshorts & Boardshorts' },
-            ]
-          },
-          {
-            label: 'Pullover & Sweater', children: [
-              { label: 'Sweater' },
-              { label: 'Pullis & Hoodies' },
-              { label: 'Kapuzenjacken' },
-              { label: 'Strickjacken' },
-              { label: 'Pullover mit Rundhalsausschnitt' },
-              { label: 'Pullover mit V-Ausschnitt' },
-              { label: 'Rollkragenpullover' },
-              { label: 'Oversize Pullover' },
-              { label: 'Strickpullover' },
-              { label: 'Westen' },
-            ]
-          },
-          {
-            label: 'Anzüge & Blazer', children: [
-              { label: 'Anzüge' },
-              { label: 'Blazer & Sakkos' },
-              { label: 'Smokings' },
-            ]
-          },
-          {
-            label: 'Hemden', children: [
-              { label: 'Freizeithemden' },
-              { label: 'Businesshemden' },
-              { label: 'Leinenhemden' },
-              { label: 'Flanellhemden' },
-              { label: 'Oversize-Hemden' },
-            ]
-          },
-          {
-            label: 'Unterwäsche & Socken', children: [
-              { label: 'Boxershorts' },
-              { label: 'Unterhemden' },
-              { label: 'Socken' },
-              { label: 'Thermowäsche' },
-            ]
-          },
-          {
-            label: 'Sportkleidung', children: [
-              { label: 'Sport-Shirts' },
-              { label: 'Sport-Hosen & Tights' },
-              { label: 'Sport-Jacken' },
-              { label: 'Trainingsanzüge' },
-              { label: 'Laufkleidung' },
-              { label: 'Fußballtrikots' },
-            ]
-          },
-          {
-            label: 'Bademode', children: [
-              { label: 'Badehosen' },
-              { label: 'Boardshorts' },
-              { label: 'Badeshorts' },
-            ]
-          },
-          { label: 'Overalls & Jumpsuits' },
+          { label: 'Jacken & Mäntel' },
+          { label: 'Anzüge & Blazer' },
+          { label: 'Hosen' },
+          { label: 'Unterwäsche & Socken' },
+          { label: 'Badebekleidung' },
+          { label: 'Spezielle Kleidung' },
+          { label: 'Jeans' },
+          { label: 'Tops & T-Shirts' },
+          { label: 'Pullover & Sweater' },
+          { label: 'Shorts' },
+          { label: 'Nachtwäsche' },
+          { label: 'Sportartikel' },
+          { label: 'Sonstiges' },
         ]
       },
       {
         label: 'Schuhe', children: [
-          {
-            label: 'Sneakers', children: [
-              { label: 'Low-Top Sneakers' },
-              { label: 'High-Top Sneakers' },
-              { label: 'Chunky Sneakers' },
-              { label: 'Laufschuhe' },
-            ]
-          },
-          {
-            label: 'Stiefel & Stiefeletten', children: [
-              { label: 'Chelsea Boots' },
-              { label: 'Chukka Boots' },
-              { label: 'Worker Boots' },
-              { label: 'Winterstiefel' },
-            ]
-          },
+          { label: 'Sneakers' },
+          { label: 'Stiefel & Stiefeletten' },
           { label: 'Sportschuhe' },
           { label: 'Halbschuhe & Mokassins' },
           { label: 'Sandalen & Flip-Flops' },
           { label: 'Hausschuhe' },
-          { label: 'Espadrilles & Bootsschuhe' },
+          { label: 'Sonstige Schuhe' },
         ]
       },
       {
         label: 'Accessoires', children: [
-          {
-            label: 'Schmuck', children: [
-              { label: 'Halsketten & Anhänger' },
-              { label: 'Armbänder' },
-              { label: 'Ringe' },
-              { label: 'Ohrringe' },
-            ]
-          },
+          { label: 'Schmuck' },
           { label: 'Uhren' },
           { label: 'Sonnenbrillen & Brillen' },
           { label: 'Gürtel' },
@@ -387,6 +118,16 @@ const TREE = [
           { label: 'Schals & Tücher' },
           { label: 'Rucksäcke & Taschen' },
           { label: 'Geldbörsen' },
+          { label: 'Sonstige Accessoires' },
+        ]
+      },
+      {
+        label: 'Körper- & Gesichtspflege', children: [
+          { label: 'Parfüm & Düfte' },
+          { label: 'Hautpflege' },
+          { label: 'Haarpflege' },
+          { label: 'Rasur & Bartpflege' },
+          { label: 'Sonstige Pflege' },
         ]
       },
     ]
@@ -395,144 +136,121 @@ const TREE = [
   {
     label: '👶 Kinder', children: [
       {
-        label: 'Baby (0–24 Monate)', children: [
-          { label: 'Bodys & Strampler' },
-          { label: 'Schlafsäcke & Decken' },
-          { label: 'Jacken & Mäntel' },
-          { label: 'Hosen & Jeans' },
-          { label: 'Shirts & Tops' },
-          { label: 'Kleider (Baby)' },
-          { label: 'Schuhe (Baby)' },
-          { label: 'Accessoires (Baby)' },
-        ]
-      },
-      {
         label: 'Mädchen', children: [
-          {
-            label: 'Jacken & Mäntel', children: [
-              { label: 'Winterjacken' },
-              { label: 'Übergangsjacken' },
-              { label: 'Regenjacken' },
-            ]
-          },
-          {
-            label: 'Kleider & Röcke', children: [
-              { label: 'Kleider' },
-              { label: 'Röcke' },
-              { label: 'Tutu & Ballkleider' },
-            ]
-          },
-          { label: 'Shirts & Tops' },
-          {
-            label: 'Hosen & Jeans', children: [
-              { label: 'Jeans' },
-              { label: 'Leggings' },
-              { label: 'Stoffhosen' },
-              { label: 'Jogginghosen' },
-            ]
-          },
-          { label: 'Shorts' },
-          { label: 'Pullover & Strickjacken' },
-          { label: 'Sportkleidung' },
-          {
-            label: 'Schuhe', children: [
-              { label: 'Sneakers' },
-              { label: 'Sandalen' },
-              { label: 'Stiefel' },
-              { label: 'Ballerinas' },
-            ]
-          },
+          { label: 'Outerwear' },
+          { label: 'Shirts, Tops & Blusen' },
+          { label: 'Pullover und Jäckchen' },
+          { label: 'Kleider' },
+          { label: 'Röcke' },
+          { label: 'Hosen & Shorts' },
           { label: 'Accessoires' },
+          { label: 'Unterwäsche & Socken' },
+          { label: 'Sportkleidung' },
+          { label: 'Schuhe' },
+          { label: 'Badekleidung' },
+          { label: 'Nachtwäsche' },
+          { label: 'Babykleidung (Mädchen)' },
+          { label: 'Kinder-Handtaschen' },
+          { label: 'Sets & Kleidungspakete' },
+          { label: 'Schicke Kleider & Kostüme' },
+          { label: 'Für Zwillinge' },
+          { label: 'Für besondere Anlässe' },
         ]
       },
       {
         label: 'Jungs', children: [
-          {
-            label: 'Jacken & Mäntel', children: [
-              { label: 'Winterjacken' },
-              { label: 'Übergangsjacken' },
-              { label: 'Regenjacken' },
-            ]
-          },
-          { label: 'Shirts & T-Shirts' },
-          {
-            label: 'Hosen & Jeans', children: [
-              { label: 'Jeans' },
-              { label: 'Jogginghosen' },
-              { label: 'Cargo-Hosen' },
-              { label: 'Shorts' },
-            ]
-          },
-          { label: 'Pullover & Hoodies' },
+          { label: 'Outerwear' },
+          { label: 'Shirts & Tops' },
+          { label: 'Pullover und Jäckchen' },
+          { label: 'Hosen & Shorts' },
+          { label: 'Unterwäsche & Socken' },
           { label: 'Sportkleidung' },
-          {
-            label: 'Schuhe', children: [
-              { label: 'Sneakers' },
-              { label: 'Sandalen' },
-              { label: 'Stiefel' },
-              { label: 'Sportschuhe' },
-            ]
-          },
-          { label: 'Accessoires' },
+          { label: 'Schuhe' },
+          { label: 'Badekleidung' },
+          { label: 'Nachtwäsche' },
+          { label: 'Babykleidung (Jungs)' },
+          { label: 'Sets & Kleidungspakete' },
+          { label: 'Spezielle Kleidung' },
+          { label: 'Für Zwillinge' },
         ]
       },
-      {
-        label: 'Spielzeug & Freizeit', children: [
-          { label: 'Puppen & Zubehör' },
-          { label: 'Fahrzeuge & Ferngesteuertes' },
-          { label: 'Bausteine & Konstruktion' },
-          { label: 'Brettspiele & Puzzle' },
-          { label: 'Kuscheltiere & Plüsch' },
-          { label: 'Outdoor-Spielzeug' },
-          { label: 'Bücher & Lernspiele' },
-        ]
-      },
+      { label: 'Spielzeug' },
+      { label: 'Kinderwagen, Tragen & Autositze' },
+      { label: 'Möbel & Deko' },
+      { label: 'Baden & Wickeln' },
+      { label: 'Kindersicherung & Sicherheitsausstattung' },
+      { label: 'Gesundheit & Schwangerschaft' },
+      { label: 'Stillen & Füttern' },
+      { label: 'Schlafen & Bettzeug' },
+      { label: 'Schulbedarf' },
+      { label: 'Sonstige Artikel für Kinder' },
     ]
   },
 
   {
-    label: '📦 Sonstiges', children: [
+    label: '🏠 Home', children: [
       {
-        label: 'Elektronik', children: [
-          { label: 'Handys & Smartphones' },
-          { label: 'Tablets & E-Reader' },
-          { label: 'Laptops & Computer' },
-          { label: 'Kopfhörer & Lautsprecher' },
-          { label: 'Zubehör & Kabel' },
-          { label: 'Kameras & Fotografie' },
-          { label: 'Gaming & Konsolen' },
-          { label: 'Smartwatches & Wearables' },
+        label: 'Kleine Küchengeräte', children: [
+          { label: 'Zubereitung von Kaffee, Tee und Espresso' },
+          { label: 'Mixer und Küchenmaschinen' },
+          { label: 'Fritteusen' },
+          { label: 'Kochplatten' },
+          { label: 'Wasser- und Getränkespender' },
+          { label: 'Kessel und Wasserkocher' },
+          { label: 'Toaster' },
+          { label: 'Mikrowellen' },
+          { label: 'Elektrische Grills und Grillplatten' },
+          { label: 'Entsafter' },
+          { label: 'Spezialgeräte' },
         ]
       },
-      {
-        label: 'Home & Living', children: [
-          { label: 'Dekoration' },
-          { label: 'Küche & Kochen' },
-          { label: 'Bettwäsche & Textilien' },
-          { label: 'Beleuchtung' },
-          { label: 'Möbel & Einrichtung' },
-          { label: 'Pflanzen & Garten' },
-        ]
-      },
-      {
-        label: 'Sport & Outdoor', children: [
-          { label: 'Fitness & Training' },
-          { label: 'Fahrräder & Zubehör' },
-          { label: 'Camping & Outdoor' },
-          { label: 'Wintersport' },
-          { label: 'Wassersport' },
-          { label: 'Mannschaftssport' },
-        ]
-      },
-      {
-        label: 'Unterhaltung', children: [
-          { label: 'Bücher' },
-          { label: 'Musik & CDs' },
-          { label: 'Filme & DVDs' },
-          { label: 'Videospiele' },
-          { label: 'Sammlerstücke' },
-        ]
-      },
+      { label: 'Koch- und Backutensilien' },
+      { label: 'Küchenhelfer' },
+      { label: 'Essen' },
+      { label: 'Haushaltsgeräte' },
+      { label: 'Textilien' },
+      { label: 'Wohnaccessoires' },
+      { label: 'Büromaterial' },
+      { label: 'Feste & Feiertage' },
+      { label: 'Werkzeuge & Heimwerken' },
+      { label: 'Außenbereich & Garten' },
+      { label: 'Haustierbedarf' },
+    ]
+  },
+
+  {
+    label: '📱 Elektronik', children: [
+      { label: 'Handys & Smartphones' },
+      { label: 'Tablets & E-Reader' },
+      { label: 'Laptops & Computer' },
+      { label: 'Kopfhörer & Lautsprecher' },
+      { label: 'Zubehör & Kabel' },
+      { label: 'Kameras & Fotografie' },
+      { label: 'Gaming & Konsolen' },
+      { label: 'Smartwatches & Wearables' },
+      { label: 'TV & Video' },
+      { label: 'Sonstige Elektronik' },
+    ]
+  },
+
+  {
+    label: '🎭 Unterhaltung', children: [
+      { label: 'Bücher' },
+      { label: 'Musik & Instrumente' },
+      { label: 'Filme & DVDs' },
+      { label: 'Videospiele' },
+      { label: 'Sammlerstücke' },
+      { label: 'Sonstiges' },
+    ]
+  },
+
+  {
+    label: '🏅 Hobby- & Sammlerartikel', children: [
+      { label: 'Sport' },
+      { label: 'Outdoor & Camping' },
+      { label: 'Fahrräder & Zubehör' },
+      { label: 'Kunst & Basteln' },
+      { label: 'Sammeln' },
       { label: 'Sonstiges' },
     ]
   },
@@ -543,7 +261,7 @@ function cleanLabel(label) {
   return label.replace(/^[^\wÀ-ɏ]+/, '').trim()
 }
 
-// Baut den Kategorie-String: "Herren – Kleidung – Pullover & Sweater – Pullis & Hoodies"
+// Baut den Kategorie-String: "Damen – Kleidung – Jeans"
 function buildPath(stack, finalLabel) {
   const parts = stack.map(s => cleanLabel(s))
   parts.push(cleanLabel(finalLabel))
@@ -584,8 +302,7 @@ export default function CategoryPicker({ value, onChange }) {
     if (item.children) {
       navigateInto(item)
     } else {
-      const path = buildPath(stack, item.label)
-      onChange(path)
+      onChange(buildPath(stack, item.label))
       setOpen(false)
     }
   }
