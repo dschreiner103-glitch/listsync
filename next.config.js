@@ -8,5 +8,12 @@ const nextConfig = {
       },
     ],
   },
+  // Fix: Edge Runtime (Middleware) verbietet eval() – devtool deaktivieren
+  webpack: (config, { nextRuntime }) => {
+    if (nextRuntime === 'edge') {
+      config.devtool = false
+    }
+    return config
+  },
 }
 module.exports = nextConfig

@@ -3,7 +3,8 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
-import { PlatformBadge, PLATFORMS, CONDITIONS, CATEGORIES, BRANDS, COLORS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, fmt } from '@/components/Badge'
+import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, fmt } from '@/components/Badge'
+import CategoryPicker from '@/components/CategoryPicker'
 
 export default function NewListing() {
   const router  = useRouter()
@@ -15,7 +16,7 @@ export default function NewListing() {
   const [imgs, setImgs]       = useState([])   // array of { url, preview }
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
-    condition:'Sehr gut', category:'Damen – Kleidung',
+    condition:'Sehr gut', category:'',
     brand:'', size:'', color:'', shipping:[], shipSize:'',
     platforms:[]
   })
@@ -146,10 +147,7 @@ export default function NewListing() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Kategorie</label>
-                  <select value={form.category} onChange={e=>{ set('category',e.target.value); set('size','') }}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm">
-                    {CATEGORIES.map(c=><option key={c}>{c}</option>)}
-                  </select>
+                  <CategoryPicker value={form.category} onChange={v=>{ set('category',v); set('size','') }}/>
                 </div>
               </div>
 

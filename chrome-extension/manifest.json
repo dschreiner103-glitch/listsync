@@ -25,6 +25,11 @@
       "run_at": "document_idle"
     },
     {
+      "matches": ["https://www.vinted.de/items/*"],
+      "js": ["content/vinted-import.js"],
+      "run_at": "document_idle"
+    },
+    {
       "matches": [
         "https://www.vinted.de/",
         "https://www.vinted.de/?*",

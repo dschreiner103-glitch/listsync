@@ -144,10 +144,8 @@ async function fillAutocomplete(selectors, value, labelHint, name) {
   }
 }
 
-// ── Kategorie-Auswahl (mehrstufiges Klick-Menü) ───────────────────────────────
+// ── Legacy-Hilfsfunktionen ────────────────────────────────────────────────────
 
-// Mapping ListSync-Kategorien → Vinted Klick-Pfad (3 Ebenen)
-// Bestätigt live durch DOM-Analyse auf vinted.de/items/new
 const CATEGORY_MAP = {
   // ── Damen ──────────────────────────────────────────────────────────────
   'Damen – Kleidung':                         ['Damen', 'Kleidung'],
@@ -259,10 +257,31 @@ async function clickCatalogItem(text) {
   return false
 }
 
-// Findet und klickt das Element mit dem passendsten Text unter allen sichtbaren Elementen
-// Fallback für nicht-Katalog-Dropdowns
-async function findAndClickText(text) {
-  const all = document.querySelectorAll(
+// Findet den geöffneten Kategorie-Dropdown-Container
+function getCatalogContainer() {
+  // Suche den gemeinsamen Eltern-Container der catalog-N Items
+  const item = document.querySelector('[id^="catalog-"]:not(#catalog-search-input)')
+  if (item) {
+    let p = item.parentElement
+    while (p && p !== document.body) {
+      const items = p.querySelectorAll('[id^="catalog-"]')
+      if (items.length > 2) return p
+      p = p.parentElement
+    }
+  }
+  // Fallback: dialog, listbox oder bekannte Vinted-Klassen
+  return document.querySelector(
+    '[role="dialog"], [role="listbox"], ' +
+    '[class*="catalog"], [class*="Catalog"], ' +
+    '[class*="CategoryDropdown"], [class*="category-dropdown"]'
+  )
+}
+
+// Findet und klickt das Element mit dem passendsten Text –
+// NUR innerhalb des geöffneten Dropdowns, nie in der Navigation
+async function findAndClickText(text, container) {
+  const root = container || getCatalogContainer() || document.body
+  const all = root.querySelectorAll(
     'li, ul > *, [role="option"], [role="menuitem"], [role="radio"], ' +
     'button, a, label, div[tabindex], span[tabindex], ' +
     '[class*="item"], [class*="Item"], [class*="option"], [class*="Option"], ' +
@@ -271,6 +290,7 @@ async function findAndClickText(text) {
 
   const candidates = []
   for (const el of all) {
+    if (isInNav(el)) continue  // Navigation immer überspringen
     const rect = el.getBoundingClientRect()
     if (rect.width === 0 || rect.height === 0) continue
     const raw = (el.innerText || el.textContent || '').trim()
@@ -293,12 +313,12 @@ async function findAndClickText(text) {
     const visible = []
     for (const el of all) {
       const r = el.getBoundingClientRect()
-      if (r.width > 0 && r.height > 0) {
+      if (r.width > 0 && r.height > 0 && !isInNav(el)) {
         const t = (el.innerText || el.textContent || '').trim().substring(0, 40)
         if (t) visible.push(`${el.tagName}: "${t}"`)
       }
     }
-    console.log('[ListSync] Kein Treffer für "' + text + '":', visible.slice(0, 20))
+    console.log('[ListSync] Kein Treffer für "' + text + '" in Container:', visible.slice(0, 20))
     return false
   }
 
@@ -310,42 +330,66 @@ async function findAndClickText(text) {
   return true
 }
 
+// Wartet bis catalog-N Items sichtbar sind (Dropdown wirklich offen)
+async function waitForCatalogItems(timeout = 6000) {
+  return new Promise(resolve => {
+    const check = () => {
+      const items = document.querySelectorAll('[id^="catalog-"]:not(#catalog-search-input)')
+      return [...items].some(e => {
+        const r = e.getBoundingClientRect()
+        return r.width > 0 && r.height > 0
+      })
+    }
+    if (check()) return resolve(true)
+    const ob = new MutationObserver(() => { if (check()) { ob.disconnect(); resolve(true) } })
+    ob.observe(document.body, { childList: true, subtree: true })
+    setTimeout(() => { ob.disconnect(); resolve(false) }, timeout)
+  })
+}
+
+// Prüft ob ein Element Teil der Vinted-Navigation ist (nicht das Formular)
+function isInNav(el) {
+  let p = el
+  while (p && p !== document.body) {
+    if (['NAV', 'HEADER'].includes(p.tagName)) return true
+    const cls = typeof p.className === 'string' ? p.className : ''
+    if (/\b(nav|navbar|topbar|header|navigation|menu-bar)\b/i.test(cls)) return true
+    if (p.getAttribute && p.getAttribute('role') === 'navigation') return true
+    p = p.parentElement
+  }
+  return false
+}
+
+// ── Kategorie-Auswahl: hierarchisch durchklicken ─────────────────────────────
+// "Herren – Kleidung – Pullover & Sweater – Pullis & Hoodies"
+// → splittet zu ["Herren","Kleidung","Pullover & Sweater","Pullis & Hoodies"]
+// → klickt jede Ebene nacheinander durch (kein CATEGORY_MAP nötig)
+
 async function fillCategory(category) {
   if (!category || category === 'Sonstiges') return false
 
-  const path = CATEGORY_MAP[category] || category.split('/').map(s => s.trim()).filter(Boolean)
+  // Pfad direkt aus dem Kategorie-String ableiten
+  const path = category.split(' – ').map(s => s.trim()).filter(Boolean)
   if (!path.length) return false
 
   try {
-    // Dropdown-Trigger finden
+    // Dropdown-Trigger finden – NUR das Formularfeld, nicht die Navigation!
     let trigger = null
 
-    // 1. Gezielte data-testid Selektoren
-    const fbSels = [
-      '[data-testid*="category"]', '[data-testid*="Category"]',
-      '[class*="CategorySelect"]', '[class*="category-select"]',
-      'select[name*="category"]', 'button[class*="category"]',
-      '[aria-label*="ategorie"]',
-    ]
-    for (const s of fbSels) { trigger = document.querySelector(s); if (trigger) break }
+    // 1. DIREKT per ID/data-testid (live getestet auf vinted.de/items/new)
+    trigger = document.querySelector('input#category, [data-testid="catalog-select-dropdown-input"]')
+    if (trigger && isInNav(trigger)) trigger = null
 
-    // 2. XPath – exakten Text suchen
+    // 2. Placeholder-Text (falls Vinted die ID ändert)
     if (!trigger) {
-      for (const phrase of ['Wähle eine Kategorie', 'Kategorie wählen', 'Select category', 'Kategorie']) {
-        try {
-          const res = document.evaluate(
-            `//*[normalize-space(.)="${phrase}"] | //*[@placeholder="${phrase}"]`,
-            document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null
-          )
-          if (res.singleNodeValue) { trigger = res.singleNodeValue; break }
-        } catch {}
-      }
+      trigger = document.querySelector('input[placeholder="Wähle eine Kategorie"]')
+      if (trigger && isInNav(trigger)) trigger = null
     }
 
-    // 3. Letzter Fallback: beliebiges Element das "Kategorie" enthält
+    // 3. Letzter Fallback: Klick-Element das "Kategorie" enthält, aber NICHT in der Nav
     if (!trigger) {
-      for (const el of document.querySelectorAll('button, [role="button"], div[class*="select"], div[class*="Select"]')) {
-        if ((el.innerText || el.textContent || '').includes('Kategorie')) {
+      for (const el of document.querySelectorAll('button, [role="button"], [role="combobox"]')) {
+        if (!isInNav(el) && (el.innerText || el.textContent || '').includes('Kategorie')) {
           trigger = el; break
         }
       }
@@ -353,24 +397,36 @@ async function fillCategory(category) {
 
     if (!trigger) { console.warn('[ListSync] Kategorie-Trigger nicht gefunden'); return false }
 
-    trigger.click()   // KEIN scrollIntoView – schließt Dropdown bei Scroll
-    await wait(1500)  // mehr Zeit für React-Render
+    trigger.click()   // KEIN scrollIntoView – schließt Dropdown bei Scroll!
 
-    // Suchbox leeren (damit kein vorheriger Text filtert)
-    const searchBox = document.querySelector(
-      'input[type="search"], input[placeholder*="Finde"], input[placeholder*="Suche"], input[placeholder*="Search"]'
-    )
-    if (searchBox) { setNativeValue(searchBox, ''); await wait(500) }
+    // Warten bis der Dropdown wirklich sichtbar ist
+    setStatus('Warte auf Kategorie-Dropdown…')
+    const catalogReady = await waitForCatalogItems(6000)
+    if (!catalogReady) { console.warn('[ListSync] Kategorie-Dropdown nicht geladen'); return false }
+    await wait(400)
 
-    // Hierarchisch durch Pfad klicken (Vinted-spezifisch: id="catalog-N")
+    // Hierarchisch durch alle Pfad-Ebenen klicken
     for (const step of path) {
       setStatus(`Kategorie: ${step}…`)
-      await wait(400)
-      const found = await clickCatalogItem(step)
+      await wait(500)
+
+      // 1. Versuch: catalog-N IDs (goldener Selektor für Vinted)
+      let found = await clickCatalogItem(step)
+
+      // 2. Fallback: Suche NUR im geöffneten Dropdown-Container
+      if (!found) {
+        console.warn('[ListSync] catalog-item fehlgeschlagen, suche im Container:', step)
+        const container = getCatalogContainer()
+        found = await findAndClickText(step, container)
+      }
+
       if (!found) {
         console.warn('[ListSync] Kategorie-Schritt nicht gefunden:', step)
         return false
       }
+
+      // Warten bis nächste Ebene erscheint
+      await wait(1200)
     }
 
     setStatus('✓ Kategorie')

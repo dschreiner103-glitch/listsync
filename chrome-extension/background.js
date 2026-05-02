@@ -19,6 +19,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true })
     return true
   }
+  if (msg.type === 'IMPORT_VINTED_LISTING') {
+    importVintedListing(msg.listing)
+      .then(result => sendResponse({ ok: true, result }))
+      .catch(e => sendResponse({ ok: false, error: e.message }))
+    return true
+  }
 })
 
 // ── Image loader ──────────────────────────────────────────────────────────────
@@ -110,6 +116,71 @@ async function importVintedHistory(data, sourceTabId) {
     chrome.runtime.sendMessage({ type: 'IMPORT_DONE', result }).catch(() => {})
   } catch(e) {
     console.warn('[ListSync BG] Import fehlgeschlagen:', e.message)
+  }
+}
+
+// ── Vinted Listing importieren (von Artikel-Detailseite) ─────────────────────
+
+async function importVintedListing(listing) {
+  try {
+    // Bilder als Base64 laden (für späteren Upload zu ListSync)
+    const uploadedImages = []
+    for (const url of (listing.images || []).slice(0, 8)) {
+      try {
+        // Vinted-Bilder direkt über Fetch laden (background hat host_permissions)
+        const res = await fetch(url)
+        if (!res.ok) continue
+        const blob = await res.blob()
+        // Als FormData an ListSync Upload-API schicken
+        const fd = new FormData()
+        const ext = (blob.type || 'image/jpeg').split('/')[1] || 'jpg'
+        fd.append('files', new File([blob], `import_${uploadedImages.length + 1}.${ext}`, { type: blob.type }))
+        const uploadRes = await fetch(`${BASE_URL}/api/upload`, {
+          method: 'POST',
+          body: fd,
+          credentials: 'include',
+        })
+        if (uploadRes.ok) {
+          const { urls } = await uploadRes.json()
+          if (urls?.[0]) uploadedImages.push(urls[0])
+        }
+      } catch(e) {
+        console.warn('[ListSync BG] Bild-Upload fehlgeschlagen:', e.message)
+      }
+    }
+
+    // Listing in ListSync erstellen
+    const body = {
+      title:       listing.title || 'Vinted-Import',
+      description: listing.description || '',
+      price:       listing.price || 0,
+      buyPrice:    0,
+      category:    listing.category || 'Sonstiges',
+      condition:   listing.condition || '',
+      brand:       listing.brand || '',
+      size:        listing.size || '',
+      color:       listing.color || '',
+      images:      uploadedImages,
+      platforms:   ['vinted'],
+      shipping:    [],
+      shipSize:    '',
+      status:      'aktiv',
+    }
+
+    const res = await fetch(`${BASE_URL}/api/listings`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(body),
+      credentials: 'include',
+    })
+
+    if (!res.ok) throw new Error('API Fehler: ' + res.status)
+    const result = await res.json()
+    console.log('[ListSync BG] ✅ Vinted-Listing importiert:', result.id)
+    return result
+  } catch(e) {
+    console.warn('[ListSync BG] Import-Fehler:', e.message)
+    throw e
   }
 }
 
