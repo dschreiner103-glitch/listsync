@@ -508,6 +508,152 @@ async function fillAny(labelTexts, value, name) {
   return false
 }
 
+// ── Vinted Panel-Zeile ausfüllen (klickbare Zeile → öffnet Panel mit catalog-N) ──
+// Für Felder wie Marke (Autocomplete), Größe, Zustand, Farbe, Material
+
+async function fillVintedRow(labelTexts, value, name, opts = {}) {
+  if (!value) return false
+  const labels = Array.isArray(labelTexts) ? labelTexts : [labelTexts]
+
+  // Schritt 1: Zeilen-Trigger finden (nicht in Nav, sichtbar, enthält Label-Text)
+  let trigger = null
+  const candidates = document.querySelectorAll(
+    '[role="button"], [role="combobox"], button, ' +
+    'div[class*="Select"], div[class*="select"], ' +
+    'div[class*="Input"], div[class*="input"], ' +
+    'div[class*="Field"], div[class*="field"], ' +
+    'div[class*="Row"], div[class*="row"], ' +
+    'li[class*="item"], li[class*="Item"]'
+  )
+  for (const el of candidates) {
+    if (isInNav(el)) continue
+    const r = el.getBoundingClientRect()
+    if (r.width < 50 || r.height < 20 || r.height > 200) continue
+    const text = (el.innerText || el.textContent || '').split('\n')[0].trim()
+    for (const label of labels) {
+      if (text.toLowerCase().includes(label.toLowerCase())) {
+        trigger = el; break
+      }
+    }
+    if (trigger) break
+  }
+
+  // Fallback: XPath
+  if (!trigger) {
+    for (const label of labels) {
+      try {
+        const xr = document.evaluate(
+          `//*[contains(normalize-space(.),"${label}") and not(ancestor::nav) and not(ancestor::header)]`,
+          document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null
+        )
+        let node = xr.iterateNext()
+        while (node) {
+          const r = node.getBoundingClientRect?.()
+          if (r && r.width > 50 && r.height > 15 && r.height < 150) {
+            trigger = node; break
+          }
+          node = xr.iterateNext()
+        }
+      } catch {}
+      if (trigger) break
+    }
+  }
+
+  if (!trigger) {
+    console.warn('[ListSync] Row-Trigger nicht gefunden:', name)
+    // Letzter Fallback: fillAny
+    return fillAny(labels, value, name)
+  }
+
+  // Schritt 2: Trigger klicken
+  trigger.click()
+  await wait(800)
+
+  // Schritt 3a: Autocomplete-Modus (für Marke — öffnet Input-Feld)
+  if (opts.autocomplete) {
+    const inputSels = [
+      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]',
+      'input[placeholder*="Suche"]', 'input[placeholder*="suche"]',
+      'input[placeholder*="Search"]',
+      '[data-testid*="brand"] input', '[data-testid*="search"] input',
+      'dialog input[type="text"]', '[role="dialog"] input[type="text"]',
+      '[class*="modal"] input[type="text"]',
+    ]
+    let searchInput = null
+    for (const s of inputSels) {
+      const el = document.querySelector(s)
+      if (el && el.offsetParent !== null) { searchInput = el; break }
+    }
+    if (searchInput) {
+      searchInput.focus()
+      setNativeValue(searchInput, value)
+      await wait(1000)
+      // Ersten Autocomplete-Eintrag klicken
+      const optSels = [
+        '[role="option"]:not([aria-disabled="true"])',
+        '[id^="catalog-"]',
+        '[class*="suggestion"] li:first-child',
+        '[class*="autocomplete"] li:first-child',
+        '[class*="Dropdown"] [role="option"]:first-child',
+      ]
+      for (const s of optSels) {
+        const opt = document.querySelector(s)
+        if (opt && opt.offsetParent !== null) {
+          opt.click()
+          await wait(400)
+          setStatus('✓ ' + name)
+          return true
+        }
+      }
+      // Falls nichts klappbar: Enter drücken
+      searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      await wait(400)
+      setStatus('✓ ' + name)
+      return true
+    }
+    // Kein Search-Input → weiter mit catalog-Item-Suche
+  }
+
+  // Schritt 3b: Panel-Modus — catalog-N Items klicken
+  const ready = await waitForCatalogItems(5000)
+  if (ready) {
+    await wait(300)
+    // Exact match in catalog items
+    let found = await clickCatalogItem(value)
+    if (!found) {
+      const container = getCatalogContainer()
+      found = await findAndClickText(value, container)
+    }
+    if (found) { setStatus('✓ ' + name); return true }
+
+    // Falls Suche/Filter im Panel vorhanden: tippen und dann klicken
+    const panelInput = document.querySelector(
+      '[role="dialog"] input, [class*="modal"] input, [class*="Panel"] input, [class*="Sheet"] input'
+    )
+    if (panelInput && panelInput.offsetParent !== null) {
+      panelInput.focus()
+      setNativeValue(panelInput, value)
+      await wait(800)
+      found = await clickCatalogItem(value)
+      if (!found) {
+        const container = getCatalogContainer()
+        found = await findAndClickText(value, container)
+      }
+      if (found) { setStatus('✓ ' + name); return true }
+    }
+
+    // Panel schließen bei Misserfolg
+    const closeBtn = document.querySelector(
+      '[role="dialog"] button[aria-label*="lose"], [role="dialog"] button[aria-label*="back"], ' +
+      '[class*="modal"] button:first-child, [class*="Close"]'
+    )
+    if (closeBtn) { closeBtn.click(); await wait(300) }
+  }
+
+  // Letzter Fallback: fillAny
+  return fillAny(labels, value, name)
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 // Wartet bis ein neues Feld nach Kategorie-Auswahl sichtbar wird
@@ -596,11 +742,10 @@ async function fill() {
   console.log('[ListSync DEBUG] Sichtbare Felder nach Kategorie:', JSON.stringify(debugFields, null, 2))
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── 3. Felder die nach Kategorie erscheinen ───────────────────────────────
+  // ── 3. Felder die nach Kategorie erscheinen ───────────────────────────────────
 
-  // Zustand – Vinted zeigt das oft als Klick-Karten/Radio-Buttons
+  // Zustand – Klick-Karten (alte UI) oder Panel-Dropdown (neue UI)
   if (listing.condition) {
-    // Vinted Zustand-Mapping (unsere Werte → Vinted-Labels)
     const condMap = {
       'Neu mit Etikett': 'Neu mit Etikett',
       'Neu ohne Etikett': 'Neu ohne Etikett',
@@ -609,33 +754,48 @@ async function fill() {
       'Befriedigend': 'Befriedigend',
     }
     const condValue = condMap[listing.condition] || listing.condition
-    await fillAny(['Zustand', 'Condition', 'Zustand des Artikels'], condValue, 'Zustand')
-    await wait(400)
+    setStatus('Zustand wird gesetzt…')
+    let condDone = await fillAny(['Zustand', 'Condition'], condValue, 'Zustand')
+    if (!condDone) await fillVintedRow(['Zustand', 'Condition', 'Zustand des Artikels'], condValue, 'Zustand')
+    await wait(500)
   }
 
-  // Größe
+  // Größe – Panel-Dropdown
   if (listing.size) {
-    await fillAny(['Größe', 'Size', 'Kleidergröße'], listing.size, 'Größe')
+    setStatus('Größe wird gesetzt…')
+    let sizeDone = await fillAny(['Größe', 'Size'], listing.size, 'Größe')
+    if (!sizeDone) await fillVintedRow(['Größe', 'Size', 'Kleidergröße'], listing.size, 'Größe')
     await wait(500)
   }
 
-  // Marke
+  // Marke – Autocomplete-Panel
   if (listing.brand) {
-    await fillAutocomplete([
+    setStatus('Marke wird gesetzt…')
+    let brandDone = await fillAutocomplete([
       'input[data-testid*="brand"]', 'input#brand', 'input[name="brand"]',
-      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]', 'input[placeholder*="Brand"]',
+      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]',
     ], listing.brand, 'marke', 'Marke')
+    if (!brandDone) await fillVintedRow(['Marke', 'Brand'], listing.brand, 'Marke', { autocomplete: true })
+    await wait(600)
+  }
+
+  // Farbe – Panel mit Farb-Chips
+  if (listing.color) {
+    setStatus('Farbe wird gesetzt…')
+    let colorDone = await fillAny(['Farbe', 'Color', 'Hauptfarbe'], listing.color, 'Farbe')
+    if (!colorDone) await fillVintedRow(['Farbe', 'Color', 'Hauptfarbe'], listing.color, 'Farbe')
     await wait(500)
   }
 
-  // Farbe
-  if (listing.color) {
-    await fillAny(['Farbe', 'Color', 'Hauptfarbe'], listing.color, 'Farbe')
-    await wait(400)
+  // Material – Panel-Dropdown (optional)
+  if (listing.material) {
+    setStatus('Material wird gesetzt…')
+    await fillVintedRow(['Material'], listing.material, 'Material')
+    await wait(500)
   }
 
-  // Material – überspringen wenn nicht gesetzt
   // Versand – Standard Vinted-Versand auswählen
+  setStatus('Versand wird gesetzt…')
   await fillAny(['Versand', 'Versandoptionen', 'Shipping'], 'Vinted-Versand', 'Versand')
   await wait(400)
 

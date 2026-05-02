@@ -139,6 +139,40 @@ function scrapeSize() {
   return ''
 }
 
+function scrapeColor() {
+  // Vinted zeigt Farbe als Detail-Zeile auf der Artikel-Seite
+  const sels = [
+    '[data-testid="item-color"]',
+    '[class*="color"]',
+    '[class*="Color"]',
+    '[class*="colour"]',
+  ]
+  for (const s of sels) {
+    const t = document.querySelector(s)?.textContent?.trim()
+    if (t && t.length < 30) return t
+  }
+  // Fallback: Suche in Detail-Zeilen nach "Farbe"
+  const rows = document.querySelectorAll('[class*="details"] dt, [class*="Details"] dt, dt, th')
+  for (const dt of rows) {
+    if (dt.textContent.trim().toLowerCase().includes('farbe') || dt.textContent.trim().toLowerCase().includes('color')) {
+      const val = dt.nextElementSibling?.textContent?.trim()
+      if (val) return val
+    }
+  }
+  return ''
+}
+
+function scrapeMaterial() {
+  const rows = document.querySelectorAll('[class*="details"] dt, [class*="Details"] dt, dt, th')
+  for (const dt of rows) {
+    if (dt.textContent.trim().toLowerCase().includes('material')) {
+      const val = dt.nextElementSibling?.textContent?.trim()
+      if (val) return val
+    }
+  }
+  return ''
+}
+
 // ── Button einblenden ─────────────────────────────────────────────────────────
 function showImportButton() {
   if (document.getElementById('ls-import-btn')) return
@@ -183,7 +217,8 @@ async function handleImport() {
     platforms:   ['vinted'],
     shipping:    [],
     shipSize:    '',
-    color:       '',
+    color:       scrapeColor(),
+    material:    scrapeMaterial(),
     status:      'aktiv',
   }
 
