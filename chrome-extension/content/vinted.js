@@ -134,7 +134,7 @@ async function fillAutocomplete(selectors, value, labelHint, name) {
     ]
     for (const s of optSels) {
       const opt = document.querySelector(s)
-      if (opt && opt.offsetParent !== null) { opt.click(); await wait(300); break }
+      if (opt && opt.offsetParent !== null) { reactClick(opt); await wait(400); break }
     }
     setStatus('✓ ' + name)
     return true
@@ -199,8 +199,48 @@ const CATEGORY_MAP = {
   'Sonstiges':                                [],
 }
 
+// ── React-bewusstes Klicken ───────────────────────────────────────────────────
+// Geht durch Reacts internen Fiber-Baum und ruft onClick direkt auf.
+// Viel zuverlässiger als el.click() bei React-18-Apps (Vinted).
+function reactClick(el) {
+  // React speichert den Fiber unter __reactFiber$xxx oder __reactInternalInstance$xxx
+  const fiberKey = Object.keys(el).find(k =>
+    k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+  )
+  if (fiberKey) {
+    let fiber = el[fiberKey]
+    // Nach oben durch den Fiber-Baum suchen bis wir ein onClick finden
+    let tries = 0
+    while (fiber && tries++ < 20) {
+      const props = fiber.memoizedProps || fiber.pendingProps
+      if (props && typeof props.onClick === 'function') {
+        try {
+          props.onClick({
+            target: el,
+            currentTarget: el,
+            type: 'click',
+            bubbles: true,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            nativeEvent: new MouseEvent('click', { bubbles: true }),
+          })
+          return true
+        } catch(e) { console.warn('[ListSync] reactClick Fehler:', e) }
+      }
+      fiber = fiber.return
+    }
+  }
+  // Fallback: normaler Browser-Klick mit vollständigen MouseEvents
+  el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new MouseEvent('mouseover',  { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new MouseEvent('mousedown',  { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new MouseEvent('mouseup',    { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new MouseEvent('click',      { bubbles: true, cancelable: true }))
+  return false
+}
+
 async function clickOption(text) {
-  // Sucht sichtbare Option mit passendem Text und klickt sie
+  // Sucht sichtbare Option mit passendem Text und klickt sie (React-aware)
   const sels = [
     '[role="option"]', '[role="menuitem"]', '[role="listitem"]',
     'li', 'button', '[class*="item"]', '[class*="option"]',
@@ -208,10 +248,9 @@ async function clickOption(text) {
   for (const s of sels) {
     for (const el of document.querySelectorAll(s)) {
       if (el.offsetParent !== null && el.textContent.trim().toLowerCase().includes(text.toLowerCase())) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        await wait(200)
-        el.click()
-        await wait(700)
+        await wait(100)
+        reactClick(el)
+        await wait(800)
         return true
       }
     }
@@ -232,7 +271,7 @@ async function clickCatalogItem(text) {
     const t = (el.innerText || el.textContent || '').trim()
     if (t.toLowerCase() === target) {
       console.log('[ListSync] ✓ catalog-item exakt:', el.id, '"' + t + '"')
-      el.click()  // KEIN scrollIntoView!
+      reactClick(el)  // KEIN scrollIntoView! React-aware
       await wait(1200)
       return true
     }
@@ -244,7 +283,7 @@ async function clickCatalogItem(text) {
     const t = (el.innerText || el.textContent || '').trim().toLowerCase()
     if (t.startsWith(target) || target.startsWith(t)) {
       console.log('[ListSync] ✓ catalog-item partial:', el.id, '"' + t + '"')
-      el.click()  // KEIN scrollIntoView!
+      reactClick(el)  // KEIN scrollIntoView! React-aware
       await wait(1200)
       return true
     }
@@ -325,7 +364,7 @@ async function findAndClickText(text, container) {
   candidates.sort((a, b) => a.score - b.score)
   const { el } = candidates[0]
   console.log('[ListSync] Klicke:', el.tagName, '"' + (el.innerText || '').trim().substring(0, 30) + '"')
-  el.click()  // KEIN scrollIntoView – schließt Vinted-Dropdown!
+  reactClick(el)  // KEIN scrollIntoView – schließt Vinted-Dropdown! React-aware
   await wait(1200)
   return true
 }
@@ -397,7 +436,7 @@ async function fillCategory(category) {
 
     if (!trigger) { console.warn('[ListSync] Kategorie-Trigger nicht gefunden'); return false }
 
-    trigger.click()   // KEIN scrollIntoView – schließt Dropdown bei Scroll!
+    reactClick(trigger)   // KEIN scrollIntoView – schließt Dropdown bei Scroll! React-aware
 
     // Warten bis der Dropdown wirklich sichtbar ist
     setStatus('Warte auf Kategorie-Dropdown…')
@@ -468,8 +507,8 @@ async function fillAny(labelTexts, value, name) {
     if (el.offsetParent !== null && el.textContent.trim().toLowerCase() === value.toLowerCase()) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       await wait(200)
-      el.click()
-      await wait(400)
+      reactClick(el)
+      await wait(500)
       setStatus('✓ ' + name)
       return true
     }
@@ -496,8 +535,8 @@ async function fillAny(labelTexts, value, name) {
       )
       const trigger = result.singleNodeValue
       if (trigger && trigger.offsetParent !== null) {
-        trigger.click()
-        await wait(700)
+        reactClick(trigger)
+        await wait(800)
         const found = await clickOption(value)
         if (found) { setStatus('✓ ' + name); return true }
       }
@@ -565,9 +604,9 @@ async function fillVintedRow(labelTexts, value, name, opts = {}) {
     return fillAny(labels, value, name)
   }
 
-  // Schritt 2: Trigger klicken
-  trigger.click()
-  await wait(800)
+  // Schritt 2: Trigger klicken (React-aware)
+  reactClick(trigger)
+  await wait(1000)
 
   // Schritt 3a: Autocomplete-Modus (für Marke — öffnet Input-Feld)
   if (opts.autocomplete) {
@@ -617,14 +656,18 @@ async function fillVintedRow(labelTexts, value, name, opts = {}) {
   // Schritt 3b: Panel-Modus — catalog-N Items klicken
   const ready = await waitForCatalogItems(5000)
   if (ready) {
-    await wait(300)
+    await wait(400)
     // Exact match in catalog items
     let found = await clickCatalogItem(value)
     if (!found) {
       const container = getCatalogContainer()
       found = await findAndClickText(value, container)
     }
-    if (found) { setStatus('✓ ' + name); return true }
+    if (found) {
+      await wait(800) // Warten bis Panel nach Auswahl wirklich geschlossen
+      setStatus('✓ ' + name)
+      return true
+    }
 
     // Falls Suche/Filter im Panel vorhanden: tippen und dann klicken
     const panelInput = document.querySelector(
@@ -639,7 +682,11 @@ async function fillVintedRow(labelTexts, value, name, opts = {}) {
         const container = getCatalogContainer()
         found = await findAndClickText(value, container)
       }
-      if (found) { setStatus('✓ ' + name); return true }
+      if (found) {
+        await wait(800)
+        setStatus('✓ ' + name)
+        return true
+      }
     }
 
     // Panel schließen bei Misserfolg
