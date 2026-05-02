@@ -28,11 +28,26 @@ export default function Listings() {
     return diffDays >= relistDays
   }
 
+  const openRelistModal = (id) => {
+    const listing = listings.find(l => l.id === id)
+    setSelPlatforms(listing?.platforms || [])
+    setModal({ type: 'relist', id })
+  }
+
   const doRelist = async (id) => {
+    const listing = listings.find(l => l.id === id)
+    // 1. Timer zurücksetzen & Status auf aktiv
     const res = await fetch(`/api/listings/${id}/relist`, { method: 'POST' })
     const updated = await res.json()
     setListings(ls => ls.map(l => l.id===id ? { ...l, days: 0, relistedAt: updated.relistedAt, status: 'aktiv' } : l))
-    showToast('Erneut gelistet! Erinnerung zurückgesetzt ✅')
+    // 2. Wirklich auf Plattformen neu posten
+    const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen')
+    if (extPlatforms.length > 0 && listing) {
+      window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
+      showToast(`🔄 Relisten auf ${extPlatforms.join(' & ')}…`)
+    } else {
+      showToast('🔄 Erneut gelistet! Timer zurückgesetzt ✅')
+    }
     setModal(null)
   }
 
@@ -87,7 +102,7 @@ export default function Listings() {
               {relistAlerts.map(l => (
                 <div key={l.id} className="flex items-center justify-between bg-white rounded-xl px-3 py-2">
                   <span className="text-sm text-gray-700 font-medium truncate flex-1 mr-2">{l.title}</span>
-                  <button onClick={()=>doRelist(l.id)}
+                  <button onClick={()=>openRelistModal(l.id)}
                     className="text-xs px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold flex-shrink-0 transition-colors">
                     Relisten
                   </button>
@@ -141,10 +156,8 @@ export default function Listings() {
                     </div>
                     {l.status==='aktiv' && (
                       <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
-                        {aged && (
-                          <button onClick={()=>doRelist(l.id)}
-                            className="flex-1 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-semibold">🔄 Relisten</button>
-                        )}
+                        <button onClick={()=>openRelistModal(l.id)}
+                          className={`flex-1 py-2 rounded-xl text-sm font-semibold ${aged?'bg-amber-50 hover:bg-amber-100 text-amber-700':'bg-gray-50 hover:bg-gray-100 text-gray-600'}`}>🔄 Relisten</button>
                         <button onClick={()=>{setSelPlatforms([...l.platforms]);setModal({type:'crosspost',id:l.id})}}
                           className="flex-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold">🔗 Crossposten</button>
                         <button onClick={()=>setModal({type:'sold',id:l.id})}
@@ -153,15 +166,19 @@ export default function Listings() {
                     )}
                     {l.status==='inaktiv' && (
                       <div className="mt-3 pt-3 border-t border-gray-50">
-                        <button onClick={()=>doRelist(l.id)}
+                        <button onClick={()=>openRelistModal(l.id)}
                           className="w-full py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold">🔄 Relisten</button>
                       </div>
                     )}
                     {l.status==='verkauft' && (
-                      <div className="mt-3 pt-3 border-t border-gray-50 flex gap-3">
-                        <p className="text-xs text-gray-400">Einkauf: {fmt(l.buyPrice)}</p>
-                        <span className="text-gray-200">·</span>
-                        <p className="text-xs text-emerald-600 font-bold">Gewinn: +{fmt(profit(l))}</p>
+                      <div className="mt-3 pt-3 border-t border-gray-50 space-y-2">
+                        <div className="flex gap-3">
+                          <p className="text-xs text-gray-400">Einkauf: {fmt(l.buyPrice)}</p>
+                          <span className="text-gray-200">·</span>
+                          <p className="text-xs text-emerald-600 font-bold">Gewinn: +{fmt(profit(l))}</p>
+                        </div>
+                        <button onClick={()=>openRelistModal(l.id)}
+                          className="w-full py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold">🔄 Erneut verkaufen</button>
                       </div>
                     )}
                   </div>
@@ -172,6 +189,52 @@ export default function Listings() {
         </div>
       </main>
       <MobileNav/>
+
+      {/* Relist Modal */}
+      {modal?.type==='relist' && modalListing && (
+        <div className="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4"
+          style={{background:'rgba(0,0,0,0.45)',backdropFilter:'blur(4px)'}}
+          onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6">
+            <div className="flex justify-between mb-5">
+              <h2 className="text-lg font-extrabold">🔄 Relisten</h2>
+              <button onClick={()=>setModal(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 font-bold">×</button>
+            </div>
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <p className="font-bold text-sm">{modalListing.title}</p>
+              <p className="text-xs text-gray-500 mt-1">{modalListing.condition} · {fmt(modalListing.price)}</p>
+            </div>
+            <p className="text-xs text-gray-500 font-semibold uppercase mb-3">Auf welchen Plattformen neu listen?</p>
+            <div className="space-y-2 mb-5">
+              {Object.entries(PLATFORMS).map(([id,p]) => {
+                const sel = selPlatforms.includes(id)
+                return (
+                  <div key={id} onClick={()=>setSelPlatforms(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])}
+                    className={`border-2 rounded-xl p-3.5 cursor-pointer transition-all flex items-center gap-3 ${sel?'border-indigo-400 bg-indigo-50/30':'border-gray-100 hover:border-gray-200'}`}>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel?'border-indigo-600 bg-indigo-600':'border-gray-300'}`}>
+                      {sel&&<span className="text-white text-xs font-extrabold">✓</span>}
+                    </div>
+                    <PlatformBadge plt={id}/>
+                    {modalListing.platforms.includes(id) && (
+                      <span className="ml-auto text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">vorher aktiv</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-5">
+              <p className="text-xs text-amber-700">⏰ Timer wird zurückgesetzt — Erinnerung in <strong>{relistDays} Tagen</strong> wieder fällig</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={()=>setModal(null)} className="flex-1 py-3 border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 text-sm">Abbrechen</button>
+              <button onClick={()=>doRelist(modalListing.id)} disabled={selPlatforms.length===0}
+                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl font-bold text-sm transition-colors">
+                {selPlatforms.length>0?`🔄 Auf ${selPlatforms.length} Plattform${selPlatforms.length>1?'en':''} relisten`:'Plattform wählen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Crosspost Modal */}
       {modal?.type==='crosspost' && modalListing && (
