@@ -3430,6 +3430,22 @@ export default function CategoryPicker({ value, onChange }) {
             </div>
 
             <div className="overflow-y-auto flex-1 py-2">
+              {/* Aktuelle Ebene direkt wählbar (wenn man schon reingeklickt hat) */}
+              {stack.length > 0 && (
+                <button
+                  onClick={() => {
+                    const currentLabel = stack[stack.length - 1]
+                    onChange(buildPath(stack.slice(0, -1), currentLabel))
+                    setOpen(false)
+                  }}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 bg-indigo-50 hover:bg-indigo-100 transition-colors text-left border-b border-indigo-100"
+                >
+                  <span className="text-indigo-600 text-lg">✓</span>
+                  <span className="text-sm font-bold text-indigo-700">
+                    „{cleanLabel(stack[stack.length - 1])}" direkt wählen
+                  </span>
+                </button>
+              )}
               {currentItems.map((item) => (
                 <button
                   key={item.label}
