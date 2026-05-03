@@ -682,14 +682,13 @@ async function clickVintedField(testid, value, name, opts = {}) {
   // 2. Marke: Autocomplete-Suche (Panel öffnet sich mit eigenem Search-Input)
   if (opts.autocomplete) {
     const searchSels = [
-      '[data-testid="brand-select-search--input"]',
-      '[data-testid*="search--input"]',
-      '[role="dialog"] input:not([readonly]):not([type="hidden"])',
-      '[class*="Modal"] input:not([readonly])',
-      '[class*="Dropdown"] input:not([readonly])',
+      '[data-testid="brand-search--input"]',       // korrekte testid (live getestet)
+      '[data-testid*="brand"][data-testid*="input"]',
+      '[class*="input-dropdown"] input:not([readonly]):not([type="hidden"])',
+      '[class*="input-dropdown__content"] input:not([readonly])',
     ]
     let searchInput = null
-    for (let attempt = 0; attempt < 10; attempt++) {
+    for (let attempt = 0; attempt < 12; attempt++) {
       for (const s of searchSels) {
         const el = document.querySelector(s)
         if (el && el.offsetParent !== null && !el.readOnly) { searchInput = el; break }
@@ -697,22 +696,32 @@ async function clickVintedField(testid, value, name, opts = {}) {
       if (searchInput) break
       await wait(300)
     }
-    if (searchInput) {
-      searchInput.focus()
-      setNativeValue(searchInput, value)
-      await wait(1800)
-      // Ersten catalog-N Treffer klicken
-      const catOpt = document.querySelector('[id^="catalog-"]:not(#catalog-search-input)')
-      if (catOpt && catOpt.offsetParent !== null) {
-        fullClick(catOpt); await wait(600); setStatus('✓ ' + name); return true
-      }
-      // Fallback: ersten sichtbaren Listeneintrag klicken
-      const listOpts = document.querySelectorAll('[role="option"], li[class*="item"], li[class*="Item"]')
-      for (const o of listOpts) {
-        if (o.offsetParent !== null) { fullClick(o); await wait(500); setStatus('✓ ' + name); return true }
-      }
+    if (!searchInput) {
+      console.warn('[ListSync] Marke-Autocomplete: kein Search-Input gefunden')
+      return false
     }
-    console.warn('[ListSync] Marke-Autocomplete: kein Search-Input gefunden für:', name)
+    searchInput.focus()
+    setNativeValue(searchInput, value)
+    await wait(2000)
+
+    // Suchergebnisse: <li> mit innerem [role="button"] — exakt wie Größe/Farbe
+    const dropLis = [...document.querySelectorAll('[class*="input-dropdown"] li')]
+      .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+
+    const target = value.toLowerCase().trim()
+    // Exakter Match zuerst, dann startsWith
+    const match = dropLis.find(e => e.textContent.trim().toLowerCase() === target)
+      || dropLis.find(e => e.textContent.trim().toLowerCase().startsWith(target))
+      || dropLis[0]  // Fallback: erster Treffer
+
+    if (match) {
+      console.log('[ListSync] ✓ Marke gefunden:', match.textContent.trim())
+      fullClick(getClickTarget(match))
+      await wait(700)
+      setStatus('✓ ' + name)
+      return true
+    }
+    console.warn('[ListSync] Marke: kein Suchergebnis für:', value)
     return false
   }
 
@@ -732,10 +741,27 @@ async function clickVintedField(testid, value, name, opts = {}) {
     if (found) { setStatus('✓ ' + name); return true }
   }
 
-  // 4b. catalog-N Items (Größe, Farbe, Material)
+  // 4b. Material: material-N Items (data-testid="material-{id}")
+  const matItems = [...document.querySelectorAll('[data-testid^="material-"]:not([data-testid$="--title"]):not([data-testid$="--suffix"]):not([data-testid$="-checkbox"])')]
+    .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+  if (matItems.length > 0) {
+    const target = value.toLowerCase().trim()
+    const match = matItems.find(e => e.textContent.trim().toLowerCase() === target)
+      || matItems.find(e => e.textContent.trim().toLowerCase().includes(target))
+    if (match) {
+      console.log('[ListSync] ✓ material-item:', match.dataset.testid, '"' + match.textContent.trim() + '"')
+      fullClick(getClickTarget(match))
+      await wait(800)
+      setStatus('✓ ' + name)
+      return true
+    }
+    console.warn('[ListSync] Material: kein Treffer für:', value, '| Verfügbar:', matItems.slice(0,8).map(e=>e.textContent.trim()).join(', '))
+  }
+
+  // 4c. catalog-N Items (Größe, Farbe)
   let found = await clickCatalogItem(value)
 
-  // 4c. Generischer Fallback: Text-Suche im offenen Panel
+  // 4d. Generischer Fallback: Text-Suche im offenen Panel
   if (!found) {
     const container = getAnyOpenPanel() || getCatalogContainer()
     found = await findAndClickText(value, container)
