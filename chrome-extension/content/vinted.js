@@ -200,6 +200,20 @@ const CATEGORY_MAP = {
 }
 
 // ── React-bewusstes Klicken ───────────────────────────────────────────────────
+// Vollständige Pointer+Mouse Event-Kette PLUS React-Fiber onClick-Aufruf.
+// Nötig weil Vinted React-18 Event-Delegation nutzt – .click() reicht nicht.
+function fullClick(el) {
+  if (!el) return
+  el.dispatchEvent(new PointerEvent('pointerover',  { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new PointerEvent('pointerdown',  { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new MouseEvent('mousedown',      { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new PointerEvent('pointerup',    { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new MouseEvent('mouseup',        { bubbles: true, cancelable: true }))
+  el.dispatchEvent(new MouseEvent('click',          { bubbles: true, cancelable: true }))
+  reactClick(el)
+}
+
 // Geht durch Reacts internen Fiber-Baum und ruft onClick direkt auf.
 // Viel zuverlässiger als el.click() bei React-18-Apps (Vinted).
 function reactClick(el) {
@@ -369,7 +383,7 @@ async function findAndClickText(text, container) {
   return true
 }
 
-// Wartet bis catalog-N Items sichtbar sind (Dropdown wirklich offen)
+// Wartet bis catalog-N Items sichtbar sind (Kategorie-Dropdown)
 async function waitForCatalogItems(timeout = 6000) {
   return new Promise(resolve => {
     const check = () => {
@@ -384,6 +398,87 @@ async function waitForCatalogItems(timeout = 6000) {
     ob.observe(document.body, { childList: true, subtree: true })
     setTimeout(() => { ob.disconnect(); resolve(false) }, timeout)
   })
+}
+
+// Wartet bis IRGENDEIN Panel geöffnet ist (catalog-N, condition-N, size, color, material…)
+async function waitForAnyPanelItems(timeout = 6000) {
+  return new Promise(resolve => {
+    const check = () => {
+      // catalog-N (Kategorie, Größe, Farbe, Material)
+      const cats = [...document.querySelectorAll('[id^="catalog-"]:not(#catalog-search-input)')]
+      if (cats.some(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })) return true
+      // condition-N (Zustand)
+      const conds = [...document.querySelectorAll('[data-testid^="condition-"]')]
+      if (conds.some(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })) return true
+      // Generisch: sichtbare role="option" Items in Dialog/Listbox
+      const opts = [...document.querySelectorAll('[role="dialog"] [role="option"], [role="listbox"] [role="option"], [role="dialog"] li')]
+      if (opts.some(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })) return true
+      return false
+    }
+    if (check()) return resolve(true)
+    const ob = new MutationObserver(() => { if (check()) { ob.disconnect(); resolve(true) } })
+    ob.observe(document.body, { childList: true, subtree: true })
+    setTimeout(() => { ob.disconnect(); resolve(false) }, timeout)
+  })
+}
+
+// Findet den geöffneten Panel-Container (catalog-N ODER condition-N ODER dialog)
+function getAnyOpenPanel() {
+  // 1. catalog-N sichtbar?
+  const catItem = [...document.querySelectorAll('[id^="catalog-"]:not(#catalog-search-input)')]
+    .find(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+  if (catItem) return getCatalogContainer()
+
+  // 2. condition-N sichtbar?
+  const condItem = [...document.querySelectorAll('[data-testid^="condition-"]')]
+    .find(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+  if (condItem) {
+    // Container mit mehreren condition-Items finden
+    let p = condItem.parentElement
+    while (p && p !== document.body) {
+      if (p.querySelectorAll('[data-testid^="condition-"]').length > 1) return p
+      p = p.parentElement
+    }
+    return condItem.parentElement
+  }
+
+  // 3. Generisch: sichtbarer Dialog / Overlay
+  for (const sel of ['[role="dialog"]', '[role="listbox"]', '[class*="overlay"]', '[class*="Overlay"]', '[class*="modal"]', '[class*="Modal"]']) {
+    const el = document.querySelector(sel)
+    if (el) {
+      const r = el.getBoundingClientRect()
+      if (r.width > 0 && r.height > 0) return el
+    }
+  }
+
+  return null
+}
+
+// Klickt condition-N item das den Text enthält (für Zustand-Panel)
+async function clickConditionItem(text) {
+  const target = text.toLowerCase().trim()
+  const items = [...document.querySelectorAll('[data-testid^="condition-"]')]
+    .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+
+  // Exakter Match
+  for (const el of items) {
+    const t = (el.innerText || el.textContent || '').trim()
+    if (t.toLowerCase() === target) {
+      console.log('[ListSync] ✓ condition-item exakt:', el.dataset.testid, '"' + t + '"')
+      reactClick(el); await wait(800); return true
+    }
+  }
+  // Partial Match
+  for (const el of items) {
+    const t = (el.innerText || el.textContent || '').trim().toLowerCase()
+    if (t.includes(target) || target.includes(t.split('\n')[0])) {
+      console.log('[ListSync] ✓ condition-item partial:', el.dataset.testid, '"' + t + '"')
+      reactClick(el); await wait(800); return true
+    }
+  }
+  const debug = items.map(e => `${e.dataset.testid}: "${(e.innerText||'').trim().substring(0,30)}"`)
+  console.log('[ListSync] condition-Items (kein Treffer für "' + text + '"):', debug)
+  return false
 }
 
 // Prüft ob ein Element Teil der Vinted-Navigation ist (nicht das Formular)
@@ -559,7 +654,7 @@ async function clickVintedField(testid, value, name, opts = {}) {
 
   console.log('[ListSync] Klicke Feld:', testid, '→', value)
   fullClick(trigger)
-  await wait(1200)
+  await wait(1500)
 
   // 2. Marke: Autocomplete-Suche (Panel öffnet sich mit eigenem Search-Input)
   if (opts.autocomplete) {
@@ -571,7 +666,7 @@ async function clickVintedField(testid, value, name, opts = {}) {
       '[class*="Dropdown"] input:not([readonly])',
     ]
     let searchInput = null
-    for (let attempt = 0; attempt < 8; attempt++) {
+    for (let attempt = 0; attempt < 10; attempt++) {
       for (const s of searchSels) {
         const el = document.querySelector(s)
         if (el && el.offsetParent !== null && !el.readOnly) { searchInput = el; break }
@@ -582,14 +677,11 @@ async function clickVintedField(testid, value, name, opts = {}) {
     if (searchInput) {
       searchInput.focus()
       setNativeValue(searchInput, value)
-      await wait(1500)
+      await wait(1800)
       // Ersten catalog-N Treffer klicken
-      const opt = document.querySelector('[id^="catalog-"]')
-      if (opt && opt.offsetParent !== null) {
-        fullClick(opt)
-        await wait(600)
-        setStatus('✓ ' + name)
-        return true
+      const catOpt = document.querySelector('[id^="catalog-"]:not(#catalog-search-input)')
+      if (catOpt && catOpt.offsetParent !== null) {
+        fullClick(catOpt); await wait(600); setStatus('✓ ' + name); return true
       }
       // Fallback: ersten sichtbaren Listeneintrag klicken
       const listOpts = document.querySelectorAll('[role="option"], li[class*="item"], li[class*="Item"]')
@@ -597,21 +689,32 @@ async function clickVintedField(testid, value, name, opts = {}) {
         if (o.offsetParent !== null) { fullClick(o); await wait(500); setStatus('✓ ' + name); return true }
       }
     }
+    console.warn('[ListSync] Marke-Autocomplete: kein Search-Input gefunden für:', name)
     return false
   }
 
-  // 3. Catalog-N Dropdown (Größe, Zustand, Farbe, Material)
-  const ready = await waitForCatalogItems(6000)
-  if (!ready) { console.warn('[ListSync] Kein Catalog-Dropdown für:', name); return false }
-
+  // 3. Warte bis IRGENDEIN Panel sichtbar ist (catalog-N, condition-N, dialog…)
+  const ready = await waitForAnyPanelItems(6000)
+  if (!ready) {
+    console.warn('[ListSync] Kein Panel geöffnet für:', name)
+    return false
+  }
   await wait(400)
 
-  // Exakter Match
+  // 4a. Zustand: condition-N Items
+  const condItems = [...document.querySelectorAll('[data-testid^="condition-"]')]
+    .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+  if (condItems.length > 0) {
+    const found = await clickConditionItem(value)
+    if (found) { setStatus('✓ ' + name); return true }
+  }
+
+  // 4b. catalog-N Items (Größe, Farbe, Material)
   let found = await clickCatalogItem(value)
 
-  // Fallback: Text-Suche im Container
+  // 4c. Generischer Fallback: Text-Suche im offenen Panel
   if (!found) {
-    const container = getCatalogContainer()
+    const container = getAnyOpenPanel() || getCatalogContainer()
     found = await findAndClickText(value, container)
   }
 
@@ -716,13 +819,18 @@ async function fill() {
   // ── 3. Felder die nach Kategorie erscheinen ───────────────────────────────────
 
   // Zustand – data-testid: category-condition-single-list-input
+  // Vinted nutzt: "Neu, mit Etikett", "Neu, ohne Etikett", "Sehr gut", "Gut", "Befriedigend"
   if (listing.condition) {
     const condMap = {
-      'Neu mit Etikett': 'Neu mit Etikett',
-      'Neu ohne Etikett': 'Neu ohne Etikett',
-      'Sehr gut': 'Sehr gut',
-      'Gut': 'Gut',
-      'Befriedigend': 'Befriedigend',
+      'Neu mit Etikett':  'Neu, mit Etikett',
+      'Neu, mit Etikett': 'Neu, mit Etikett',
+      'Neu ohne Etikett': 'Neu, ohne Etikett',
+      'Neu, ohne Etikett':'Neu, ohne Etikett',
+      'Neu':              'Neu, mit Etikett',
+      'Sehr gut':         'Sehr gut',
+      'Gut':              'Gut',
+      'Befriedigend':     'Befriedigend',
+      'Stark getragen':   'Stark getragen',
     }
     const condValue = condMap[listing.condition] || listing.condition
     setStatus('Zustand wird gesetzt…')
