@@ -966,16 +966,38 @@ async function injectImages() {
   // files-Property überschreiben (React liest event.target.files)
   Object.defineProperty(fi, 'files', { get: () => dt.files, configurable: true })
 
-  // React-Fiber onChange aufrufen
+  const files = Array.from(dt.files)
+
+  // Strategie 1: onUploadFilesStart (Vinreds interner Upload-Handler – zuverlässigster Weg)
   const fk = Object.keys(fi).find(k =>
-    k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance') ||
-    k.startsWith('__reactEventHandlers') || k.startsWith('__reactProps')
+    k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
   )
   let triggered = false
   if (fk) {
     let node = fi[fk]
-    while (node) {
-      const handler = node?.memoizedProps?.onChange || node?.pendingProps?.onChange
+    let tries = 0
+    while (node && tries++ < 40) {
+      const props = node?.memoizedProps || node?.pendingProps
+      if (props && typeof props.onUploadFilesStart === 'function') {
+        try {
+          props.onUploadFilesStart(files)
+          triggered = true
+          console.log('[ListSync] ✓ Bilder via onUploadFilesStart –', files.length, 'Bilder')
+          break
+        } catch(e) { console.warn('[ListSync] onUploadFilesStart Fehler:', e.message); break }
+      }
+      node = node.return
+    }
+  }
+
+  // Strategie 2: onChange mit files auf dem Input (Fallback)
+  if (!triggered && fk) {
+    Object.defineProperty(fi, 'files', { get: () => dt.files, configurable: true })
+    let node = fi[fk]
+    let tries = 0
+    while (node && tries++ < 40) {
+      const props = node?.memoizedProps || node?.pendingProps
+      const handler = props?.onChange
       if (handler) {
         try {
           handler({
@@ -984,7 +1006,7 @@ async function injectImages() {
             persist: () => {}, nativeEvent: new Event('change', { bubbles: true })
           })
           triggered = true
-          console.log('[ListSync] ✓ Bilder via React onChange –', dt.files.length, 'Bilder')
+          console.log('[ListSync] ✓ Bilder via onChange –', files.length, 'Bilder')
           break
         } catch(e) { console.warn('[ListSync] onChange Fehler:', e.message); break }
       }
@@ -992,11 +1014,12 @@ async function injectImages() {
     }
   }
 
-  // Fallback: native change event
+  // Strategie 3: native Events (letzter Fallback)
   if (!triggered) {
+    Object.defineProperty(fi, 'files', { get: () => dt.files, configurable: true })
     fi.dispatchEvent(new Event('change', { bubbles: true }))
     fi.dispatchEvent(new Event('input',  { bubbles: true }))
-    console.log('[ListSync] Bilder via native Event –', dt.files.length, 'Bilder')
+    console.log('[ListSync] Bilder via native Event –', files.length, 'Bilder')
   }
 
   setStatus(`📸 ${dt.files.length} Bilder werden hochgeladen…`)
