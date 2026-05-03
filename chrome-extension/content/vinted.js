@@ -400,18 +400,22 @@ async function waitForCatalogItems(timeout = 6000) {
   })
 }
 
-// Wartet bis IRGENDEIN Panel geöffnet ist (catalog-N, condition-N, size, color, material…)
+// Wartet bis IRGENDEIN Panel geöffnet ist (catalog-N, condition-N, input-dropdown li…)
 async function waitForAnyPanelItems(timeout = 6000) {
   return new Promise(resolve => {
     const check = () => {
-      // catalog-N (Kategorie, Größe, Farbe, Material)
+      // catalog-N (Kategorie)
       const cats = [...document.querySelectorAll('[id^="catalog-"]:not(#catalog-search-input)')]
       if (cats.some(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })) return true
       // condition-N (Zustand)
       const conds = [...document.querySelectorAll('[data-testid^="condition-"]')]
       if (conds.some(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })) return true
-      // Generisch: sichtbare role="option" Items in Dialog/Listbox
-      const opts = [...document.querySelectorAll('[role="dialog"] [role="option"], [role="listbox"] [role="option"], [role="dialog"] li')]
+      // input-dropdown Panel (Größe, Farbe, Material) – li Items im input-dropdown__content
+      const dropLis = [...document.querySelectorAll('[class*="input-dropdown__content"] li, [class*="input-dropdown"] li')]
+        .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+      if (dropLis.length > 0) return true
+      // Generisch: role="option" in Dialog
+      const opts = [...document.querySelectorAll('[role="dialog"] [role="option"], [role="listbox"] [role="option"]')]
       if (opts.some(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })) return true
       return false
     }
@@ -422,18 +426,25 @@ async function waitForAnyPanelItems(timeout = 6000) {
   })
 }
 
-// Findet den geöffneten Panel-Container (catalog-N ODER condition-N ODER dialog)
+// Findet den geöffneten Panel-Container (catalog-N, condition-N, input-dropdown, dialog)
 function getAnyOpenPanel() {
-  // 1. catalog-N sichtbar?
+  // 1. input-dropdown Panel (Größe, Farbe, Material) — hat testid="*-dropdown-content"
+  const dropdown = [...document.querySelectorAll('[class*="input-dropdown"]')]
+    .find(e => {
+      const r = e.getBoundingClientRect()
+      return r.width > 0 && r.height > 0 && e.querySelector('li')
+    })
+  if (dropdown) return dropdown
+
+  // 2. catalog-N sichtbar? (Kategorie)
   const catItem = [...document.querySelectorAll('[id^="catalog-"]:not(#catalog-search-input)')]
     .find(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
   if (catItem) return getCatalogContainer()
 
-  // 2. condition-N sichtbar?
+  // 3. condition-N sichtbar? (Zustand)
   const condItem = [...document.querySelectorAll('[data-testid^="condition-"]')]
     .find(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
   if (condItem) {
-    // Container mit mehreren condition-Items finden
     let p = condItem.parentElement
     while (p && p !== document.body) {
       if (p.querySelectorAll('[data-testid^="condition-"]').length > 1) return p
@@ -442,8 +453,8 @@ function getAnyOpenPanel() {
     return condItem.parentElement
   }
 
-  // 3. Generisch: sichtbarer Dialog / Overlay
-  for (const sel of ['[role="dialog"]', '[role="listbox"]', '[class*="overlay"]', '[class*="Overlay"]', '[class*="modal"]', '[class*="Modal"]']) {
+  // 4. Generisch: sichtbarer Dialog / Overlay
+  for (const sel of ['[role="dialog"]', '[role="listbox"]', '[class*="overlay"]', '[class*="Overlay"]']) {
     const el = document.querySelector(sel)
     if (el) {
       const r = el.getBoundingClientRect()
