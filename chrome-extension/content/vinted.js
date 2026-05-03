@@ -285,7 +285,7 @@ async function clickCatalogItem(text) {
     const t = (el.innerText || el.textContent || '').trim()
     if (t.toLowerCase() === target) {
       console.log('[ListSync] ✓ catalog-item exakt:', el.id, '"' + t + '"')
-      reactClick(el)  // KEIN scrollIntoView! React-aware
+      fullClick(getClickTarget(el))
       await wait(1200)
       return true
     }
@@ -297,7 +297,7 @@ async function clickCatalogItem(text) {
     const t = (el.innerText || el.textContent || '').trim().toLowerCase()
     if (t.startsWith(target) || target.startsWith(t)) {
       console.log('[ListSync] ✓ catalog-item partial:', el.id, '"' + t + '"')
-      reactClick(el)  // KEIN scrollIntoView! React-aware
+      fullClick(getClickTarget(el))
       await wait(1200)
       return true
     }
@@ -330,6 +330,15 @@ function getCatalogContainer() {
   )
 }
 
+// Gibt das tatsächlich klickbare Element zurück – bei Vinted haben <li>-Items
+// oft einen inneren <div role="button"> als echten Klick-Target.
+function getClickTarget(el) {
+  if (['BUTTON', 'A'].includes(el.tagName) || el.getAttribute('role') === 'button') return el
+  const inner = el.querySelector('[role="button"], button, a[href]')
+  if (inner) return inner
+  return el
+}
+
 // Findet und klickt das Element mit dem passendsten Text –
 // NUR innerhalb des geöffneten Dropdowns, nie in der Navigation
 async function findAndClickText(text, container) {
@@ -337,6 +346,7 @@ async function findAndClickText(text, container) {
   const all = root.querySelectorAll(
     'li, ul > *, [role="option"], [role="menuitem"], [role="radio"], ' +
     'button, a, label, div[tabindex], span[tabindex], ' +
+    '[role="button"], ' +
     '[class*="item"], [class*="Item"], [class*="option"], [class*="Option"], ' +
     '[class*="cell"], [class*="Cell"], [class*="row"], [class*="Row"]'
   )
@@ -368,7 +378,7 @@ async function findAndClickText(text, container) {
       const r = el.getBoundingClientRect()
       if (r.width > 0 && r.height > 0 && !isInNav(el)) {
         const t = (el.innerText || el.textContent || '').trim().substring(0, 40)
-        if (t) visible.push(`${el.tagName}: "${t}"`)
+        if (t) visible.push(`${el.tagName}[role=${el.getAttribute('role')||''}]: "${t}"`)
       }
     }
     console.log('[ListSync] Kein Treffer für "' + text + '" in Container:', visible.slice(0, 20))
@@ -377,8 +387,10 @@ async function findAndClickText(text, container) {
 
   candidates.sort((a, b) => a.score - b.score)
   const { el } = candidates[0]
-  console.log('[ListSync] Klicke:', el.tagName, '"' + (el.innerText || '').trim().substring(0, 30) + '"')
-  reactClick(el)  // KEIN scrollIntoView – schließt Vinted-Dropdown! React-aware
+  // Klicke auf den echten Klick-Target (inner div[role=button] wenn vorhanden)
+  const target = getClickTarget(el)
+  console.log('[ListSync] Klicke:', target.tagName, '[role=' + (target.getAttribute('role')||'') + ']', '"' + (target.innerText || '').trim().substring(0, 30) + '"')
+  fullClick(target)  // fullClick: alle Pointer+Mouse Events + reactClick
   await wait(1200)
   return true
 }
@@ -476,7 +488,7 @@ async function clickConditionItem(text) {
     const t = (el.innerText || el.textContent || '').trim()
     if (t.toLowerCase() === target) {
       console.log('[ListSync] ✓ condition-item exakt:', el.dataset.testid, '"' + t + '"')
-      reactClick(el); await wait(800); return true
+      fullClick(getClickTarget(el)); await wait(800); return true
     }
   }
   // Partial Match
@@ -484,7 +496,7 @@ async function clickConditionItem(text) {
     const t = (el.innerText || el.textContent || '').trim().toLowerCase()
     if (t.includes(target) || target.includes(t.split('\n')[0])) {
       console.log('[ListSync] ✓ condition-item partial:', el.dataset.testid, '"' + t + '"')
-      reactClick(el); await wait(800); return true
+      fullClick(getClickTarget(el)); await wait(800); return true
     }
   }
   const debug = items.map(e => `${e.dataset.testid}: "${(e.innerText||'').trim().substring(0,30)}"`)
@@ -542,7 +554,7 @@ async function fillCategory(category) {
 
     if (!trigger) { console.warn('[ListSync] Kategorie-Trigger nicht gefunden'); return false }
 
-    reactClick(trigger)   // KEIN scrollIntoView – schließt Dropdown bei Scroll! React-aware
+    fullClick(trigger)   // KEIN scrollIntoView – schließt Dropdown bei Scroll!
 
     // Warten bis der Dropdown wirklich sichtbar ist
     setStatus('Warte auf Kategorie-Dropdown…')
