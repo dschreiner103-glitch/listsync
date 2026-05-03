@@ -71,32 +71,10 @@ async function handlePost(listing, platforms) {
 async function openVintedNewListing(imageData) {
   const { activeVintedAccount } = await chrome.storage.local.get('activeVintedAccount')
 
-  const tab = await new Promise(resolve =>
-    chrome.tabs.create({ url: 'https://www.vinted.de/items/new' }, resolve)
-  )
-  const tabId = tab.id
-
-  // Wait for page to fully load, then inject images
-  const onUpdated = (id, info) => {
-    if (id !== tabId || info.status !== 'complete') return
-    chrome.tabs.onUpdated.removeListener(onUpdated)
-
-    // 5s delay – Vinted React needs extra time after DOM complete
-    setTimeout(async () => {
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          world:  'MAIN',
-          func:   injectImages,
-          args:   [imageData]
-        })
-        console.log('[ListSync BG] ✓ Bild-Injection OK')
-      } catch(e) {
-        console.warn('[ListSync BG] Bild-Injection fehlgeschlagen:', e.message)
-      }
-    }, 5000)
-  }
-  chrome.tabs.onUpdated.addListener(onUpdated)
+  // vinted.js content script übernimmt Formular + Bild-Injection
+  // (liest pendingListing inkl. imageData direkt aus chrome.storage)
+  await chrome.tabs.create({ url: 'https://www.vinted.de/items/new' })
+  console.log('[ListSync BG] ✓ Vinted-Tab geöffnet')
 }
 
 // ── Vinted history import ─────────────────────────────────────────────────────

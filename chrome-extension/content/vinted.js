@@ -921,9 +921,86 @@ async function fill() {
   await wait(400)
 
   setStatus('✅ Felder fertig – Bilder werden geladen…')
-  await wait(4000)
+  await injectImages()
+  await wait(1500)
   setStatus('✅ Fertig! Bitte prüfen und absenden.', true)
   await chrome.storage.local.remove('pendingListing')
+}
+
+// ── Bilder injizieren ─────────────────────────────────────────────────────────
+// Läuft NACH fill() – dann ist das Formular garantiert bereit.
+// Liest imageData aus pendingListing (vorher von background.js geladen).
+async function injectImages() {
+  const { pendingListing } = await new Promise(r => chrome.storage.local.get('pendingListing', r))
+  const imageData = pendingListing?.imageData
+  if (!imageData?.length) { console.log('[ListSync] Keine Bilder zum Hochladen'); return }
+
+  console.log('[ListSync] Starte Bild-Injection:', imageData.length, 'Bilder')
+
+  // File-Input finden (mit Retry – React könnte noch mounten)
+  let fi = null
+  for (let attempt = 0; attempt < 15; attempt++) {
+    fi = document.querySelector('[data-testid="add-photos-input"]')
+      || document.querySelector('input[type="file"][accept*="image"]')
+      || document.querySelector('input[type="file"][name="photos"]')
+    if (fi) break
+    await wait(800)
+  }
+  if (!fi) { console.warn('[ListSync] File-Input nicht gefunden'); return }
+
+  // DataTransfer mit allen Bildern aufbauen
+  const dt = new DataTransfer()
+  for (let i = 0; i < imageData.length; i++) {
+    try {
+      const { base64, type } = imageData[i]
+      const [, d] = base64.split(',')
+      const bin = atob(d)
+      const arr = new Uint8Array(bin.length)
+      for (let j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j)
+      const ext = (type || 'image/jpeg').split('/')[1] || 'jpg'
+      dt.items.add(new File([arr], `photo_${i + 1}.${ext}`, { type: type || 'image/jpeg' }))
+    } catch(e) { console.warn('[ListSync] Bild-Konvertierung fehlgeschlagen:', i, e.message) }
+  }
+  if (!dt.files.length) { console.warn('[ListSync] Keine Dateien in DataTransfer'); return }
+
+  // files-Property überschreiben (React liest event.target.files)
+  Object.defineProperty(fi, 'files', { get: () => dt.files, configurable: true })
+
+  // React-Fiber onChange aufrufen
+  const fk = Object.keys(fi).find(k =>
+    k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance') ||
+    k.startsWith('__reactEventHandlers') || k.startsWith('__reactProps')
+  )
+  let triggered = false
+  if (fk) {
+    let node = fi[fk]
+    while (node) {
+      const handler = node?.memoizedProps?.onChange || node?.pendingProps?.onChange
+      if (handler) {
+        try {
+          handler({
+            target: fi, currentTarget: fi,
+            preventDefault: () => {}, stopPropagation: () => {},
+            persist: () => {}, nativeEvent: new Event('change', { bubbles: true })
+          })
+          triggered = true
+          console.log('[ListSync] ✓ Bilder via React onChange –', dt.files.length, 'Bilder')
+          break
+        } catch(e) { console.warn('[ListSync] onChange Fehler:', e.message); break }
+      }
+      node = node.return
+    }
+  }
+
+  // Fallback: native change event
+  if (!triggered) {
+    fi.dispatchEvent(new Event('change', { bubbles: true }))
+    fi.dispatchEvent(new Event('input',  { bubbles: true }))
+    console.log('[ListSync] Bilder via native Event –', dt.files.length, 'Bilder')
+  }
+
+  setStatus(`📸 ${dt.files.length} Bilder werden hochgeladen…`)
+  await wait(3000)  // Zeit für Vinted-Upload
 }
 
 if (document.readyState === 'loading') {
