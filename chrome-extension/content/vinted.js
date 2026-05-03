@@ -547,76 +547,98 @@ async function fillAny(labelTexts, value, name) {
   return false
 }
 
-// ── Vinted Panel-Zeile ausfüllen (klickbare Zeile → öffnet Panel mit catalog-N) ──
-// Für Felder wie Marke (Autocomplete), Größe, Zustand, Farbe, Material
+// ── Vinted Panel-Zeile ausfüllen ────────────────────────────────────────────
+// Findet die klickbare Zeile (z.B. "Zustand") und wählt den Wert im Panel.
+// Strategie: sucht Element das den Label-Text UND "Wähle" enthält → klickt es → Panel öffnet sich → klickt Wert.
+
+function fullClick(el) {
+  // Maximale Kompatibilität: Pointer + Mouse + Click Events
+  const opts = { bubbles: true, cancelable: true, view: window }
+  el.dispatchEvent(new PointerEvent('pointerover',  { ...opts, isPrimary: true }))
+  el.dispatchEvent(new PointerEvent('pointerenter', { ...opts, isPrimary: true }))
+  el.dispatchEvent(new PointerEvent('pointerdown',  { ...opts, isPrimary: true }))
+  el.dispatchEvent(new MouseEvent('mousedown', opts))
+  el.dispatchEvent(new PointerEvent('pointerup',    { ...opts, isPrimary: true }))
+  el.dispatchEvent(new MouseEvent('mouseup', opts))
+  el.dispatchEvent(new MouseEvent('click', opts))
+  // React fiber direkter Aufruf als Backup
+  reactClick(el)
+}
 
 async function fillVintedRow(labelTexts, value, name, opts = {}) {
   if (!value) return false
   const labels = Array.isArray(labelTexts) ? labelTexts : [labelTexts]
 
-  // Schritt 1: Zeilen-Trigger finden (nicht in Nav, sichtbar, enthält Label-Text)
+  // ── Schritt 1: Trigger-Zeile finden ───────────────────────────────────────
+  // Vinted-Formzeilen enthalten den Label-Text + "Wähle..." als Placeholder
   let trigger = null
-  const candidates = document.querySelectorAll(
-    '[role="button"], [role="combobox"], button, ' +
-    'div[class*="Select"], div[class*="select"], ' +
-    'div[class*="Input"], div[class*="input"], ' +
-    'div[class*="Field"], div[class*="field"], ' +
-    'div[class*="Row"], div[class*="row"], ' +
-    'li[class*="item"], li[class*="Item"]'
-  )
-  for (const el of candidates) {
+
+  // Strategie A: Suche nach Element das Label-Text UND "Wähle" enthält (typisches Vinted-Pattern)
+  const allEls = document.querySelectorAll('*')
+  for (const el of allEls) {
     if (isInNav(el)) continue
     const r = el.getBoundingClientRect()
-    if (r.width < 50 || r.height < 20 || r.height > 200) continue
-    const text = (el.innerText || el.textContent || '').split('\n')[0].trim()
+    if (r.width < 50 || r.height < 10 || r.height > 250) continue
+    if (el.children.length > 5) continue  // Kein Container mit vielen Kindern
+    const text = (el.innerText || '').trim()
+    if (!text || text.length > 200) continue
     for (const label of labels) {
-      if (text.toLowerCase().includes(label.toLowerCase())) {
+      if (text.toLowerCase().includes(label.toLowerCase()) && text.toLowerCase().includes('wähle')) {
         trigger = el; break
       }
     }
     if (trigger) break
   }
 
-  // Fallback: XPath
+  // Strategie B: Suche nach data-testid
   if (!trigger) {
     for (const label of labels) {
-      try {
-        const xr = document.evaluate(
-          `//*[contains(normalize-space(.),"${label}") and not(ancestor::nav) and not(ancestor::header)]`,
-          document, null, XPathResult.ORDERED_NODE_ITERATOR_TYPE, null
-        )
-        let node = xr.iterateNext()
-        while (node) {
-          const r = node.getBoundingClientRect?.()
-          if (r && r.width > 50 && r.height > 15 && r.height < 150) {
-            trigger = node; break
-          }
-          node = xr.iterateNext()
+      const slug = label.toLowerCase().replace(/[^a-z]/g, '')
+      const el = document.querySelector(
+        `[data-testid*="${slug}"], [data-testid*="${label}"], ` +
+        `[aria-label*="${label}"], [placeholder*="${label}"]`
+      )
+      if (el && !isInNav(el) && el.offsetParent !== null) { trigger = el; break }
+    }
+  }
+
+  // Strategie C: Suche nach klickbarem Element mit Label-Text (ohne "Wähle")
+  if (!trigger) {
+    const clickables = document.querySelectorAll('[role="button"], [role="combobox"], button')
+    for (const el of clickables) {
+      if (isInNav(el)) continue
+      const r = el.getBoundingClientRect()
+      if (r.width < 50 || r.height < 10) continue
+      const text = (el.innerText || el.textContent || '').trim()
+      for (const label of labels) {
+        if (text.toLowerCase().includes(label.toLowerCase()) && text.length < 120) {
+          trigger = el; break
         }
-      } catch {}
+      }
       if (trigger) break
     }
   }
 
   if (!trigger) {
-    console.warn('[ListSync] Row-Trigger nicht gefunden:', name)
-    // Letzter Fallback: fillAny
-    return fillAny(labels, value, name)
+    console.warn('[ListSync] fillVintedRow: Kein Trigger für', name)
+    return false
   }
 
-  // Schritt 2: Trigger klicken (React-aware)
-  reactClick(trigger)
-  await wait(1000)
+  console.log('[ListSync] fillVintedRow: Trigger gefunden für', name, '–', (trigger.innerText||'').trim().substring(0, 60))
 
-  // Schritt 3a: Autocomplete-Modus (für Marke — öffnet Input-Feld)
+  // ── Schritt 2: Trigger klicken → Panel öffnen ─────────────────────────────
+  trigger.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  await wait(300)
+  fullClick(trigger)
+  await wait(1200)
+
+  // ── Schritt 3: Autocomplete-Modus (für Marke) ─────────────────────────────
   if (opts.autocomplete) {
     const inputSels = [
-      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]',
-      'input[placeholder*="Suche"]', 'input[placeholder*="suche"]',
-      'input[placeholder*="Search"]',
-      '[data-testid*="brand"] input', '[data-testid*="search"] input',
-      'dialog input[type="text"]', '[role="dialog"] input[type="text"]',
-      '[class*="modal"] input[type="text"]',
+      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]', 'input[placeholder*="Brand"]',
+      'input[placeholder*="Suche"]', 'input[placeholder*="Search"]',
+      '[role="dialog"] input[type="text"]', '[data-testid*="search"] input',
+      '[class*="Modal"] input', '[class*="Sheet"] input', '[class*="Drawer"] input',
     ]
     let searchInput = null
     for (const s of inputSels) {
@@ -626,79 +648,72 @@ async function fillVintedRow(labelTexts, value, name, opts = {}) {
     if (searchInput) {
       searchInput.focus()
       setNativeValue(searchInput, value)
-      await wait(1000)
-      // Ersten Autocomplete-Eintrag klicken
+      await wait(1500)
+      // Ersten Treffer klicken
       const optSels = [
-        '[role="option"]:not([aria-disabled="true"])',
-        '[id^="catalog-"]',
-        '[class*="suggestion"] li:first-child',
-        '[class*="autocomplete"] li:first-child',
-        '[class*="Dropdown"] [role="option"]:first-child',
+        '[id^="catalog-"]', '[role="option"]:not([aria-disabled="true"])',
+        '[class*="suggestion"] li', '[class*="Autocomplete"] li',
+        '[class*="dropdown"] li', 'li[class*="item"]',
       ]
       for (const s of optSels) {
         const opt = document.querySelector(s)
         if (opt && opt.offsetParent !== null) {
-          opt.click()
-          await wait(400)
+          fullClick(opt)
+          await wait(600)
           setStatus('✓ ' + name)
           return true
         }
       }
-      // Falls nichts klappbar: Enter drücken
-      searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      // Enter als Fallback
+      searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
       await wait(400)
       setStatus('✓ ' + name)
       return true
     }
-    // Kein Search-Input → weiter mit catalog-Item-Suche
   }
 
-  // Schritt 3b: Panel-Modus — catalog-N Items klicken
-  const ready = await waitForCatalogItems(5000)
-  if (ready) {
+  // ── Schritt 4: Panel mit Optionen – catalog-N oder Text-Suche ─────────────
+  const catalogReady = await waitForCatalogItems(5000)
+  if (catalogReady) {
     await wait(400)
-    // Exact match in catalog items
     let found = await clickCatalogItem(value)
     if (!found) {
       const container = getCatalogContainer()
       found = await findAndClickText(value, container)
     }
     if (found) {
-      await wait(800) // Warten bis Panel nach Auswahl wirklich geschlossen
+      await wait(800)
       setStatus('✓ ' + name)
       return true
     }
+  }
 
-    // Falls Suche/Filter im Panel vorhanden: tippen und dann klicken
-    const panelInput = document.querySelector(
-      '[role="dialog"] input, [class*="modal"] input, [class*="Panel"] input, [class*="Sheet"] input'
-    )
-    if (panelInput && panelInput.offsetParent !== null) {
-      panelInput.focus()
-      setNativeValue(panelInput, value)
-      await wait(800)
-      found = await clickCatalogItem(value)
-      if (!found) {
-        const container = getCatalogContainer()
-        found = await findAndClickText(value, container)
-      }
-      if (found) {
+  // ── Schritt 5: Allgemeine Textsuche in geöffnetem Panel ───────────────────
+  const panelSelectors = [
+    '[role="dialog"]', '[role="bottomsheet"]', '[role="listbox"]',
+    '[class*="Modal"]', '[class*="Sheet"]', '[class*="Drawer"]', '[class*="Panel"]',
+    '[class*="Overlay"]', '[class*="overlay"]',
+  ]
+  for (const panelSel of panelSelectors) {
+    const panel = document.querySelector(panelSel)
+    if (!panel || panel.offsetParent === null) continue
+    // Suche nach Buttons/Items mit passendem Text im Panel
+    const items = panel.querySelectorAll('button, [role="option"], [role="radio"], li, [class*="item"], [class*="Item"]')
+    for (const item of items) {
+      if (item.offsetParent === null) continue
+      const text = (item.innerText || item.textContent || '').trim()
+      if (text.toLowerCase() === value.toLowerCase() || text.toLowerCase().includes(value.toLowerCase())) {
+        console.log('[ListSync] Panel-Option gefunden:', text)
+        fullClick(item)
         await wait(800)
         setStatus('✓ ' + name)
         return true
       }
     }
-
-    // Panel schließen bei Misserfolg
-    const closeBtn = document.querySelector(
-      '[role="dialog"] button[aria-label*="lose"], [role="dialog"] button[aria-label*="back"], ' +
-      '[class*="modal"] button:first-child, [class*="Close"]'
-    )
-    if (closeBtn) { closeBtn.click(); await wait(300) }
   }
 
-  // Letzter Fallback: fillAny
-  return fillAny(labels, value, name)
+  console.warn('[ListSync] fillVintedRow: Kein Wert gefunden für', name, '=', value)
+  return false
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -791,7 +806,7 @@ async function fill() {
 
   // ── 3. Felder die nach Kategorie erscheinen ───────────────────────────────────
 
-  // Zustand – Klick-Karten (alte UI) oder Panel-Dropdown (neue UI)
+  // Zustand – direkt via Panel (fillAny würde Beschreibung überschreiben!)
   if (listing.condition) {
     const condMap = {
       'Neu mit Etikett': 'Neu mit Etikett',
@@ -802,43 +817,36 @@ async function fill() {
     }
     const condValue = condMap[listing.condition] || listing.condition
     setStatus('Zustand wird gesetzt…')
-    let condDone = await fillAny(['Zustand', 'Condition'], condValue, 'Zustand')
-    if (!condDone) await fillVintedRow(['Zustand', 'Condition', 'Zustand des Artikels'], condValue, 'Zustand')
-    await wait(500)
-  }
-
-  // Größe – Panel-Dropdown
-  if (listing.size) {
-    setStatus('Größe wird gesetzt…')
-    let sizeDone = await fillAny(['Größe', 'Size'], listing.size, 'Größe')
-    if (!sizeDone) await fillVintedRow(['Größe', 'Size', 'Kleidergröße'], listing.size, 'Größe')
-    await wait(500)
-  }
-
-  // Marke – Autocomplete-Panel
-  if (listing.brand) {
-    setStatus('Marke wird gesetzt…')
-    let brandDone = await fillAutocomplete([
-      'input[data-testid*="brand"]', 'input#brand', 'input[name="brand"]',
-      'input[placeholder*="Marke"]', 'input[placeholder*="brand"]',
-    ], listing.brand, 'marke', 'Marke')
-    if (!brandDone) await fillVintedRow(['Marke', 'Brand'], listing.brand, 'Marke', { autocomplete: true })
+    await fillVintedRow(['Zustand', 'Condition', 'Zustand des Artikels'], condValue, 'Zustand')
     await wait(600)
   }
 
-  // Farbe – Panel mit Farb-Chips
-  if (listing.color) {
-    setStatus('Farbe wird gesetzt…')
-    let colorDone = await fillAny(['Farbe', 'Color', 'Hauptfarbe'], listing.color, 'Farbe')
-    if (!colorDone) await fillVintedRow(['Farbe', 'Color', 'Hauptfarbe'], listing.color, 'Farbe')
-    await wait(500)
+  // Größe – direkt via Panel
+  if (listing.size) {
+    setStatus('Größe wird gesetzt…')
+    await fillVintedRow(['Größe', 'Size', 'Kleidergröße'], listing.size, 'Größe')
+    await wait(600)
   }
 
-  // Material – Panel-Dropdown (optional)
+  // Marke – Autocomplete-Panel (tippt Name, wählt ersten Treffer)
+  if (listing.brand) {
+    setStatus('Marke wird gesetzt…')
+    await fillVintedRow(['Marke', 'Brand'], listing.brand, 'Marke', { autocomplete: true })
+    await wait(700)
+  }
+
+  // Farbe – direkt via Panel
+  if (listing.color) {
+    setStatus('Farbe wird gesetzt…')
+    await fillVintedRow(['Farbe', 'Color', 'Hauptfarbe'], listing.color, 'Farbe')
+    await wait(600)
+  }
+
+  // Material – direkt via Panel (optional)
   if (listing.material) {
     setStatus('Material wird gesetzt…')
     await fillVintedRow(['Material'], listing.material, 'Material')
-    await wait(500)
+    await wait(600)
   }
 
   // Versand – Standard Vinted-Versand auswählen
