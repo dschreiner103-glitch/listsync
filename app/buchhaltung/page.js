@@ -191,7 +191,7 @@ export default function Buchhaltung() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="ls-page">
       {/* Confirm clear modal */}
       {confirmClear && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">

@@ -156,29 +156,56 @@ function base64ToFiles(imageData) {
 
 async function uploadImages(imageData) {
   if (!imageData?.length) return
+
+  // Strategy 1: MAIN world injection via background (handles React Fiber)
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'INJECT_MAIN_IMAGES', imageData })
+    if (res?.ok) {
+      console.log('[ListSync KA] ✓ Bilder via MAIN-World:', imageData.length)
+      return
+    }
+  } catch {}
+
+  // Strategy 2: Direct DataTransfer (works on traditional forms)
   const files = base64ToFiles(imageData)
   if (!files.length) return
   const dt = new DataTransfer()
   files.forEach(f => dt.items.add(f))
-  try {
-    const fileSelectors = [
-      'input[type="file"][accept*="image"]',
-      'input[type="file"][multiple]',
-      'input[type="file"]',
-      '#ui-id-10',
-    ]
-    let fi = null
-    for (const sel of fileSelectors) {
-      fi = document.querySelector(sel)
-      if (fi) break
+
+  const fileSelectors = [
+    'input[type="file"][accept*="image"]',
+    'input[type="file"][multiple]',
+    '#ui-id-10',
+    'input[type="file"]',
+  ]
+
+  let fi = null
+  for (const sel of fileSelectors) {
+    fi = document.querySelector(sel)
+    if (fi) break
+  }
+  if (!fi) {
+    try { fi = await waitFor('input[type="file"]', 6000) } catch {}
+  }
+  if (!fi) {
+    // Strategy 3: drop zone
+    const dropZone = document.querySelector(
+      '[class*="photo"], [class*="upload"], [class*="dropzone"], [data-testid*="photo"], [data-testid*="upload"]'
+    )
+    if (dropZone) {
+      dropZone.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }))
+      dropZone.dispatchEvent(new DragEvent('dragover',  { bubbles: true, cancelable: true, dataTransfer: dt }))
+      dropZone.dispatchEvent(new DragEvent('drop',      { bubbles: true, cancelable: true, dataTransfer: dt }))
+      console.log('[ListSync KA] ✓ Bilder via Drop-Zone')
+      return
     }
-    if (!fi) {
-      fi = await waitFor('input[type="file"]', 8000)
-    }
-    Object.defineProperty(fi, 'files', { value: dt.files, configurable: true, writable: true })
-    fi.dispatchEvent(new Event('change', { bubbles: true }))
-    console.log('[ListSync KA] ✓ Bilder übertragen:', files.length)
-  } catch(e) { console.warn('[ListSync KA] Bild-Upload fehlgeschlagen:', e.message) }
+    console.warn('[ListSync KA] Kein Upload-Element gefunden')
+    return
+  }
+  Object.defineProperty(fi, 'files', { value: dt.files, configurable: true, writable: true })
+  fi.dispatchEvent(new Event('change', { bubbles: true }))
+  fi.dispatchEvent(new Event('input',  { bubbles: true }))
+  console.log('[ListSync KA] ✓ Bilder via DataTransfer:', files.length)
 }
 
 // ── Kategorie auswählen ───────────────────────────────────────────────────────
@@ -324,10 +351,18 @@ async function fill() {
 
   // Titel (max 70 Zeichen bei Kleinanzeigen)
   try {
-    const el = await waitForAny(['#postad-title', 'input[name="title"]', 'input[placeholder*="Titel"]'])
+    const el = await waitForAny([
+      '#postad-title',
+      'input[name="title"]',
+      'input[data-testid*="title"]',
+      'input[data-testid="postAd-title"]',
+      'input[aria-label*="Titel"]',
+      'input[placeholder*="Titel"]',
+      'input[placeholder*="Artikelbezeichnung"]',
+    ])
     await wait(300)
-    const title = listing.title.substring(0, 70)
-    fillInput(el, title)
+    const title = listing.title.substring(0, 70) + (listing.price ? ' (VHB)' : '')
+    fillInput(el, title.substring(0, 70))
     console.log('[ListSync KA] ✓ Titel:', title)
   } catch(e) { console.warn('[ListSync KA] Titel-Fehler:', e.message) }
 
@@ -335,14 +370,20 @@ async function fill() {
 
   // Beschreibung
   try {
-    const el = await waitForAny(['#postad-description', 'textarea[name="description"]', 'textarea[placeholder*="Beschreibung"]'])
+    const el = await waitForAny([
+      '#postad-description',
+      'textarea[name="description"]',
+      'textarea[data-testid*="description"]',
+      'textarea[aria-label*="Beschreibung"]',
+      'textarea[placeholder*="Beschreibung"]',
+    ])
     await wait(200)
-    // Beschreibung + Condition + Brand info
     let desc = listing.description || ''
     const extras = []
-    if (listing.brand) extras.push(`Marke: ${listing.brand}`)
+    if (listing.brand)     extras.push(`Marke: ${listing.brand}`)
     if (listing.condition) extras.push(`Zustand: ${listing.condition}`)
-    if (listing.size) extras.push(`Größe: ${listing.size}`)
+    if (listing.size)      extras.push(`Größe: ${listing.size}`)
+    if (listing.color)     extras.push(`Farbe: ${listing.color}`)
     if (extras.length) desc = desc + (desc ? '\n\n' : '') + extras.join('\n')
     fillInput(el, desc)
     console.log('[ListSync KA] ✓ Beschreibung')
@@ -352,7 +393,14 @@ async function fill() {
 
   // Preis
   try {
-    const el = await waitForAny(['#postad-price', 'input[name="price"]', 'input[placeholder*="Preis"]', 'input[type="number"]'])
+    const el = await waitForAny([
+      '#postad-price',
+      'input[name="price"]',
+      'input[data-testid*="price"]',
+      'input[aria-label*="Preis"]',
+      'input[placeholder*="Preis"]',
+      'input[type="number"]',
+    ])
     await wait(200)
     fillInput(el, String(Math.round(listing.price)))
     console.log('[ListSync KA] ✓ Preis:', listing.price)

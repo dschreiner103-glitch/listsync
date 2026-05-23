@@ -84,7 +84,7 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="ls-page">
       <Sidebar/>
       <main className="md:ml-60 pb-20 md:pb-8">
         <div className="max-w-lg mx-auto px-4 py-6 space-y-5">

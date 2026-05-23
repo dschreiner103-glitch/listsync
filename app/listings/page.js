@@ -4,6 +4,19 @@ import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import { PlatformBadge, StatusBadge, PLATFORMS, fmt, profit, CARD_COLORS } from '@/components/Badge'
 
+// ── Icon helper ───────────────────────────────────────────────────────────────
+function Ic({ children, size = 16, sw = 2 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+}
+
+const ICONS = {
+  search:   <Ic size={15} sw={2}><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></Ic>,
+  relist:   <Ic size={14}><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10M23 14l-4.64 4.36A9 9 0 013.51 15"/></Ic>,
+  crosspost:<Ic size={14}><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></Ic>,
+  check:    <Ic size={14}><polyline points="20 6 9 17 4 12"/></Ic>,
+  close:    <Ic size={15} sw={2.5}><path d="M18 6L6 18M6 6l12 12"/></Ic>,
+}
+
 export default function Listings() {
   const [listings, setListings]         = useState([])
   const [filter, setFilter]             = useState('alle')
@@ -12,19 +25,18 @@ export default function Listings() {
   const [toast, setToast]               = useState(null)
   const [selPlatforms, setSelPlatforms] = useState([])
   const [relistDays, setRelistDays]     = useState(5)
-  useEffect(() => {
-    fetch('/api/listings').then(r=>r.json()).then(setListings)
-    fetch('/api/settings').then(r=>r.json()).then(s => { if(s.relistDays) setRelistDays(s.relistDays) })
-    // Auch auf Event hören (falls Extension noch lädt)
 
+  useEffect(() => {
+    fetch('/api/listings').then(r => r.json()).then(setListings)
+    fetch('/api/settings').then(r => r.json()).then(s => { if (s.relistDays) setRelistDays(s.relistDays) })
   }, [])
 
-  const showToast = (msg, type='success') => { setToast({msg,type}); setTimeout(()=>setToast(null),3000) }
+  const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   const needsRelist = (l) => {
     if (l.status !== 'aktiv') return false
-    const created = new Date(l.relistedAt || l.createdAt)
-    const diffDays = Math.floor((Date.now() - created.getTime()) / (1000*60*60*24))
+    const created  = new Date(l.relistedAt || l.createdAt)
+    const diffDays = Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24))
     return diffDays >= relistDays
   }
 
@@ -36,149 +48,291 @@ export default function Listings() {
 
   const doRelist = async (id) => {
     const listing = listings.find(l => l.id === id)
-    // 1. Timer zurücksetzen & Status auf aktiv
-    const res = await fetch(`/api/listings/${id}/relist`, { method: 'POST' })
+    const res     = await fetch(`/api/listings/${id}/relist`, { method: 'POST' })
     const updated = await res.json()
-    setListings(ls => ls.map(l => l.id===id ? { ...l, days: 0, relistedAt: updated.relistedAt, status: 'aktiv' } : l))
-    // 2. Wirklich auf Plattformen neu posten
-    const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen')
+    setListings(ls => ls.map(l => l.id === id ? { ...l, days: 0, relistedAt: updated.relistedAt, status: 'aktiv' } : l))
+    const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
     if (extPlatforms.length > 0 && listing) {
       window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
-      showToast(`🔄 Relisten auf ${extPlatforms.join(' & ')}…`)
+      showToast(`Relisten auf ${extPlatforms.join(' & ')}…`)
     } else {
-      showToast('🔄 Erneut gelistet! Timer zurückgesetzt ✅')
+      showToast('Erneut gelistet – Timer zurückgesetzt')
     }
     setModal(null)
   }
 
   const markSold = async (id) => {
-    await fetch(`/api/listings/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({status:'verkauft'}) })
-    setListings(ls => ls.map(l => l.id===id ? {...l, status:'verkauft'} : l))
-    showToast('Verkauft! Listings deaktiviert ✅')
+    await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'verkauft' }) })
+    setListings(ls => ls.map(l => l.id === id ? { ...l, status: 'verkauft' } : l))
+    showToast('Als verkauft markiert')
     setModal(null)
   }
 
   const doPost = async (id) => {
     const listing = listings.find(l => l.id === id)
-    await fetch(`/api/listings/${id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({platforms: selPlatforms}) })
-    setListings(ls => ls.map(l => l.id===id ? {...l, platforms: selPlatforms} : l))
-
-    // Prüfe ob Extension-Plattformen dabei sind
-    const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen')
+    await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platforms: selPlatforms }) })
+    setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms } : l))
+    const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
     if (extPlatforms.length > 0 && listing) {
       window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
-      showToast(`Öffne ${extPlatforms.join(' & ')}… 🚀`)
+      showToast(`Öffne ${extPlatforms.join(' & ')}…`)
     } else {
-      showToast(`Auf ${selPlatforms.length} Plattform${selPlatforms.length>1?'en':''} gepostet! 🚀`)
+      showToast(`Auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''} gepostet`)
     }
     setModal(null)
   }
 
   const relistAlerts = listings.filter(needsRelist)
-
   const tabs = [
-    {id:'alle',    label:'Alle',    count:listings.length},
-    {id:'aktiv',   label:'Aktiv',   count:listings.filter(l=>l.status==='aktiv').length},
-    {id:'verkauft',label:'Verkauft',count:listings.filter(l=>l.status==='verkauft').length},
-    {id:'inaktiv', label:'Inaktiv', count:listings.filter(l=>l.status==='inaktiv').length},
+    { id: 'alle',     label: 'Alle',     count: listings.length },
+    { id: 'aktiv',    label: 'Aktiv',    count: listings.filter(l => l.status === 'aktiv').length },
+    { id: 'verkauft', label: 'Verkauft', count: listings.filter(l => l.status === 'verkauft').length },
+    { id: 'inaktiv',  label: 'Inaktiv',  count: listings.filter(l => l.status === 'inaktiv').length },
   ]
-  const visible = listings.filter(l => (filter==='alle'||l.status===filter) && (!search||l.title.toLowerCase().includes(search.toLowerCase())))
-  const modalListing = modal ? listings.find(l=>l.id===modal.id) : null
+  const visible = listings.filter(l =>
+    (filter === 'alle' || l.status === filter) &&
+    (!search || l.title.toLowerCase().includes(search.toLowerCase()))
+  )
+  const modalListing = modal ? listings.find(l => l.id === modal.id) : null
+
+  // ── Inline card styles ────────────────────────────────────────────────────
+
+  const cardStyle = (aged) => ({
+    background: 'var(--surface)',
+    border: `1px solid ${aged ? '#fcd34d' : 'var(--border)'}`,
+    borderRadius: 18,
+    padding: '16px',
+    boxShadow: aged
+      ? '0 1px 3px rgba(245,158,11,.08), 0 6px 20px rgba(245,158,11,.06)'
+      : '0 1px 3px rgba(15,23,42,.04), 0 6px 20px rgba(15,23,42,.05)',
+    transition: 'border-color .15s, box-shadow .15s',
+  })
+
+  const actionBtn = (bg, color, border = 'transparent') => ({
+    flex: 1, padding: '9px 8px', borderRadius: 11, fontSize: 12.5, fontWeight: 700,
+    border: `1px solid ${border}`, background: bg, color, cursor: 'pointer',
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+    transition: 'opacity .12s',
+  })
+
+  // ── Modal helpers ─────────────────────────────────────────────────────────
+
+  const ModalWrap = ({ children }) => (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+      padding: '16px', background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)',
+    }}
+      className="md:items-center"
+      onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
+      <div style={{
+        background: 'var(--surface)', borderRadius: 24, width: '100%', maxWidth: 480,
+        padding: '24px', boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
+      }}>
+        {children}
+      </div>
+    </div>
+  )
+
+  const ModalHeader = ({ title }) => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <h2 style={{ fontWeight: 800, fontSize: 17, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em' }}>{title}</h2>
+      <button onClick={() => setModal(null)}
+        style={{
+          width: 30, height: 30, borderRadius: 9, background: '#f0f2f7',
+          border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: 'var(--text-2)',
+        }}>{ICONS.close}</button>
+    </div>
+  )
+
+  const ListingPreview = ({ l }) => (
+    <div style={{ background: 'var(--surface)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+      {Array.isArray(l.images) && l.images[0]
+        ? <img src={l.images[0]} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
+        : <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: CARD_COLORS[l.id % 5], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18, color: '#475569' }}>{l.title.charAt(0)}</div>
+      }
+      <div>
+        <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)', margin: '0 0 3px' }}>{l.title}</p>
+        <p style={{ fontSize: 12.5, color: 'var(--text-2)', margin: 0 }}>{l.condition} · {fmt(l.price)}</p>
+      </div>
+    </div>
+  )
+
+  const PlatformPicker = ({ l }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+      {Object.entries(PLATFORMS).map(([id, p]) => {
+        const sel = selPlatforms.includes(id)
+        return (
+          <div key={id}
+            onClick={() => setSelPlatforms(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])}
+            style={{
+              border: `2px solid ${sel ? '#818cf8' : '#e8ecf2'}`,
+              borderRadius: 14, padding: '12px 14px', cursor: 'pointer',
+              background: sel ? 'rgba(99,102,241,0.04)' : '#fff',
+              display: 'flex', alignItems: 'center', gap: 12, transition: 'all .15s',
+            }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+              border: `2px solid ${sel ? '#6366f1' : '#d1d5db'}`,
+              background: sel ? '#6366f1' : 'transparent',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+            </div>
+            <PlatformBadge plt={id} />
+            {l?.platforms?.includes(id) && (
+              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', background: '#f0f2f7', padding: '2px 8px', borderRadius: 8 }}>vorher aktiv</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar activeCount={listings.filter(l=>l.status==='aktiv').length}/>
-      <main className="md:ml-60 pb-20 md:pb-8">
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-extrabold text-gray-900">Meine Listings</h1>
-            <span className="text-sm text-gray-400">{visible.length} Artikel</span>
+    <div className="ls-page">
+      <Sidebar activeCount={listings.filter(l => l.status === 'aktiv').length} />
+      <main className="md:ml-60 pb-20 md:pb-10">
+        <div style={{ maxWidth: 820, margin: '0 auto', padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* ── Header ── */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Meine Listings</h1>
+              <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>{visible.length} Artikel</p>
+            </div>
           </div>
 
-          {/* Relist Alerts */}
+          {/* ── Relist Alerts ── */}
           {relistAlerts.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2">
-              <p className="text-sm font-bold text-amber-800">🔄 {relistAlerts.length} Artikel sollten erneut gelistet werden</p>
-              {relistAlerts.map(l => (
-                <div key={l.id} className="flex items-center justify-between bg-white rounded-xl px-3 py-2">
-                  <span className="text-sm text-gray-700 font-medium truncate flex-1 mr-2">{l.title}</span>
-                  <button onClick={()=>openRelistModal(l.id)}
-                    className="text-xs px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-bold flex-shrink-0 transition-colors">
-                    Relisten
-                  </button>
-                </div>
-              ))}
+            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 18, padding: '14px 18px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#92400e', margin: '0 0 10px' }}>
+                {relistAlerts.length} Artikel sollten erneut gelistet werden
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {relistAlerts.map(l => (
+                  <div key={l.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderRadius: 11, padding: '9px 12px', border: '1px solid #fde68a' }}>
+                    <span style={{ fontSize: 13.5, color: 'var(--text-1)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 12 }}>{l.title}</span>
+                    <button onClick={() => openRelistModal(l.id)}
+                      style={{ fontSize: 12, fontWeight: 700, padding: '6px 14px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 8px rgba(245,158,11,0.3)' }}>
+                      Relisten
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
-            <input type="text" placeholder="Durchsuchen…" value={search} onChange={e=>setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:border-indigo-400"/>
+          {/* ── Search ── */}
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', display: 'flex' }}>{ICONS.search}</span>
+            <input type="text" placeholder="Listings durchsuchen…" value={search} onChange={e => setSearch(e.target.value)}
+              style={{
+                width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 11, paddingBottom: 11,
+                background: '#fff', border: '1px solid var(--border)', borderRadius: 14, fontSize: 13.5,
+                color: 'var(--text-1)', boxShadow: '0 1px 4px rgba(15,23,42,.04)',
+              }} />
           </div>
 
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl">
-            {tabs.map(t=>(
-              <button key={t.id} onClick={()=>setFilter(t.id)}
-                className={`flex-1 py-1.5 px-1 rounded-lg text-xs md:text-sm font-semibold transition-colors ${filter===t.id?'bg-white text-gray-900 shadow-sm':'text-gray-500 hover:text-gray-700'}`}>
-                {t.label} <span className={filter===t.id?'text-indigo-500':'text-gray-400'}>({t.count})</span>
+          {/* ── Tabs ── */}
+          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 14, background: '#e8ecf2' }}>
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setFilter(t.id)}
+                style={{
+                  flex: 1, padding: '8px 6px', borderRadius: 11, border: 'none', cursor: 'pointer',
+                  fontSize: 12.5, fontWeight: 700, transition: 'all .15s',
+                  background: filter === t.id ? '#fff' : 'transparent',
+                  color: filter === t.id ? '#0f172a' : '#6b7280',
+                  boxShadow: filter === t.id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                }}>
+                {t.label} <span style={{ color: filter === t.id ? '#6366f1' : '#9ca3af' }}>({t.count})</span>
               </button>
             ))}
           </div>
 
-          {visible.length===0 ? (
-            <div className="text-center py-16 text-gray-400"><p className="text-4xl mb-3">📦</p><p className="font-semibold">Keine Listings gefunden</p></div>
+          {/* ── Listing cards ── */}
+          {visible.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#f0f2f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c4c9d4" strokeWidth="1.75" strokeLinecap="round"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/></svg>
+              </div>
+              <p style={{ fontWeight: 700, color: 'var(--text-2)', fontSize: 14, margin: 0 }}>Keine Listings gefunden</p>
+            </div>
           ) : (
-            <div className="space-y-3">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {visible.map(l => {
                 const imgs = Array.isArray(l.images) ? l.images : []
                 const aged = needsRelist(l)
                 return (
-                  <div key={l.id} className={`bg-white rounded-2xl p-4 shadow-sm border transition-colors ${aged?'border-amber-200 hover:border-amber-300':'border-gray-100 hover:border-indigo-200'}`}>
-                    <div className="flex items-start gap-3">
+                  <div key={l.id} style={cardStyle(aged)}>
+                    {/* Main row */}
+                    <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                       {imgs.length > 0
-                        ? <img src={imgs[0]} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0 bg-gray-100"/>
-                        : <div className="w-14 h-14 rounded-xl flex-shrink-0 flex items-center justify-center text-xl font-extrabold text-gray-500"
-                            style={{background:CARD_COLORS[l.id%5]}}>{l.title.charAt(0)}</div>}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="font-bold text-gray-900 text-sm leading-snug">{l.title}</p>
-                          <p className="font-extrabold text-gray-900 text-sm flex-shrink-0">{fmt(l.price)}</p>
+                        ? <img src={imgs[0]} alt="" style={{ width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, background: '#f0f2f7' }}/>
+                        : <div style={{
+                            width: 58, height: 58, borderRadius: 13, flexShrink: 0,
+                            background: CARD_COLORS[l.id % 5],
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 800, fontSize: 22, color: '#475569',
+                          }}>{l.title.charAt(0)}</div>
+                      }
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                          <p style={{ fontWeight: 700, color: 'var(--text-1)', fontSize: 14, margin: 0, lineHeight: 1.3 }}>{l.title}</p>
+                          <p style={{ fontWeight: 800, color: 'var(--text-1)', fontSize: 15, flexShrink: 0, margin: 0 }}>{fmt(l.price)}</p>
                         </div>
-                        <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{l.description}</p>
-                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                          <StatusBadge status={l.status}/>
-                          {aged && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">⏰ Relist</span>}
-                          {l.platforms.map(p=><PlatformBadge key={p} plt={p}/>)}
-                          <span className="text-xs text-gray-400 ml-auto">{l.views} Views</span>
+                        <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '4px 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.description}</p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
+                          <StatusBadge status={l.status} />
+                          {aged && (
+                            <span style={{ fontSize: 11.5, background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 8, fontWeight: 700 }}>
+                              Relist
+                            </span>
+                          )}
+                          {l.platforms.map(p => <PlatformBadge key={p} plt={p} />)}
+                          <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 'auto' }}>{l.views} Views</span>
                         </div>
                       </div>
                     </div>
-                    {l.status==='aktiv' && (
-                      <div className="flex gap-2 mt-3 pt-3 border-t border-gray-50">
-                        <button onClick={()=>openRelistModal(l.id)}
-                          className={`flex-1 py-2 rounded-xl text-sm font-semibold ${aged?'bg-amber-50 hover:bg-amber-100 text-amber-700':'bg-gray-50 hover:bg-gray-100 text-gray-600'}`}>🔄 Relisten</button>
-                        <button onClick={()=>{setSelPlatforms([...l.platforms]);setModal({type:'crosspost',id:l.id})}}
-                          className="flex-1 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold">🔗 Crossposten</button>
-                        <button onClick={()=>setModal({type:'sold',id:l.id})}
-                          className="flex-1 py-2 rounded-xl bg-green-50 hover:bg-green-100 text-green-700 text-sm font-semibold">✅ Verkauft</button>
+
+                    {/* Action buttons */}
+                    {l.status === 'aktiv' && (
+                      <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)' }}>
+                        <button onClick={() => openRelistModal(l.id)}
+                          style={actionBtn(aged ? '#fffbeb' : '#f8f9fc', aged ? '#d97706' : '#4b5563', aged ? '#fde68a' : '#e8ecf2')}>
+                          {ICONS.relist} Relisten
+                        </button>
+                        <button onClick={() => { setSelPlatforms([...l.platforms]); setModal({ type: 'crosspost', id: l.id }) }}
+                          style={actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)')}>
+                          {ICONS.crosspost} Crossposten
+                        </button>
+                        <button onClick={() => setModal({ type: 'sold', id: l.id })}
+                          style={actionBtn('rgba(16,185,129,0.07)', '#059669', 'rgba(16,185,129,0.15)')}>
+                          {ICONS.check} Verkauft
+                        </button>
                       </div>
                     )}
-                    {l.status==='inaktiv' && (
-                      <div className="mt-3 pt-3 border-t border-gray-50">
-                        <button onClick={()=>openRelistModal(l.id)}
-                          className="w-full py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold">🔄 Relisten</button>
+
+                    {l.status === 'inaktiv' && (
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)' }}>
+                        <button onClick={() => openRelistModal(l.id)}
+                          style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 'unset', width: '100%' }}>
+                          {ICONS.relist} Relisten
+                        </button>
                       </div>
                     )}
-                    {l.status==='verkauft' && (
-                      <div className="mt-3 pt-3 border-t border-gray-50 space-y-2">
-                        <div className="flex gap-3">
-                          <p className="text-xs text-gray-400">Einkauf: {fmt(l.buyPrice)}</p>
-                          <span className="text-gray-200">·</span>
-                          <p className="text-xs text-emerald-600 font-bold">Gewinn: +{fmt(profit(l))}</p>
+
+                    {l.status === 'verkauft' && (
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)' }}>
+                        <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+                          <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0 }}>Einkauf: {fmt(l.buyPrice)}</p>
+                          <p style={{ fontSize: 12.5, color: '#10b981', fontWeight: 700, margin: 0 }}>Gewinn: +{fmt(profit(l))}</p>
                         </div>
-                        <button onClick={()=>openRelistModal(l.id)}
-                          className="w-full py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-semibold">🔄 Erneut verkaufen</button>
+                        <button onClick={() => openRelistModal(l.id)}
+                          style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 'unset', width: '100%' }}>
+                          {ICONS.relist} Erneut verkaufen
+                        </button>
                       </div>
                     )}
                   </div>
@@ -188,128 +342,121 @@ export default function Listings() {
           )}
         </div>
       </main>
-      <MobileNav/>
 
-      {/* Relist Modal */}
-      {modal?.type==='relist' && modalListing && (
-        <div className="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4"
-          style={{background:'rgba(0,0,0,0.45)',backdropFilter:'blur(4px)'}}
-          onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6">
-            <div className="flex justify-between mb-5">
-              <h2 className="text-lg font-extrabold">🔄 Relisten</h2>
-              <button onClick={()=>setModal(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 font-bold">×</button>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <p className="font-bold text-sm">{modalListing.title}</p>
-              <p className="text-xs text-gray-500 mt-1">{modalListing.condition} · {fmt(modalListing.price)}</p>
-            </div>
-            <p className="text-xs text-gray-500 font-semibold uppercase mb-3">Auf welchen Plattformen neu listen?</p>
-            <div className="space-y-2 mb-5">
-              {Object.entries(PLATFORMS).map(([id,p]) => {
-                const sel = selPlatforms.includes(id)
-                return (
-                  <div key={id} onClick={()=>setSelPlatforms(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])}
-                    className={`border-2 rounded-xl p-3.5 cursor-pointer transition-all flex items-center gap-3 ${sel?'border-indigo-400 bg-indigo-50/30':'border-gray-100 hover:border-gray-200'}`}>
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel?'border-indigo-600 bg-indigo-600':'border-gray-300'}`}>
-                      {sel&&<span className="text-white text-xs font-extrabold">✓</span>}
-                    </div>
-                    <PlatformBadge plt={id}/>
-                    {modalListing.platforms.includes(id) && (
-                      <span className="ml-auto text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">vorher aktiv</span>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            <div className="bg-amber-50 border border-amber-100 rounded-xl p-3 mb-5">
-              <p className="text-xs text-amber-700">⏰ Timer wird zurückgesetzt — Erinnerung in <strong>{relistDays} Tagen</strong> wieder fällig</p>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={()=>setModal(null)} className="flex-1 py-3 border border-gray-200 rounded-xl font-semibold hover:bg-gray-50 text-sm">Abbrechen</button>
-              <button onClick={()=>doRelist(modalListing.id)} disabled={selPlatforms.length===0}
-                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl font-bold text-sm transition-colors">
-                {selPlatforms.length>0?`🔄 Auf ${selPlatforms.length} Plattform${selPlatforms.length>1?'en':''} relisten`:'Plattform wählen'}
-              </button>
-            </div>
+      <MobileNav />
+
+      {/* ── Relist Modal ── */}
+      {modal?.type === 'relist' && modalListing && (
+        <ModalWrap>
+          <ModalHeader title="Erneut listen" />
+          <ListingPreview l={modalListing} />
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Auf welchen Plattformen?</p>
+          <PlatformPicker l={modalListing} />
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
+            <p style={{ fontSize: 12.5, color: '#d97706', margin: 0 }}>Timer wird zurückgesetzt – nächste Erinnerung in <strong>{relistDays} Tagen</strong></p>
           </div>
-        </div>
-      )}
-
-      {/* Crosspost Modal */}
-      {modal?.type==='crosspost' && modalListing && (
-        <div className="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4"
-          style={{background:'rgba(0,0,0,0.45)',backdropFilter:'blur(4px)'}}
-          onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6">
-            <div className="flex justify-between mb-5">
-              <h2 className="text-lg font-extrabold">Crossposten</h2>
-              <button onClick={()=>setModal(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 font-bold">×</button>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4 mb-5">
-              <p className="font-bold text-sm">{modalListing.title}</p>
-              <p className="text-xs text-gray-500 mt-1">{modalListing.condition} · {fmt(modalListing.price)}</p>
-            </div>
-            <div className="space-y-3 mb-5">
-              {Object.entries(PLATFORMS).map(([id,p]) => {
-                const sel = selPlatforms.includes(id)
-                return (
-                  <div key={id} onClick={()=>setSelPlatforms(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])}
-                    className={`border-2 rounded-2xl p-4 cursor-pointer transition-all ${sel?'border-indigo-400 bg-indigo-50/30':'border-gray-100 hover:border-gray-200'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel?'border-indigo-600 bg-indigo-600':'border-gray-300'}`}>
-                        {sel&&<span className="text-white text-xs font-extrabold">✓</span>}
-                      </div>
-                      <PlatformBadge plt={id}/>
-                    </div>
-                    {sel && (
-                      <div className={`mt-3 p-3 rounded-xl ${p.bg} border ${p.border}`}>
-                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Optimierter Titel</p>
-                        <p className={`text-sm font-semibold ${p.text}`}>
-                          {id==='ebay'?(modalListing.title+' | Top Zustand ✅').substring(0,80):id==='vinted'?modalListing.title.substring(0,60):modalListing.title+' (VHB)'}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-            <button onClick={()=>doPost(modalListing.id)} disabled={selPlatforms.length===0}
-              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-200 disabled:text-gray-400 text-white rounded-xl font-bold transition-colors">
-              {selPlatforms.length>0?`🚀 Auf ${selPlatforms.length} Plattform${selPlatforms.length>1?'en':''} posten`:'Plattform auswählen'}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setModal(null)}
+              style={{ flex: 1, padding: '12px', borderRadius: 13, border: '1px solid var(--border)', background: '#fff', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer' }}>
+              Abbrechen
+            </button>
+            <button onClick={() => doRelist(modalListing.id)} disabled={selPlatforms.length === 0}
+              className="ls-btn-primary"
+              style={{ flex: 1, padding: '12px', borderRadius: 13, fontSize: 14 }}>
+              {selPlatforms.length > 0 ? `Auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''} listen` : 'Plattform wählen'}
             </button>
           </div>
-        </div>
+        </ModalWrap>
       )}
 
-      {/* Sold Modal */}
-      {modal?.type==='sold' && modalListing && (
-        <div className="fixed inset-0 z-40 flex items-end md:items-center justify-center p-4"
-          style={{background:'rgba(0,0,0,0.45)',backdropFilter:'blur(4px)'}}
-          onClick={e=>{if(e.target===e.currentTarget)setModal(null)}}>
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg p-6">
-            <div className="flex justify-between mb-5">
-              <h2 className="text-lg font-extrabold">Als verkauft markieren</h2>
-              <button onClick={()=>setModal(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 font-bold">×</button>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4 mb-4">
-              <p className="font-bold text-sm">{modalListing.title}</p>
-              <p className="text-xs text-emerald-600 font-bold mt-1">Gewinn: +{fmt(profit(modalListing))}</p>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
-              <p className="text-sm font-bold text-amber-800">⚠️ Wird auf allen Plattformen deaktiviert</p>
-              <div className="flex gap-2 mt-2 flex-wrap">{modalListing.platforms.map(p=><PlatformBadge key={p} plt={p}/>)}</div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={()=>setModal(null)} className="flex-1 py-3 border border-gray-200 rounded-xl font-semibold hover:bg-gray-50">Abbrechen</button>
-              <button onClick={()=>markSold(modalListing.id)} className="flex-1 py-3 bg-green-600 hover:bg-green-700 text-white rounded-xl font-bold">✅ Bestätigen</button>
-            </div>
+      {/* ── Crosspost Modal ── */}
+      {modal?.type === 'crosspost' && modalListing && (
+        <ModalWrap>
+          <ModalHeader title="Crossposten" />
+          <ListingPreview l={modalListing} />
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Plattformen auswählen</p>
+          <div style={{ marginBottom: 18 }}>
+            {Object.entries(PLATFORMS).map(([id, p]) => {
+              const sel = selPlatforms.includes(id)
+              return (
+                <div key={id} style={{ marginBottom: 8 }}>
+                  <div onClick={() => setSelPlatforms(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])}
+                    style={{
+                      border: `2px solid ${sel ? '#818cf8' : '#e8ecf2'}`, borderRadius: 14, padding: '12px 14px',
+                      cursor: 'pointer', background: sel ? 'rgba(99,102,241,0.04)' : '#fff',
+                      display: 'flex', alignItems: 'center', gap: 12, transition: 'all .15s',
+                    }}>
+                    <div style={{
+                      width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                      border: `2px solid ${sel ? '#6366f1' : '#d1d5db'}`,
+                      background: sel ? '#6366f1' : 'transparent',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                    </div>
+                    <PlatformBadge plt={id} />
+                  </div>
+                  {sel && (
+                    <div style={{ margin: '6px 0 0 2px', padding: '10px 14px', borderRadius: 12, background: p.bg.replace('bg-', '').includes('-') ? '#f8f9fc' : '#f8f9fc', border: '1px solid var(--border)' }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>Optimierter Titel</p>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>
+                        {id === 'ebay' ? (modalListing.title + ' | Top Zustand ✅').substring(0, 80)
+                          : id === 'vinted' ? modalListing.title.substring(0, 60)
+                          : modalListing.title + ' (VHB)'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
-        </div>
+          <button onClick={() => doPost(modalListing.id)} disabled={selPlatforms.length === 0}
+            className="ls-btn-primary"
+            style={{ width: '100%', padding: '13px', borderRadius: 14, fontSize: 14 }}>
+            {selPlatforms.length > 0 ? `Auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''} posten` : 'Plattform auswählen'}
+          </button>
+        </ModalWrap>
       )}
 
+      {/* ── Sold Modal ── */}
+      {modal?.type === 'sold' && modalListing && (
+        <ModalWrap>
+          <ModalHeader title="Als verkauft markieren" />
+          <ListingPreview l={modalListing} />
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 14, padding: '14px 16px', marginBottom: 18 }}>
+            <p style={{ fontSize: 13.5, fontWeight: 700, color: '#059669', margin: '0 0 6px' }}>Erwarteter Gewinn: +{fmt(profit(modalListing))}</p>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{modalListing.platforms.map(p => <PlatformBadge key={p} plt={p} />)}</div>
+          </div>
+          <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 14px', marginBottom: 20 }}>
+            <p style={{ fontSize: 12.5, color: '#92400e', margin: 0, fontWeight: 600 }}>Wird auf allen Plattformen als inaktiv markiert</p>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setModal(null)}
+              style={{ flex: 1, padding: '12px', borderRadius: 13, border: '1px solid var(--border)', background: '#fff', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer' }}>
+              Abbrechen
+            </button>
+            <button onClick={() => markSold(modalListing.id)}
+              style={{
+                flex: 1, padding: '12px', borderRadius: 13, fontSize: 14, fontWeight: 800,
+                background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
+              }}>
+              Bestätigen
+            </button>
+          </div>
+        </ModalWrap>
+      )}
+
+      {/* ── Toast ── */}
       {toast && (
-        <div className={`fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-white text-sm font-medium shadow-2xl ${toast.type==='success'?'bg-green-600':'bg-red-500'} flex items-center gap-2 whitespace-nowrap`}>
+        <div style={{
+          position: 'fixed', bottom: 88, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 60, padding: '12px 22px', borderRadius: 14, color: '#fff',
+          fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap',
+          background: toast.type === 'success' ? '#0f172a' : '#ef4444',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
+        }}
+          className="md:bottom-8">
           {toast.msg}
         </div>
       )}

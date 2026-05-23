@@ -14,7 +14,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true
   }
   if (msg.type === 'VINTED_SYNC_DATA') {
-    // Called from vinted-sync.js content script with scraped order history
     importVintedHistory(msg.data, sender.tab?.id)
     sendResponse({ ok: true })
     return true
@@ -22,6 +21,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'IMPORT_VINTED_LISTING') {
     importVintedListing(msg.listing)
       .then(result => sendResponse({ ok: true, result }))
+      .catch(e => sendResponse({ ok: false, error: e.message }))
+    return true
+  }
+  if (msg.type === 'INJECT_MAIN_IMAGES') {
+    const tabId = sender.tab?.id
+    if (!tabId) { sendResponse({ ok: false, error: 'Kein Tab' }); return true }
+    chrome.scripting.executeScript({
+      target: { tabId },
+      world: 'MAIN',
+      func: injectImages,
+      args: [msg.imageData],
+    }).then(() => sendResponse({ ok: true }))
       .catch(e => sendResponse({ ok: false, error: e.message }))
     return true
   }
@@ -63,9 +74,22 @@ async function handlePost(listing, platforms) {
       await openVintedNewListing(imageData)
     }
     if (platform === 'kleinanzeigen') {
-      chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/p-anzeige-aufgeben-schritt2.html' })
+      await openKleinanzeigenNewListing()
+    }
+    if (platform === 'ebay') {
+      await openEbayNewListing()
     }
   }
+}
+
+async function openKleinanzeigenNewListing() {
+  await chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/anzeige/aufgeben' })
+  console.log('[ListSync BG] ✓ Kleinanzeigen-Tab geöffnet')
+}
+
+async function openEbayNewListing() {
+  await chrome.tabs.create({ url: 'https://www.ebay.de/sl/list' })
+  console.log('[ListSync BG] ✓ eBay-Tab geöffnet')
 }
 
 async function openVintedNewListing(imageData) {

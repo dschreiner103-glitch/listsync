@@ -37,6 +37,7 @@ export async function PATCH(req, { params }) {
   if (data.days       !== undefined) update.days       = Number(data.days)
   if (data.relistedAt !== undefined) update.relistedAt = new Date(data.relistedAt)
   if (data.updatedAt  !== undefined) update.updatedAt  = new Date(data.updatedAt)
+  if (data.category   !== undefined) update.category   = data.category
   if (data.brand      !== undefined) update.brand      = data.brand
   if (data.size       !== undefined) update.size       = data.size
   if (data.color      !== undefined) update.color      = data.color

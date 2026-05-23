@@ -78,7 +78,7 @@ export default function NewListing() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="ls-page">
       <Sidebar/>
       <main className="md:ml-60 pb-20 md:pb-8">
         <div className="max-w-xl mx-auto px-4 py-6">

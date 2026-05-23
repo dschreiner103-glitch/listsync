@@ -1,96 +1,230 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import { PlatformBadge, StatusBadge, PLATFORMS, fmt, profit, CARD_COLORS } from '@/components/Badge'
 
-// ── Chart helpers ─────────────────────────────────────────────────────────────
+// ── Period helpers ────────────────────────────────────────────────────────────
 
-function buildChartData(sold, period) {
+const PERIODS = [
+  { label: 'Letzte 7 Tage',  val: 7 },
+  { label: 'Letzte 30 Tage', val: 30 },
+  { label: 'Letzte 60 Tage', val: 60 },
+  { label: 'Letzte 90 Tage', val: 90 },
+  { label: 'Gesamt',         val: 'all' },
+]
+
+function filterByPeriod(sold, days) {
+  if (days === 'all') return sold
+  const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+  return sold.filter(l => new Date(l.createdAt) >= from)
+}
+
+// ── Period Chips ──────────────────────────────────────────────────────────────
+
+function PeriodChips({ period, setPeriod }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 14 }}>
+      {PERIODS.map(p => {
+        const active = period === p.val
+        return (
+          <button key={p.val} onClick={() => setPeriod(p.val)}
+            style={{
+              padding: '5px 11px', borderRadius: 20, fontSize: 11.5, fontWeight: 600,
+              cursor: 'pointer', transition: 'all .12s',
+              border: active ? 'none' : '1px solid #e5e7eb',
+              background: active ? '#111827' : 'transparent',
+              color: active ? '#fff' : '#6b7280',
+              fontFamily: 'inherit',
+            }}>
+            {p.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Smooth Line Chart ─────────────────────────────────────────────────────────
+
+function buildMonthlyData(listings, months = 6) {
   const now = new Date()
-
-  if (period === 'tag') {
-    // Bars: last 7 days
-    const days = ['So','Mo','Di','Mi','Do','Fr','Sa']
-    return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(now)
-      d.setDate(d.getDate() - (6 - i))
-      d.setHours(0, 0, 0, 0)
-      const next = new Date(d); next.setDate(next.getDate() + 1)
-      const v = sold
-        .filter(l => { const t = new Date(l.createdAt); return t >= d && t < next })
-        .reduce((s, l) => s + l.price, 0)
-      return { l: days[d.getDay()], v }
-    })
-  }
-
-  if (period === 'monat') {
-    // Bars: last 6 months
-    const months = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
-    return Array.from({ length: 6 }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1)
-      const next = new Date(d.getFullYear(), d.getMonth() + 1, 1)
-      const v = sold
-        .filter(l => { const t = new Date(l.createdAt); return t >= d && t < next })
-        .reduce((s, l) => s + l.price, 0)
-      return { l: months[d.getMonth()], v }
-    })
-  }
-
-  // jahr: last 3 years
-  return Array.from({ length: 3 }, (_, i) => {
-    const year = now.getFullYear() - (2 - i)
-    const v = sold
-      .filter(l => new Date(l.createdAt).getFullYear() === year)
-      .reduce((s, l) => s + l.price, 0)
-    return { l: String(year), v }
+  const sold = listings.filter(l => l.status === 'verkauft')
+  const MO = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
+  return Array.from({ length: months }, (_, i) => {
+    const d    = new Date(now.getFullYear(), now.getMonth() - (months - 1 - i), 1)
+    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1)
+    const matches = sold.filter(l => { const t = new Date(l.createdAt); return t >= d && t < next })
+    return {
+      l:       MO[d.getMonth()],
+      revenue: matches.reduce((s, l) => s + l.price, 0),
+      profit:  matches.reduce((s, l) => s + (l.price - (l.buyPrice || 0)), 0),
+    }
   })
 }
 
-function getPeriodStats(sold, period) {
-  const now = new Date()
-  let from
-  if (period === 'tag') {
-    from = new Date(now); from.setHours(0, 0, 0, 0)
-  } else if (period === 'monat') {
-    from = new Date(now.getFullYear(), now.getMonth(), 1)
-  } else {
-    from = new Date(now.getFullYear(), 0, 1)
-  }
-  const matches = sold.filter(l => new Date(l.createdAt) >= from)
-  return {
-    revenue: matches.reduce((s, l) => s + l.price, 0),
-    sales:   matches.length,
-    label:   period === 'tag' ? 'Heute' : period === 'monat'
-      ? new Date().toLocaleString('de', { month: 'long' })
-      : String(now.getFullYear()),
-  }
+function smoothPath(pts) {
+  if (pts.length < 2) return ''
+  return pts.reduce((acc, p, i) => {
+    if (i === 0) return `M ${p.x} ${p.y}`
+    const prev = pts[i - 1]
+    const cpx  = (p.x - prev.x) * 0.42
+    return `${acc} C ${prev.x + cpx} ${prev.y}, ${p.x - cpx} ${p.y}, ${p.x} ${p.y}`
+  }, '')
 }
 
-// ── BarChart component ────────────────────────────────────────────────────────
+function LineChart({ data }) {
+  const [hovered, setHovered] = useState(null)
+  const W = 500, H = 130, padL = 8, padR = 8, padT = 12, padB = 0
 
-function BarChart({ data }) {
-  const max = Math.max(...data.map(d => d.v), 1)
-  const hasData = data.some(d => d.v > 0)
+  const maxRev = Math.max(...data.map(d => d.revenue), 1)
+  const maxAll = Math.max(...data.map(d => Math.max(d.revenue, d.profit)), 1)
+
+  const toX = i => padL + (i / (data.length - 1)) * (W - padL - padR)
+  const toY = v => padT + (H - padT - padB) - (v / maxAll) * (H - padT - padB - 10)
+
+  const revPts = data.map((d, i) => ({ x: toX(i), y: toY(d.revenue) }))
+  const proPts = data.map((d, i) => ({ x: toX(i), y: toY(d.profit) }))
+
+  const revPath = smoothPath(revPts)
+  const proPath = smoothPath(proPts)
+  const revFill = `${revPath} L ${revPts[revPts.length-1].x} ${H} L ${revPts[0].x} ${H} Z`
+  const proFill = `${proPath} L ${proPts[proPts.length-1].x} ${H} L ${proPts[0].x} ${H} Z`
+
+  const hasData = data.some(d => d.revenue > 0)
+
   return (
-    <div className="flex items-end gap-1.5 px-1" style={{ height: 128 }}>
-      {data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
-          <div className="w-full relative group cursor-default">
-            <div
-              className="w-full bg-indigo-500 hover:bg-indigo-600 rounded-t-md transition-all"
-              style={{ height: hasData ? Math.max((d.v / max) * 100, d.v > 0 ? 4 : 0) : 0 }}
-            />
-            {d.v > 0 && (
-              <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
-                {fmt(d.v)}
-              </div>
-            )}
-          </div>
-          <span className="text-xs text-gray-400 font-medium">{d.l}</span>
+    <div style={{ position: 'relative' }}>
+      {!hasData ? (
+        <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0 }}>Noch keine Verkäufe</p>
         </div>
-      ))}
+      ) : (
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', overflow: 'visible', display: 'block' }}>
+          <defs>
+            <linearGradient id="fillRev" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.18"/>
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0"/>
+            </linearGradient>
+            <linearGradient id="fillPro" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#22c55e" stopOpacity="0.18"/>
+              <stop offset="100%" stopColor="#22c55e" stopOpacity="0"/>
+            </linearGradient>
+          </defs>
+          {/* Fills */}
+          <path d={revFill} fill="url(#fillRev)"/>
+          <path d={proFill} fill="url(#fillPro)"/>
+          {/* Lines */}
+          <path d={revPath} fill="none" stroke="#3b82f6" strokeWidth="2.2" strokeLinecap="round"/>
+          <path d={proPath} fill="none" stroke="#22c55e" strokeWidth="2.2" strokeLinecap="round"/>
+          {/* Hover dots */}
+          {hovered !== null && (
+            <>
+              <circle cx={revPts[hovered].x} cy={revPts[hovered].y} r="4" fill="#3b82f6"/>
+              <circle cx={proPts[hovered].x} cy={proPts[hovered].y} r="4" fill="#22c55e"/>
+              <line x1={revPts[hovered].x} y1={padT} x2={revPts[hovered].x} y2={H}
+                stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3 3"/>
+            </>
+          )}
+          {/* Invisible hover areas */}
+          {data.map((_, i) => (
+            <rect key={i}
+              x={toX(i) - (W / data.length) / 2}
+              y={0} width={W / data.length} height={H}
+              fill="transparent"
+              onMouseEnter={() => setHovered(i)}
+              onMouseLeave={() => setHovered(null)}
+              style={{ cursor: 'default' }}
+            />
+          ))}
+        </svg>
+      )}
+      {/* X-axis labels */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px 0' }}>
+        {data.map((d, i) => (
+          <span key={i} style={{ fontSize: 11, color: 'var(--text-3)', fontWeight: 500, flex: 1, textAlign: 'center' }}>{d.l}</span>
+        ))}
+      </div>
+      {/* Tooltip */}
+      {hovered !== null && hasData && (
+        <div style={{
+          position: 'absolute',
+          left: `${(revPts[hovered].x / W) * 100}%`,
+          top: 0, transform: 'translate(-50%, -100%)',
+          background: '#111827', color: '#f9fafb', borderRadius: 8,
+          padding: '6px 10px', fontSize: 12, fontWeight: 600,
+          pointerEvents: 'none', whiteSpace: 'nowrap',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          marginTop: -6,
+        }}>
+          <div style={{ color: '#93c5fd' }}>↑ {fmt(data[hovered].revenue)}</div>
+          <div style={{ color: '#86efac' }}>↑ {fmt(data[hovered].profit)}</div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Donut Gauge ───────────────────────────────────────────────────────────────
+
+function DonutGauge({ pct, label, sub }) {
+  const r = 52, cx = 70, cy = 68
+  const circ = Math.PI * r
+  const progress = Math.min(pct / 100, 1) * circ
+  const d = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`
+  return (
+    <div style={{ textAlign: 'center' }}>
+      <svg width="140" height="78" viewBox="0 0 140 78" style={{ display: 'block', margin: '0 auto' }}>
+        <path d={d} fill="none" stroke="#f0f2f7" strokeWidth="10" strokeLinecap="round"/>
+        <path d={d} fill="none" stroke="#3b82f6" strokeWidth="10" strokeLinecap="round"
+          strokeDasharray={`${progress} ${circ}`}/>
+      </svg>
+      <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: '-8px 0 2px', letterSpacing: '-0.03em' }}>{Math.round(pct)}%</p>
+      <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>{label}</p>
+      {sub && <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '2px 0 0' }}>{sub}</p>}
+    </div>
+  )
+}
+
+// ── Stat Card with period chips ───────────────────────────────────────────────
+
+function StatCard({ title, icon, iconBg, iconColor, computeValue, computeSub, sold }) {
+  const [period, setPeriod] = useState(30)
+  const filtered = filterByPeriod(sold, period)
+  const value = computeValue(filtered)
+  const sub   = computeSub ? computeSub(filtered) : null
+
+  return (
+    <div className="ls-card" style={{ padding: 20, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ width: 30, height: 30, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: iconColor, flexShrink: 0 }}>
+          {icon}
+        </div>
+        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)' }}>{title}</span>
+      </div>
+      <p style={{ fontSize: 30, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 4px', letterSpacing: '-0.03em' }}>{value}</p>
+      {sub && <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0 }}>{sub}</p>}
+      <PeriodChips period={period} setPeriod={setPeriod} />
+    </div>
+  )
+}
+
+function IcSm({ children }) {
+  return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+}
+
+// ── Card wrapper ──────────────────────────────────────────────────────────────
+
+function Card({ children, style = {} }) {
+  return <div className="ls-card" style={{ padding: '22px 24px', ...style }}>{children}</div>
+}
+
+function STitle({ children, action }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+      <h2 style={{ fontWeight: 700, fontSize: 15, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.01em' }}>{children}</h2>
+      {action}
     </div>
   )
 }
@@ -98,33 +232,35 @@ function BarChart({ data }) {
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const [listings, setListings]   = useState([])
-  const [period, setPeriod]       = useState('monat')
-  const [goals, setGoals]         = useState({ day: 0, month: 0 })
-  const [relistDays, setRelistDays] = useState(5)
-  const [loading, setLoading]     = useState(true)
+  const [listings, setListings]     = useState([])
+  const [goals, setGoals]           = useState({ day: 0, month: 0 })
+  const [loading, setLoading]       = useState(true)
   const router = useRouter()
 
   useEffect(() => {
     Promise.all([
       fetch('/api/listings').then(r => r.json()).catch(() => []),
       fetch('/api/settings').then(r => r.json()).catch(() => ({})),
-    ]).then(([listingsData, settings]) => {
-      setListings(Array.isArray(listingsData) ? listingsData : [])
-      if (settings.dayGoal  !== undefined) setGoals({ day: settings.dayGoal, month: settings.monthGoal })
-      if (settings.relistDays !== undefined) setRelistDays(settings.relistDays)
+    ]).then(([ld, settings]) => {
+      setListings(Array.isArray(ld) ? ld : [])
+      if (settings.dayGoal !== undefined) setGoals({ day: settings.dayGoal, month: settings.monthGoal })
       setLoading(false)
     })
   }, [])
 
-  const sold   = listings.filter(l => l.status === 'verkauft')
-  const active = listings.filter(l => l.status === 'aktiv')
-  const relistAlerts = active.filter(l => l.days >= relistDays)
+  const sold    = listings.filter(l => l.status === 'verkauft')
+  const active  = listings.filter(l => l.status === 'aktiv')
 
-  const chartData = buildChartData(sold, period)
-  const meta      = getPeriodStats(sold, period)
-  const goalVal   = period === 'tag' ? goals.day : goals.month
-  const goalPct   = goalVal > 0 ? Math.min((meta.revenue / goalVal) * 100, 100) : 0
+  const chartData = buildMonthlyData(listings, 6)
+
+  // Goal: current month revenue vs goal
+  const nowMonth     = new Date(); nowMonth.setDate(1); nowMonth.setHours(0,0,0,0)
+  const thisMonthRev = sold.filter(l => new Date(l.createdAt) >= nowMonth).reduce((s, l) => s + l.price, 0)
+  const goalPct      = goals.month > 0 ? (thisMonthRev / goals.month) * 100 : 0
+
+  // Avg margin
+  const totalProfit  = sold.reduce((s, l) => s + (l.price - (l.buyPrice || 0)), 0)
+  const avgMarginPct = sold.length > 0 ? (totalProfit / sold.reduce((s, l) => s + l.price, 0)) * 100 : 0
 
   const pltBreakdown = Object.entries(PLATFORMS).map(([id, p]) => {
     const matches = sold.filter(l => l.platforms.includes(id))
@@ -133,176 +269,202 @@ export default function Dashboard() {
   const totalRev = sold.reduce((s, l) => s + l.price, 0)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="ls-page">
       <Sidebar activeCount={active.length} />
-      <main className="md:ml-60 pb-20 md:pb-8">
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+      <main className="md:ml-60 pb-20 md:pb-10">
+        <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-          {/* Header */}
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-extrabold text-gray-900">Dashboard</h1>
-              <p className="text-gray-400 text-sm mt-0.5">Dein Überblick auf einen Blick</p>
-            </div>
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-xl flex-shrink-0">
-              {['tag', 'monat', 'jahr'].map(p => (
-                <button key={p} onClick={() => setPeriod(p)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold capitalize transition-colors ${period === p ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                  {p.charAt(0).toUpperCase() + p.slice(1)}
-                </button>
-              ))}
-            </div>
+          {/* ── Header ── */}
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 2px', letterSpacing: '-0.03em' }}>Dashboard</h1>
+            <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: 0, fontWeight: 500 }}>Dein Vinted-Business auf einen Blick</p>
           </div>
 
-          {/* Relist alerts */}
-          {relistAlerts.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-lg">🔄</span>
-                <p className="font-bold text-amber-900 text-sm">{relistAlerts.length} Listing{relistAlerts.length > 1 ? 's' : ''} älter als {relistDays} Tage</p>
-              </div>
-              <div className="space-y-2">
-                {relistAlerts.map(l => (
-                  <div key={l.id} className="flex items-center justify-between bg-white rounded-xl px-3 py-2 border border-amber-100">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{l.title}</p>
-                      <p className="text-xs text-amber-600">Seit {l.days} Tagen · {l.views} Views</p>
-                    </div>
-                    <button onClick={() => router.push('/listings')} className="ml-3 text-xs px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold transition-colors">Relisten</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* ── Stat cards + Goal row ── */}
+          <div style={{ display: 'grid', gap: 16 }} className="md:grid-cols-3">
 
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {[
-              { label: `Umsatz (${meta.label})`, value: fmt(meta.revenue), color: 'text-indigo-600' },
-              { label: `Verkäufe (${meta.label})`, value: meta.sales, color: 'text-green-600' },
-              { label: 'Aktive Listings', value: active.length },
-              { label: 'Gewinn gesamt', value: fmt(sold.reduce((s, l) => s + profit(l), 0)), color: 'text-emerald-600' },
-            ].map(s => (
-              <div key={s.label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide leading-tight">{s.label}</p>
-                <p className={`text-2xl font-extrabold mt-1 ${s.color || 'text-gray-900'}`}>{s.value}</p>
-              </div>
-            ))}
-          </div>
+            {/* Einnahmen */}
+            <StatCard
+              title="Einnahmen"
+              sold={sold}
+              icon={<IcSm><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></IcSm>}
+              iconBg="rgba(59,130,246,0.1)" iconColor="#3b82f6"
+              computeValue={f => fmt(f.reduce((s, l) => s + l.price, 0))}
+              computeSub={f => `${f.length} Verkauf${f.length !== 1 ? 'e' : ''}`}
+            />
 
-          {/* Chart */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <h2 className="font-bold text-gray-900 mb-4">Umsatzverlauf</h2>
-            {!loading && sold.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-gray-300 text-sm">
-                Noch keine Verkäufe — Daten erscheinen sobald du Listings als verkauft markierst
-              </div>
-            ) : (
-              <BarChart data={chartData} />
-            )}
-          </div>
+            {/* Gewinn */}
+            <StatCard
+              title="Gewinn"
+              sold={sold}
+              icon={<IcSm><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></IcSm>}
+              iconBg="rgba(34,197,94,0.1)" iconColor="#22c55e"
+              computeValue={f => {
+                const g = f.reduce((s, l) => s + (l.price - (l.buyPrice || 0)), 0)
+                return <span style={{ color: g > 0 ? '#16a34a' : '#111827' }}>{fmt(g)}</span>
+              }}
+              computeSub={f => {
+                const rev = f.reduce((s, l) => s + l.price, 0)
+                const pro = f.reduce((s, l) => s + (l.price - (l.buyPrice || 0)), 0)
+                const pct = rev > 0 ? Math.round((pro / rev) * 100) : 0
+                return `Einnahmen – Einkaufspreise · ${pct}% Marge`
+              }}
+            />
 
-          {/* Goal */}
-          {period !== 'jahr' && (
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="font-bold text-gray-900">{period === 'tag' ? 'Tagesziel' : 'Monatsziel'}</h2>
-                {goalVal > 0
-                  ? <span className="text-sm font-bold text-gray-900">{fmt(meta.revenue)} / {fmt(goalVal)}</span>
-                  : <button onClick={() => router.push('/settings')} className="text-xs text-indigo-600 font-semibold hover:underline">Ziel setzen →</button>
-                }
-              </div>
-              {goalVal > 0 ? (
+            {/* Monatsziel */}
+            <div className="ls-card" style={{ padding: 20 }}>
+              <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 14px' }}>Monatsziel</p>
+              {goals.month > 0 ? (
                 <>
-                  <div className="w-full bg-gray-100 rounded-full h-2.5">
-                    <div className={`h-2.5 rounded-full transition-all ${goalPct >= 100 ? 'bg-green-500' : 'bg-indigo-500'}`} style={{ width: `${goalPct}%` }} />
-                  </div>
-                  <p className={`text-xs mt-1 ${goalPct >= 100 ? 'text-green-600 font-semibold' : 'text-gray-400'}`}>
-                    {goalPct >= 100 ? '🎉 Ziel erreicht!' : `Noch ${fmt(Math.max(goalVal - meta.revenue, 0))} bis zum Ziel · ${Math.round(goalPct)}%`}
-                  </p>
+                  <DonutGauge
+                    pct={goalPct}
+                    label={`${fmt(thisMonthRev)} / ${fmt(goals.month)}`}
+                    sub={`${sold.filter(l => new Date(l.createdAt) >= nowMonth).length} Verkäufe diesen Monat`}
+                  />
                 </>
               ) : (
-                <div className="text-sm text-gray-400 text-center py-2">
-                  Kein Ziel gesetzt — lege eines in den Einstellungen fest
+                <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                  <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '0 0 10px' }}>Kein Ziel gesetzt</p>
+                  <button onClick={() => router.push('/settings')}
+                    style={{ fontSize: 12.5, color: '#3b82f6', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                    Jetzt festlegen →
+                  </button>
                 </div>
               )}
             </div>
-          )}
+          </div>
 
-          {/* Platform breakdown */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <h2 className="font-bold text-gray-900 mb-4">Verkäufe nach Plattform</h2>
+          {/* ── Chart + Marge row ── */}
+          <div style={{ display: 'grid', gap: 16 }} className="md:grid-cols-3">
+
+            {/* Line chart – takes 2 cols */}
+            <div className="ls-card md:col-span-2" style={{ padding: '22px 24px' }}>
+              <STitle title="Monatliche Einnahmen">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-2)' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: '#3b82f6', display: 'inline-block' }}/>Einnahmen
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-2)' }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 2, background: '#22c55e', display: 'inline-block' }}/>Gewinn
+                  </span>
+                </div>
+              </STitle>
+              <LineChart data={chartData} />
+            </div>
+
+            {/* Marge & Gewinn */}
+            <div className="ls-card" style={{ padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div>
+                <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '0 0 4px', fontWeight: 500 }}>Marge & Gewinn</p>
+                <p style={{ fontSize: 11, color: 'var(--text-3)', margin: 0 }}>Ø Marge pro Verkauf</p>
+                <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: '6px 0 0', letterSpacing: '-0.03em' }}>
+                  {fmt(sold.length > 0 ? totalProfit / sold.length : 0)} ({Math.round(avgMarginPct)}%)
+                </p>
+              </div>
+              <div style={{ borderTop: '1px solid var(--divider)', paddingTop: 16 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 4px' }}>Gesamtgewinn</p>
+                <p style={{ fontSize: 22, fontWeight: 800, color: totalProfit > 0 ? '#16a34a' : '#111827', margin: 0, letterSpacing: '-0.02em' }}>{fmt(totalProfit)}</p>
+              </div>
+              <div style={{ borderTop: '1px solid var(--divider)', paddingTop: 16 }}>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 4px' }}>Aktive Listings</p>
+                <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em' }}>{active.length}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Platform breakdown ── */}
+          <Card>
+            <STitle>Verkäufe nach Plattform</STitle>
             {sold.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Noch keine Verkäufe 🚀</p>
+              <p style={{ fontSize: 13, color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>Noch keine Verkäufe</p>
             ) : (
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {pltBreakdown.filter(p => p.count > 0).map(p => (
                   <div key={p.id}>
-                    <div className="flex justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.dot, display: 'inline-block' }} />
-                        <span className="text-sm font-semibold text-gray-800">{p.name}</span>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 7 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.dot, display: 'inline-block' }}/>
+                        <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)' }}>{p.name}</span>
                       </div>
-                      <div className="text-right">
-                        <span className="text-sm font-bold text-gray-900">{fmt(p.revenue)}</span>
-                        <span className="text-xs text-gray-400 ml-2">{p.count} Verkauf{p.count !== 1 ? 'e' : ''}</span>
+                      <div>
+                        <span style={{ fontSize: 13.5, fontWeight: 800, color: 'var(--text-1)' }}>{fmt(p.revenue)}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 8 }}>{p.count} Verkauf{p.count !== 1 ? 'e' : ''}</span>
                       </div>
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2">
-                      <div className="h-2 rounded-full" style={{ width: `${totalRev > 0 ? (p.revenue / totalRev) * 100 : 0}%`, background: p.dot }} />
+                    <div style={{ width: '100%', background: 'var(--surface)', borderRadius: 10, height: 6 }}>
+                      <div style={{ height: '100%', borderRadius: 10, background: p.dot, opacity: 0.8, width: `${totalRev > 0 ? (p.revenue / totalRev) * 100 : 0}%`, transition: 'width .5s ease' }}/>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </div>
+          </Card>
 
-          {/* Recent listings */}
+          {/* ── Recent listings ── */}
           {listings.length > 0 && (
-            <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-              <div className="flex justify-between mb-4">
-                <h2 className="font-bold text-gray-900">Letzte Listings</h2>
-                <button onClick={() => router.push('/listings')} className="text-indigo-600 text-sm font-semibold hover:underline">Alle →</button>
-              </div>
-              <div className="space-y-2">
-                {listings.slice(0, 3).map(l => (
-                  <div key={l.id} onClick={() => router.push('/listings')} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer">
-                    <div className="w-11 h-11 rounded-xl flex-shrink-0 flex items-center justify-center text-lg font-extrabold text-gray-500"
-                      style={{ background: CARD_COLORS[l.id % 5] }}>{l.title.charAt(0)}</div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm text-gray-900 truncate">{l.title}</p>
-                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                        <StatusBadge status={l.status} />
-                        {l.platforms.slice(0, 2).map(p => <PlatformBadge key={p} plt={p} />)}
+            <Card>
+              <STitle action={
+                <button onClick={() => router.push('/listings')}
+                  style={{ fontSize: 12.5, color: '#3b82f6', fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  Alle ansehen →
+                </button>
+              }>Letzte Listings</STitle>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {listings.slice(0, 4).map(l => (
+                  <div key={l.id} onClick={() => router.push('/listings')}
+                    style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 12, cursor: 'pointer', transition: 'background .1s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    {Array.isArray(l.images) && l.images[0]
+                      ? <img src={l.images[0]} alt="" style={{ width: 42, height: 42, borderRadius: 11, objectFit: 'cover', flexShrink: 0 }}/>
+                      : <div style={{ width: 42, height: 42, borderRadius: 11, flexShrink: 0, background: CARD_COLORS[l.id % 5], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 17, color: '#475569' }}>{l.title.charAt(0)}</div>
+                    }
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{l.title}</p>
+                      <div style={{ display: 'flex', gap: 5, marginTop: 3 }}>
+                        <StatusBadge status={l.status}/>
+                        {l.platforms.slice(0, 2).map(p => <PlatformBadge key={p} plt={p}/>)}
                       </div>
                     </div>
-                    <p className="font-extrabold text-gray-900 text-sm flex-shrink-0">{fmt(l.price)}</p>
+                    <p style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-1)', flexShrink: 0 }}>{fmt(l.price)}</p>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
-          {/* Empty state */}
+          {/* ── Empty ── */}
           {!loading && listings.length === 0 && (
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 text-center">
-              <div className="text-4xl mb-3">📦</div>
-              <h3 className="font-bold text-gray-900 mb-1">Noch keine Listings</h3>
-              <p className="text-sm text-gray-400 mb-4">Erstelle dein erstes Listing und starte durch!</p>
-              <button onClick={() => router.push('/new')} className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors">
+            <Card style={{ textAlign: 'center', padding: '48px 24px' }}>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.75" strokeLinecap="round"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
+              </div>
+              <h3 style={{ fontWeight: 800, fontSize: 17, color: 'var(--text-1)', margin: '0 0 8px', letterSpacing: '-0.02em' }}>Noch keine Listings</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: '0 0 22px' }}>Erstelle dein erstes Listing und starte durch!</p>
+              <button onClick={() => router.push('/new')}
+                style={{ padding: '11px 28px', borderRadius: 10, fontSize: 14, fontWeight: 700, background: '#22c55e', color: 'var(--text-1)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(34,197,94,0.3)' }}>
                 + Erstes Listing erstellen
               </button>
-            </div>
+            </Card>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <button onClick={() => router.push('/new')} className="py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold text-sm transition-colors">+ Neues Listing</button>
-            <button onClick={() => router.push('/listings')} className="py-3.5 bg-white hover:bg-gray-50 text-gray-800 rounded-2xl font-bold text-sm border border-gray-200 transition-colors">Alle Listings →</button>
+          {/* ── CTA row ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <button onClick={() => router.push('/new')}
+              style={{ padding: '13px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: '#22c55e', color: 'var(--text-1)', border: 'none', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(34,197,94,0.25)' }}>
+              + Neues Listing
+            </button>
+            <button onClick={() => router.push('/listings')}
+              style={{ padding: '13px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: 'var(--surface)', border: '1px solid #e5e7eb', color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit', transition: 'background .12s' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+              onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+              Alle Listings →
+            </button>
           </div>
 
         </div>
       </main>
-      <MobileNav />
+      <MobileNav/>
     </div>
   )
 }

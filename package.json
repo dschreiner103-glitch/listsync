@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
-    "db:setup": "prisma generate && prisma db push",
-    "deploy:build": "cp prisma/schema.production.prisma prisma/schema.prisma && prisma generate && prisma db push && next build"
+    "db:setup": "prisma generate && prisma db push"
   },
   "dependencies": {
     "@prisma/client": "^5.13.0",

@@ -82,7 +82,7 @@ export default function Belege() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="ls-page">
       <Sidebar />
       <main className="md:ml-60 flex items-center justify-center h-screen">
         <p className="text-gray-400">Lade…</p>
@@ -91,7 +91,7 @@ export default function Belege() {
   )
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="ls-page">
       <Sidebar />
       <main className="md:ml-60 pb-20 md:pb-8">
         <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
