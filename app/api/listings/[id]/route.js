@@ -41,10 +41,19 @@ export async function PATCH(req, { params }) {
   if (data.brand      !== undefined) update.brand      = data.brand
   if (data.size       !== undefined) update.size       = data.size
   if (data.color      !== undefined) update.color      = data.color
+  if (data.material   !== undefined) update.material   = data.material
   if (data.condition  !== undefined) update.condition  = data.condition
   if (data.description!== undefined) update.description= data.description
   if (data.shipping   !== undefined) update.shipping   = JSON.stringify(data.shipping)
   if (data.shipSize   !== undefined) update.shipSize   = data.shipSize
+
+  // addPlatform: fügt eine Platform zum bestehenden platforms-Array hinzu (von Extension gesendet)
+  if (data.addPlatform !== undefined) {
+    const current = JSON.parse(existing.platforms || '[]')
+    if (!current.includes(data.addPlatform)) {
+      update.platforms = JSON.stringify([...current, data.addPlatform])
+    }
+  }
 
   const listing = await prisma.listing.update({
     where: { id: Number(params.id) },

@@ -3,7 +3,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
-import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, fmt } from '@/components/Badge'
+import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, fmt } from '@/components/Badge'
 import CategoryPicker from '@/components/CategoryPicker'
 
 export default function NewListing() {
@@ -17,7 +17,7 @@ export default function NewListing() {
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
     condition:'Sehr gut', category:'',
-    brand:'', size:'', color:'', shipping:[], shipSize:'',
+    brand:'', size:'', color:'', material:'', shipping:[], shipSize:'',
     platforms:[]
   })
 
@@ -69,6 +69,7 @@ export default function NewListing() {
           brand:    form.brand,
           size:     form.size,
           color:    form.color,
+          material: form.material,
           shipping: form.shipping,
           shipSize: form.shipSize,
         })
@@ -185,6 +186,15 @@ export default function NewListing() {
                   </select>
                 </div>
               )}
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Material</label>
+                <select value={form.material} onChange={e=>set('material',e.target.value)}
+                  className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm">
+                  <option value="">– keine Angabe –</option>
+                  {MATERIALS.map(m=><option key={m}>{m}</option>)}
+                </select>
+              </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Versandoptionen</label>

@@ -28,6 +28,7 @@ model Listing {
   brand       String    @default("")
   size        String    @default("")
   color       String    @default("")
+  material    String    @default("")
   shipping    String    @default("[]")
   shipSize    String    @default("")
   status      String    @default("aktiv")

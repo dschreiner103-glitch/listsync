@@ -58,6 +58,7 @@ export async function POST(req) {
       brand:       data.brand      || '',
       size:        data.size       || '',
       color:       data.color      || '',
+      material:    data.material   || '',
       shipping:    JSON.stringify(data.shipping || []),
       shipSize:    data.shipSize || '',
       platforms:   JSON.stringify(data.platforms || []),

@@ -16,6 +16,13 @@ const CATEGORY_IDS = {
   'Kinder – Mädchen':    '171146',
   'Kinder – Jungs':      '171147',
   'Elektronik':          '293',
+  'Beauty':              '26395',
+  'Beauty – Make-up':    '26395',
+  'Beauty – Hautpflege': '11854',
+  'Beauty – Parfüm & Düfte': '180345',
+  'Haustiere':           '1281',
+  'Haustiere – Hunde':   '20744',
+  'Haustiere – Katzen':  '20741',
   'Sonstiges':           '99',
 }
 

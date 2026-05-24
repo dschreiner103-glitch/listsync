@@ -114,6 +114,19 @@ export const CATEGORIES = [
   'Home & Living',
   'Sport & Outdoor',
   'Unterhaltung',
+  // ── Beauty ──────────────────────────────────────────────────────────
+  'Beauty',
+  'Beauty – Make-up',
+  'Beauty – Hautpflege',
+  'Beauty – Haarpflege',
+  'Beauty – Parfüm & Düfte',
+  'Beauty – Beauty-Tools & -Geräte',
+  // ── Haustiere ───────────────────────────────────────────────────────
+  'Haustiere',
+  'Haustiere – Hunde',
+  'Haustiere – Katzen',
+  'Haustiere – Kleintiere',
+  'Haustiere – Vögel',
   'Sonstiges',
 ]
 
@@ -127,6 +140,12 @@ export const BRANDS = [
 export const COLORS = [
   'Schwarz','Weiß','Grau','Beige','Braun','Blau','Hellblau','Navy',
   'Rot','Pink','Lila','Grün','Gelb','Orange','Mehrfarbig','Gemustert'
+]
+
+export const MATERIALS = [
+  'Baumwolle','Polyester','Wolle','Viskose','Leinen','Seide',
+  'Denim','Fleece','Leder','Kunstleder','Nylon','Elasthan',
+  'Acryl','Kaschmir','Modal','Synthetik','Gemischt'
 ]
 
 export const SIZES_CLOTHING = ['XXS','XS','S','M','L','XL','XXL','3XL','4XL','Einheitsgröße']

@@ -196,6 +196,19 @@ const CATEGORY_MAP = {
   'Home & Living':                            ['Home'],
   'Sport & Outdoor':                          ['Sport'],
   'Unterhaltung':                             ['Unterhaltung'],
+  // ── Beauty ─────────────────────────────────────────────────────────────
+  'Beauty':                                   ['Damen', 'Beauty'],
+  'Beauty – Make-up':                         ['Damen', 'Beauty', 'Make-up'],
+  'Beauty – Hautpflege':                      ['Damen', 'Beauty', 'Hautpflege'],
+  'Beauty – Haarpflege':                      ['Damen', 'Beauty', 'Haarpflege'],
+  'Beauty – Parfüm & Düfte':                  ['Damen', 'Beauty', 'Parfüm & Düfte'],
+  'Beauty – Beauty-Tools & -Geräte':          ['Damen', 'Beauty', 'Beauty-Zubehör'],
+  // ── Haustiere ──────────────────────────────────────────────────────────
+  'Haustiere':                                ['Haustiere'],
+  'Haustiere – Hunde':                        ['Haustiere', 'Hunde'],
+  'Haustiere – Katzen':                       ['Haustiere', 'Katzen'],
+  'Haustiere – Kleintiere':                   ['Haustiere', 'Kleintiere'],
+  'Haustiere – Vögel':                        ['Haustiere', 'Vögel'],
   'Sonstiges':                                [],
 }
 
@@ -525,41 +538,111 @@ function isInNav(el) {
 async function fillCategory(category) {
   if (!category || category === 'Sonstiges') return false
 
-  // Pfad direkt aus dem Kategorie-String ableiten
-  const path = category.split(' – ').map(s => s.trim()).filter(Boolean)
+  // CATEGORY_MAP hat Vorrang (enthält korrigierte/kanonische Pfade)
+  // z.B. 'Beauty' → ['Damen', 'Beauty'] statt ['Beauty']
+  let path = CATEGORY_MAP[category] || null
+  if (!path) {
+    // Prefix-Match: 'Haustiere – Hunde' → schaut ob ein Prefix-Key passt
+    const keys = Object.keys(CATEGORY_MAP).sort((a, b) => b.length - a.length)
+    for (const key of keys) {
+      if (CATEGORY_MAP[key].length > 0 && (category === key || category.startsWith(key + ' – '))) {
+        const extra = category.startsWith(key + ' – ')
+          ? category.slice(key.length + 3).split(' – ').map(s => s.trim()).filter(Boolean)
+          : []
+        path = [...CATEGORY_MAP[key], ...extra]
+        break
+      }
+    }
+  }
+  // Fallback: direkt aus dem String ableiten
+  if (!path || !path.length) path = category.split(' – ').map(s => s.trim()).filter(Boolean)
   if (!path.length) return false
 
   try {
     // Dropdown-Trigger finden – NUR das Formularfeld, nicht die Navigation!
     let trigger = null
 
-    // 1. DIREKT per ID/data-testid (live getestet auf vinted.de/items/new)
-    trigger = document.querySelector('input#category, [data-testid="catalog-select-dropdown-input"]')
-    if (trigger && isInNav(trigger)) trigger = null
-
-    // 2. Placeholder-Text (falls Vinted die ID ändert)
-    if (!trigger) {
-      trigger = document.querySelector('input[placeholder="Wähle eine Kategorie"]')
-      if (trigger && isInNav(trigger)) trigger = null
+    // 1. data-testid Varianten (Vinted ändert testids gelegentlich)
+    for (const sel of [
+      '[data-testid="catalog-select-dropdown-input"]',
+      '[data-testid="catalog-select"] input',
+      '[data-testid*="catalog-select"]',
+      '[data-testid*="category-select"]',
+      'input#category',
+    ]) {
+      const el = document.querySelector(sel)
+      if (el && !isInNav(el)) { trigger = el; break }
     }
 
-    // 3. Letzter Fallback: Klick-Element das "Kategorie" enthält, aber NICHT in der Nav
+    // 2. Readonly-Input in der Nähe eines "Kategorie"-Labels
     if (!trigger) {
-      for (const el of document.querySelectorAll('button, [role="button"], [role="combobox"]')) {
-        if (!isInNav(el) && (el.innerText || el.textContent || '').includes('Kategorie')) {
+      for (const input of document.querySelectorAll('input[readonly], input[aria-readonly="true"]')) {
+        if (isInNav(input)) continue
+        const label = document.querySelector(`label[for="${input.id}"]`)
+        const labelText = label?.textContent || input.placeholder || input.getAttribute('aria-label') || ''
+        if (labelText.toLowerCase().includes('kategorie') || labelText.toLowerCase().includes('catalog')) {
+          trigger = input; break
+        }
+      }
+    }
+
+    // 3. Placeholder-Text (falls Vinted die ID ändert)
+    if (!trigger) {
+      for (const sel of [
+        'input[placeholder*="Kategorie"]',
+        'input[placeholder*="Wähle eine"]',
+        'input[aria-label*="Kategorie"]',
+        'input[aria-label*="catalog"]',
+      ]) {
+        const el = document.querySelector(sel)
+        if (el && !isInNav(el)) { trigger = el; break }
+      }
+    }
+
+    // 4. Button/Combobox/Div mit "Kategorie"-Text – nicht in der Nav
+    if (!trigger) {
+      const sels = 'button, [role="button"], [role="combobox"], [role="listbox"], div[tabindex], span[tabindex]'
+      for (const el of document.querySelectorAll(sels)) {
+        if (isInNav(el)) continue
+        const text = (el.innerText || el.textContent || '').trim()
+        if (text.toLowerCase().includes('kategorie') || text.toLowerCase().includes('catalog')) {
           trigger = el; break
         }
       }
     }
 
-    if (!trigger) { console.warn('[ListSync] Kategorie-Trigger nicht gefunden'); return false }
+    if (!trigger) {
+      console.warn('[ListSync] Kategorie-Trigger nicht gefunden – alle sichtbaren Inputs:',
+        [...document.querySelectorAll('input, button, [role="combobox"]')]
+          .filter(e => !isInNav(e) && e.offsetParent !== null)
+          .map(e => `${e.tagName}[testid=${e.dataset?.testid||''}][placeholder=${e.placeholder||''}]`)
+          .join(', ')
+      )
+      return false
+    }
 
+    console.log('[ListSync] Kategorie-Trigger gefunden:', trigger.tagName, trigger.dataset?.testid || trigger.placeholder || trigger.textContent?.trim()?.substring(0, 30))
     fullClick(trigger)   // KEIN scrollIntoView – schließt Dropdown bei Scroll!
 
     // Warten bis der Dropdown wirklich sichtbar ist
     setStatus('Warte auf Kategorie-Dropdown…')
-    const catalogReady = await waitForCatalogItems(6000)
-    if (!catalogReady) { console.warn('[ListSync] Kategorie-Dropdown nicht geladen'); return false }
+    let catalogReady = await waitForCatalogItems(8000)
+
+    // Fallback: vielleicht öffnet sich ein anderer Panel-Typ
+    if (!catalogReady) {
+      console.warn('[ListSync] catalog-N Items nicht gefunden, versuche generischen Panel…')
+      // Nochmal klicken – manchmal braucht es zwei Versuche
+      fullClick(trigger)
+      await wait(800)
+      catalogReady = await waitForCatalogItems(6000)
+    }
+
+    if (!catalogReady) {
+      console.warn('[ListSync] Kategorie-Dropdown nicht geladen – sichtbare IDs:',
+        [...document.querySelectorAll('[id^="catalog-"]')].map(e => e.id).join(', ')
+      )
+      return false
+    }
     await wait(400)
 
     // Hierarchisch durch alle Pfad-Ebenen klicken
@@ -773,19 +856,233 @@ async function clickVintedField(testid, value, name, opts = {}) {
     return true
   }
 
-  console.warn('[ListSync] Kein Treffer im Panel für:', name, '=', value)
+  // DEBUG: Panel-Inhalt loggen damit wir sehen was dort wirklich steht
+  const panelDebug = getAnyOpenPanel() || document.body
+  const panelItems = [...panelDebug.querySelectorAll('li, [role="option"], [role="radio"], [data-testid]')]
+    .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+    .slice(0, 20)
+    .map(e => `${e.tagName}[${e.dataset?.testid||e.getAttribute('role')||''}]: "${(e.innerText||'').trim().substring(0,25)}"`)
+  console.warn('[ListSync] Kein Treffer im Panel für:', name, '=', value, '| Panel-Items:', panelItems.join(' | '))
+  return false
+}
+
+// ── Brute-Force: unbekannte Dropdown-Inputs durchsuchen ──────────────────────
+// Klappt alle readonly Inputs auf die NICHT zu den excludeKeywords gehören,
+// und prüft ob der gesuchte Wert darin vorkommt.
+async function tryUnknownDropdown(excludeKeywords, value, name) {
+  if (!value) return false
+  const inputs = [...document.querySelectorAll('input[readonly], input[aria-readonly="true"]')]
+    .filter(el => el.offsetParent !== null && !isInNav(el))
+    .filter(el => {
+      const tid = (el.dataset?.testid || '').toLowerCase()
+      return !excludeKeywords.some(kw => tid.includes(kw.toLowerCase()))
+    })
+
+  console.log('[ListSync] tryUnknownDropdown für', name, '– Kandidaten:', inputs.map(e => e.dataset?.testid || 'no-testid').join(', '))
+
+  for (const input of inputs) {
+    const testid = input.dataset?.testid
+    if (!testid) continue
+    console.log('[ListSync] Teste unbekannten Input:', testid, 'für', name)
+    fullClick(input)
+    await wait(1200)
+    const panelOpen = await waitForAnyPanelItems(3000)
+    if (panelOpen) {
+      const panel = getAnyOpenPanel()
+      const found = await findAndClickText(value, panel)
+      if (found) {
+        await wait(500)
+        setStatus('✓ ' + name + ' (unbekannt: ' + testid + ')')
+        return true
+      }
+      // Panel schlließen (Escape)
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      await wait(400)
+    }
+  }
+  console.warn('[ListSync] tryUnknownDropdown: kein Treffer für', name, '=', value)
+  return false
+}
+
+// ── Versand / Sendungsgröße ausfüllen ────────────────────────────────────────
+// Vinted zeigt Radio-Buttons: Klein / Mittel / Groß (+ Empfohlen-Badge)
+// Sie erscheinen wenn man den Versand-Trigger klickt.
+
+const SHIP_SIZE_MAP = {
+  'klein':   'Klein',
+  's':       'Klein',
+  'small':   'Klein',
+  'mittel':  'Mittel',
+  'm':       'Mittel',
+  'medium':  'Mittel',
+  'groß':    'Groß',
+  'gross':   'Groß',
+  'l':       'Groß',
+  'xl':      'Groß',
+  'large':   'Groß',
+  'xxl':     'Groß',
+}
+
+async function fillVintedShipping(shipSize) {
+  if (!shipSize) return false
+  const target = SHIP_SIZE_MAP[shipSize.toLowerCase()] || shipSize
+
+  console.log('[ListSync] Versandgröße suche:', target)
+
+  // ── Strategie 1: Radio-Buttons direkt sichtbar (kein data-testid vorhanden) ─
+  // Vinted zeigt Klein/Mittel/Groß als eigene Klick-Elemente ohne testid.
+  // Suche JEDES sichtbare Element das genau "Klein"/"Mittel"/"Groß" als erste Zeile hat.
+  const allEls = document.querySelectorAll(
+    'label, [role="radio"], [role="option"], [role="button"], ' +
+    'div[tabindex], span[tabindex], li, button'
+  )
+  for (const el of allEls) {
+    if (el.offsetParent === null || isInNav(el)) continue
+    const txt = (el.innerText || el.textContent || '').trim()
+    const firstLine = txt.split('\n')[0].trim()
+    if (firstLine.toLowerCase() === target.toLowerCase()) {
+      console.log('[ListSync] ✓ Versand direkt sichtbar:', firstLine, el.tagName)
+      const radio = el.querySelector('input[type="radio"]') || document.getElementById(el.htmlFor)
+      if (radio) { radio.click(); await wait(300) }
+      reactClick(el)
+      fullClick(el)
+      await wait(500)
+      setStatus('✓ Versand: ' + target)
+      return true
+    }
+  }
+
+  // Strategie 1b: Versand-Abschnitt per Überschriftentext finden, dann darin suchen
+  for (const heading of document.querySelectorAll('p, span, div, h2, h3, h4, label')) {
+    if (heading.offsetParent === null) continue
+    const ht = (heading.innerText || heading.textContent || '').trim().toLowerCase()
+    if (ht === 'sendungsgröße' || ht.includes('sendungsgröße') || ht.includes('versandgröße')) {
+      const section = heading.closest('section') || heading.closest('[class*="ship"]') || heading.parentElement?.parentElement
+      if (section) {
+        console.log('[ListSync] Versand-Abschnitt gefunden, suche darin…')
+        const found = await findAndClickText(target, section)
+        if (found) { setStatus('✓ Versand: ' + target); return true }
+      }
+    }
+  }
+
+  // ── Strategie 2: Trigger-basiert (Dropdown öffnen) ───────────────────────────
+  let trigger = null
+
+  const triggerSels = [
+    '[data-testid="ship-size-dropdown-input"]',
+    '[data-testid="shipment-size-input"]',
+    '[data-testid="shipping-size-dropdown-input"]',
+    '[data-testid="package-size-dropdown-input"]',
+    '[data-testid*="ship"][data-testid*="input"]',
+    '[data-testid*="shipment"][data-testid*="input"]',
+    '[data-testid*="shipping"][data-testid*="input"]',
+  ]
+  for (const sel of triggerSels) {
+    const el = document.querySelector(sel)
+    if (el && el.offsetParent !== null) { trigger = el; break }
+  }
+
+  // Fallback: readonly Input / Button mit "Versand"-Label
+  if (!trigger) {
+    for (const el of document.querySelectorAll('input[readonly], button, [role="combobox"]')) {
+      if (isInNav(el) || el.offsetParent === null) continue
+      const lbl = document.querySelector(`label[for="${el.id}"]`)
+      const txt = (lbl?.textContent || el.placeholder || el.getAttribute('aria-label') || el.textContent || '').toLowerCase()
+      if (txt.includes('sendungsgröße') || txt.includes('versand') || txt.includes('paket')) {
+        trigger = el; break
+      }
+    }
+  }
+
+  if (trigger) {
+    console.log('[ListSync] Versand-Trigger:', trigger.dataset?.testid || trigger.tagName)
+    fullClick(trigger)
+    await wait(1200)
+    await waitForAnyPanelItems(4000)
+    await wait(300)
+
+    const panel = getAnyOpenPanel() || document.body
+    const found = await findAndClickText(target, panel)
+    if (found) {
+      await wait(500)
+      setStatus('✓ Versand: ' + target)
+      return true
+    }
+  }
+
+  // Debug: alle sichtbaren testids + Labels loggen
+  const allVisible = [...document.querySelectorAll('[data-testid]')]
+    .filter(e => !isInNav(e) && e.offsetParent !== null)
+    .map(e => e.dataset.testid).filter(Boolean)
+  console.warn('[ListSync] Versand nicht gefunden für:', target,
+    '| Sichtbare testids:', allVisible.slice(0, 20).join(', '))
   return false
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
+// Probiert mehrere testids durch – gibt true zurück wenn einer funktioniert
+async function clickVintedFieldMulti(testids, value, name) {
+  for (const testid of testids) {
+    const el = document.querySelector(`[data-testid="${testid}"]`)
+    if (el && el.offsetParent !== null) {
+      console.log('[ListSync] Gefunden per testid:', testid)
+      return await clickVintedField(testid, value, name)
+    }
+  }
+  // Partial-Match: [data-testid*="size"] o.ä.
+  for (const keyword of ['size', 'Size', 'grsse', 'groesse']) {
+    const el = document.querySelector(`[data-testid*="${keyword}"][data-testid*="input"], [data-testid*="${keyword}"][data-testid*="select"]`)
+    if (el && el.offsetParent !== null) {
+      const testid = el.dataset.testid
+      console.log('[ListSync] Gefunden per partial testid:', testid)
+      return await clickVintedField(testid, value, name)
+    }
+  }
+  console.warn('[ListSync] Kein testid gefunden für:', name, testids)
+  return false
+}
+
+// Sucht readonly Input per Label-Text und klickt darauf
+async function clickVintedFieldByLabel(labelTexts, value, name) {
+  for (const labelText of labelTexts) {
+    // Per <label> Element
+    for (const lbl of document.querySelectorAll('label')) {
+      const t = (lbl.innerText || lbl.textContent || '').trim().toLowerCase()
+      if (!t.includes(labelText.toLowerCase())) continue
+      const input = lbl.querySelector('input') || document.getElementById(lbl.htmlFor)
+      if (input && input.offsetParent !== null) {
+        const testid = input.dataset?.testid
+        if (testid) return await clickVintedField(testid, value, name)
+        fullClick(input)
+        await waitForAnyPanelItems(4000)
+        const found = await findAndClickText(value, getAnyOpenPanel())
+        if (found) { setStatus('✓ ' + name); return true }
+      }
+    }
+    // Per aria-label / placeholder
+    const input = document.querySelector(
+      `input[aria-label*="${labelText}"], input[placeholder*="${labelText}"]`
+    )
+    if (input && input.offsetParent !== null) {
+      fullClick(input)
+      await waitForAnyPanelItems(4000)
+      const found = await findAndClickText(value, getAnyOpenPanel())
+      if (found) { setStatus('✓ ' + name); return true }
+    }
+  }
+  return false
+}
+
 // Wartet bis ein neues Feld nach Kategorie-Auswahl sichtbar wird
-async function waitForAttributeFields(timeout = 8000) {
+async function waitForAttributeFields(timeout = 12000) {
   const fieldSels = [
     'input[placeholder*="Marke"]', 'input[placeholder*="brand"]',
     'input[placeholder*="Größe"]', 'input[placeholder*="size"]',
     '[data-testid*="brand"]', '[data-testid*="size"]',
     '[data-testid*="condition"]', 'select[name*="condition"]',
+    '[data-testid*="ship"]', '[data-testid*="shipment"]', '[data-testid*="shipping"]',
     '[role="radio"]', '[class*="Chip"]', '[class*="chip"]',
   ]
   return new Promise(resolve => {
@@ -802,6 +1099,78 @@ async function waitForAttributeFields(timeout = 8000) {
   })
 }
 
+// Wartet bis mindestens ein Upload-Thumbnail sichtbar ist
+async function waitForThumbnails(timeout = 25000) {
+  // Snapshot: wie viele img-Elemente gibt es im Upload-Bereich vor dem Upload?
+  const uploadRoot = document.querySelector('[data-testid="media-upload"]')
+    || document.querySelector('[data-testid="dropzone"]')
+    || document.body
+  const initialImgCount = uploadRoot.querySelectorAll('img').length
+
+  const thumbSels = [
+    // Live-bestätigte Vinted-testids (Stand 2025)
+    '[data-testid="media-upload"] img[src*="blob:"]',
+    '[data-testid="dropzone"] img[src*="blob:"]',
+    '[data-testid="plus"] img[src*="blob:"]',
+    '[data-testid*="media"] img[src*="blob:"]',
+    // Generische Thumbnail-Selektoren
+    '[data-testid="photo-thumb-container"]',
+    '[data-testid*="photo-thumb"]',
+    '[data-testid*="upload-photo"] img',
+    '[class*="photo"] img[src*="blob:"]',
+    '[class*="upload"] img[src*="blob:"]',
+    '[class*="photo-upload"] img',
+    'figure img[src*="blob:"]',
+    // Fallback: blob-URL-Bild irgendwo auf der Seite
+    'img[src*="blob:"]',
+  ]
+  return new Promise(resolve => {
+    const check = () => {
+      // Prüfung 1: Upload-Container hat neue img-Elemente bekommen
+      const currentCount = uploadRoot.querySelectorAll('img').length
+      if (currentCount > initialImgCount) {
+        console.warn('[ListSync] Thumbnail erkannt (img-Count: ' + initialImgCount + ' → ' + currentCount + ')')
+        return true
+      }
+      // Prüfung 2: Selektor-Match mit sichtbarem Element
+      return thumbSels.some(s => {
+        try {
+          const el = document.querySelector(s)
+          return el != null  // Existenz reicht (Bild könnte noch laden)
+        } catch { return false }
+      })
+    }
+    if (check()) return resolve(true)
+    const ob = new MutationObserver(() => { if (check()) { ob.disconnect(); resolve(true) } })
+    ob.observe(document.body, { childList: true, subtree: true, attributes: true })
+    setTimeout(() => { ob.disconnect(); resolve(false) }, timeout)
+  })
+}
+
+// Findet den Submit/Veröffentlichen-Button auf Vinted
+function findSubmitButton() {
+  const sels = [
+    '[data-testid="submit-button"]',
+    '[data-testid="upload-form-submit-button"]',
+    '[data-testid*="submit"]',
+    '[data-testid*="publish"]',
+    'button[type="submit"]',
+  ]
+  for (const s of sels) {
+    const el = document.querySelector(s)
+    if (el && el.offsetParent !== null && !el.disabled) return el
+  }
+  // Fallback: Button mit "Veröffentlichen" / "Hochladen" / "Speichern" Text
+  for (const btn of document.querySelectorAll('button')) {
+    if (btn.disabled || btn.offsetParent === null) continue
+    const t = (btn.innerText || btn.textContent || '').trim().toLowerCase()
+    if (t.includes('veröffentlichen') || t.includes('hochladen') || t.includes('speichern') || t.includes('weiter')) {
+      return btn
+    }
+  }
+  return null
+}
+
 async function fill() {
   await wait(2500) // Vinted React braucht Zeit zum Booten
 
@@ -810,6 +1179,19 @@ async function fill() {
 
   const { activeVintedAccount } = await new Promise(r => chrome.storage.local.get('activeVintedAccount', r))
   showBanner(listing, activeVintedAccount)
+  // DEBUG: Zeige welche Felder das Listing hat
+  console.warn('[ListSync DEBUG] Listing-Felder:', JSON.stringify({
+    title: listing.title?.substring(0,30),
+    price: listing.price,
+    category: listing.category,
+    condition: listing.condition,
+    brand: listing.brand,
+    size: listing.size,
+    color: listing.color,
+    material: listing.material,
+    shipSize: listing.shipSize,
+    images: listing.imageData?.length ?? 0,
+  }))
   setStatus('Starte…')
   await wait(500)
 
@@ -843,26 +1225,30 @@ async function fill() {
     await fillCategory(listing.category)
     // Warten bis die neuen Felder erscheinen
     setStatus('Warte auf Attribut-Felder…')
-    await waitForAttributeFields(8000)
+    await waitForAttributeFields(12000)
     await wait(800)
   }
 
-  // ── DEBUG: alle sichtbaren Formular-Elemente ausgeben ────────────────────
+  // ── DEBUG: alle sichtbaren Formular-Elemente + data-testid Buttons ──────
   const debugFields = []
-  document.querySelectorAll('input, textarea, select, [role="radio"], [role="combobox"], [role="listbox"]').forEach(el => {
+  const debugSel = 'input, textarea, select, button, [role="radio"], [role="combobox"], [role="listbox"], [data-testid]'
+  document.querySelectorAll(debugSel).forEach(el => {
     if (el.offsetParent !== null) {
-      debugFields.push({
-        tag: el.tagName,
-        type: el.type || el.getAttribute('role') || '',
-        name: el.name || el.id || '',
-        placeholder: el.placeholder || '',
-        value: el.value || el.textContent?.trim()?.substring(0, 50) || '',
-        testid: el.dataset?.testid || '',
-        class: el.className?.substring(0, 60) || '',
-      })
+      const testid = el.dataset?.testid || ''
+      const text = (el.innerText || el.textContent || '').trim().substring(0, 40)
+      if (testid || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
+        debugFields.push({
+          tag: el.tagName,
+          testid,
+          placeholder: el.placeholder || '',
+          value: el.value || text,
+          readonly: el.readOnly || false,
+        })
+      }
     }
   })
-  console.log('[ListSync DEBUG] Sichtbare Felder nach Kategorie:', JSON.stringify(debugFields, null, 2))
+  console.log('[ListSync DEBUG] Felder nach Kategorie (testids):', JSON.stringify(debugFields, null, 2))
+  // ─────────────────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────────────
 
   // ── 3. Felder die nach Kategorie erscheinen ───────────────────────────────────
@@ -887,10 +1273,36 @@ async function fill() {
     await wait(600)
   }
 
-  // Größe – data-testid: size-select-dropdown-input
+  // ── DEBUG: testid-Dump JETZT (nach Kategorie) ─────────────────────────────
+  const allFieldEls = [...document.querySelectorAll('[data-testid]')]
+    .filter(e => !isInNav(e) && e.offsetParent !== null)
+    .map(e => e.dataset.testid)
+  console.warn('[ListSync DEBUG] Sichtbare testids:', allFieldEls.join(', '))
+  // ── END DEBUG ────────────────────────────────────────────────────────────────
+
+  // Größe – testid variiert je nach Kategorie, daher mehrere Varianten probieren
+  if (!listing.size) { console.warn('[ListSync] Größe: leer, wird übersprungen') }
   if (listing.size) {
     setStatus('Größe wird gesetzt…')
-    await clickVintedField('size-select-dropdown-input', listing.size, 'Größe')
+    const sizeTriggered = await clickVintedFieldMulti([
+      'category-size-single-grid-input',   // ✓ live bestätigt
+      'size-select-dropdown-input',
+      'catalog-size-input',
+      'item-size-input',
+      'size-catalog-input',
+      'size-dropdown-input',
+      'catalog_size-input',
+      'item-size-select',
+      'size-picker-input',
+    ], listing.size, 'Größe')
+    if (!sizeTriggered) {
+      // Fallback 1: Label-Text
+      const byLabel = await clickVintedFieldByLabel(['Größe', 'Größe wählen', 'Size', 'Gr.'], listing.size, 'Größe')
+      if (!byLabel) {
+        // Fallback 2: Unbekannte readonly Inputs (Brute-Force – alle die noch nicht ausgefüllt sind)
+        await tryUnknownDropdown(['brand', 'color', 'material', 'condition', 'catalog-select', 'ship', 'title', 'description', 'price'], listing.size, 'Größe')
+      }
+    }
     await wait(600)
   }
 
@@ -909,46 +1321,103 @@ async function fill() {
   }
 
   // Material – data-testid: category-material-multi-list-input
+  if (!listing.material) { console.warn('[ListSync] Material: leer, wird übersprungen') }
   if (listing.material) {
     setStatus('Material wird gesetzt…')
-    await clickVintedField('category-material-multi-list-input', listing.material, 'Material')
+    const matOk = await clickVintedField('category-material-multi-list-input', listing.material, 'Material')
+    if (!matOk) {
+      const matByLabel = await clickVintedFieldByLabel(['Material', 'Stoff', 'Zusammensetzung'], listing.material, 'Material')
+      if (!matByLabel) {
+        await tryUnknownDropdown(['brand', 'color', 'condition', 'catalog-select', 'ship', 'title', 'description', 'price', 'size'], listing.material, 'Material')
+      }
+    }
     await wait(600)
   }
 
-  // Versand – Standard Vinted-Versand auswählen
-  setStatus('Versand wird gesetzt…')
-  await fillAny(['Versand', 'Versandoptionen', 'Shipping'], 'Vinted-Versand', 'Versand')
-  await wait(400)
+  // Versand / Sendungsgröße – Radio-Buttons: Klein / Mittel / Groß
+  if (listing.shipSize) {
+    setStatus('Versandgröße wird gesetzt…')
+    await fillVintedShipping(listing.shipSize)
+    await wait(600)
+  }
 
   setStatus('✅ Felder fertig – Bilder werden geladen…')
   await injectImages()
-  await wait(1500)
-  setStatus('✅ Fertig! Bitte prüfen und absenden.', true)
+
+  // Warten bis mindestens 1 Thumbnail im DOM sichtbar ist (max 25s)
+  setStatus('Warte auf Bild-Thumbnails…')
+  const thumbsOk = await waitForThumbnails(25000)
+
+  if (thumbsOk) {
+    await wait(1200)
+    setStatus('Artikel wird veröffentlicht…')
+    const submitBtn = findSubmitButton()
+    if (submitBtn) {
+      submitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await wait(600)
+      fullClick(submitBtn)
+      setStatus('✅ Veröffentlicht!', true)
+      // Feedback an ListSync-App: Platform-Badge setzen
+      if (listing?.id) {
+        chrome.runtime.sendMessage({ type: 'LISTING_POSTED', listingId: listing.id, platform: 'vinted' })
+          .catch(() => {})
+      }
+    } else {
+      setStatus('✅ Fertig! Bitte prüfen und absenden.', true)
+      console.warn('[ListSync] Submit-Button nicht gefunden – bitte manuell absenden')
+    }
+  } else {
+    setStatus('✅ Fertig! Bitte prüfen und absenden.', true)
+    console.warn('[ListSync] Thumbnails nicht erschienen – bitte Bilder prüfen')
+  }
+
   await chrome.storage.local.remove('pendingListing')
 }
 
 // ── Bilder injizieren ─────────────────────────────────────────────────────────
-// Läuft NACH fill() – dann ist das Formular garantiert bereit.
-// Liest imageData aus pendingListing (vorher von background.js geladen).
 async function injectImages() {
   const { pendingListing } = await new Promise(r => chrome.storage.local.get('pendingListing', r))
   const imageData = pendingListing?.imageData
-  if (!imageData?.length) { console.log('[ListSync] Keine Bilder zum Hochladen'); return }
 
-  console.log('[ListSync] Starte Bild-Injection:', imageData.length, 'Bilder')
+  // ── DIAGNOSE (console.warn damit immer sichtbar) ──────────────────────────
+  console.warn('[ListSync] injectImages – imageData:', imageData?.length ?? 'LEER/NULL', 'Bilder')
+  if (!imageData?.length) {
+    console.warn('[ListSync] ❌ imageData leer – Bilder wurden nicht geladen (background.js)')
+    return
+  }
 
-  // File-Input finden (mit Retry – React könnte noch mounten)
+  setStatus(`📸 ${imageData.length} Bilder werden hochgeladen…`)
+
+  // Strategie 1: MAIN-World via background.js
+  try {
+    console.warn('[ListSync] → Sende INJECT_MAIN_IMAGES…')
+    const res = await chrome.runtime.sendMessage({ type: 'INJECT_MAIN_IMAGES', imageData })
+    console.warn('[ListSync] ← INJECT_MAIN_IMAGES Antwort:', JSON.stringify(res))
+    if (res?.ok) {
+      console.warn('[ListSync] ✓ Bilder via MAIN-World –', imageData.length, 'Bilder')
+      await wait(2000)
+      return
+    }
+    console.warn('[ListSync] MAIN-World fehlgeschlagen:', res?.error)
+  } catch(e) {
+    console.warn('[ListSync] sendMessage Fehler:', e.message)
+  }
+
+  // Strategie 2: File-Input direkt per DataTransfer (Fallback)
+  // Echte Vinted-testids: media-upload, plus, dropzone
   let fi = null
-  for (let attempt = 0; attempt < 15; attempt++) {
-    fi = document.querySelector('[data-testid="add-photos-input"]')
+  for (let attempt = 0; attempt < 20; attempt++) {
+    fi = document.querySelector('[data-testid="media-upload"] input[type="file"]')
+      || document.querySelector('[data-testid="plus"] input[type="file"]')
+      || document.querySelector('[data-testid="dropzone"] input[type="file"]')
+      || document.querySelector('[data-testid="add-photos-input"]')
       || document.querySelector('input[type="file"][accept*="image"]')
-      || document.querySelector('input[type="file"][name="photos"]')
+      || document.querySelector('input[type="file"]')
     if (fi) break
-    await wait(800)
+    await wait(500)
   }
   if (!fi) { console.warn('[ListSync] File-Input nicht gefunden'); return }
 
-  // DataTransfer mit allen Bildern aufbauen
   const dt = new DataTransfer()
   for (let i = 0; i < imageData.length; i++) {
     try {
@@ -957,73 +1426,16 @@ async function injectImages() {
       const bin = atob(d)
       const arr = new Uint8Array(bin.length)
       for (let j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j)
-      const ext = (type || 'image/jpeg').split('/')[1] || 'jpg'
-      dt.items.add(new File([arr], `photo_${i + 1}.${ext}`, { type: type || 'image/jpeg' }))
-    } catch(e) { console.warn('[ListSync] Bild-Konvertierung fehlgeschlagen:', i, e.message) }
+      dt.items.add(new File([arr], `photo_${i + 1}.jpg`, { type: 'image/jpeg' }))
+    } catch(e) { console.warn('[ListSync] Bild-Fehler:', i, e.message) }
   }
-  if (!dt.files.length) { console.warn('[ListSync] Keine Dateien in DataTransfer'); return }
+  if (!dt.files.length) { console.warn('[ListSync] DataTransfer leer'); return }
 
-  // files-Property überschreiben (React liest event.target.files)
   Object.defineProperty(fi, 'files', { get: () => dt.files, configurable: true })
-
-  const files = Array.from(dt.files)
-
-  // Strategie 1: onUploadFilesStart (Vinreds interner Upload-Handler – zuverlässigster Weg)
-  const fk = Object.keys(fi).find(k =>
-    k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
-  )
-  let triggered = false
-  if (fk) {
-    let node = fi[fk]
-    let tries = 0
-    while (node && tries++ < 40) {
-      const props = node?.memoizedProps || node?.pendingProps
-      if (props && typeof props.onUploadFilesStart === 'function') {
-        try {
-          props.onUploadFilesStart(files)
-          triggered = true
-          console.log('[ListSync] ✓ Bilder via onUploadFilesStart –', files.length, 'Bilder')
-          break
-        } catch(e) { console.warn('[ListSync] onUploadFilesStart Fehler:', e.message); break }
-      }
-      node = node.return
-    }
-  }
-
-  // Strategie 2: onChange mit files auf dem Input (Fallback)
-  if (!triggered && fk) {
-    Object.defineProperty(fi, 'files', { get: () => dt.files, configurable: true })
-    let node = fi[fk]
-    let tries = 0
-    while (node && tries++ < 40) {
-      const props = node?.memoizedProps || node?.pendingProps
-      const handler = props?.onChange
-      if (handler) {
-        try {
-          handler({
-            target: fi, currentTarget: fi,
-            preventDefault: () => {}, stopPropagation: () => {},
-            persist: () => {}, nativeEvent: new Event('change', { bubbles: true })
-          })
-          triggered = true
-          console.log('[ListSync] ✓ Bilder via onChange –', files.length, 'Bilder')
-          break
-        } catch(e) { console.warn('[ListSync] onChange Fehler:', e.message); break }
-      }
-      node = node.return
-    }
-  }
-
-  // Strategie 3: native Events (letzter Fallback)
-  if (!triggered) {
-    Object.defineProperty(fi, 'files', { get: () => dt.files, configurable: true })
-    fi.dispatchEvent(new Event('change', { bubbles: true }))
-    fi.dispatchEvent(new Event('input',  { bubbles: true }))
-    console.log('[ListSync] Bilder via native Event –', files.length, 'Bilder')
-  }
-
-  setStatus(`📸 ${dt.files.length} Bilder werden hochgeladen…`)
-  await wait(3000)  // Zeit für Vinted-Upload
+  fi.dispatchEvent(new Event('change', { bubbles: true }))
+  fi.dispatchEvent(new Event('input',  { bubbles: true }))
+  console.log('[ListSync] Bilder via native DataTransfer –', dt.files.length, 'Bilder')
+  await wait(2000)
 }
 
 if (document.readyState === 'loading') {

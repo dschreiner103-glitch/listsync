@@ -26,6 +26,25 @@ const CATEGORY_MAP = {
   'Sonstiges – Home & Living': ['Haushaltsgeräte & Möbel', ''],
   'Sonstiges – Sport & Outdoor': ['Sport & Camping', ''],
   'Sonstiges – Unterhaltung': ['Musik, Filme & Bücher', ''],
+  'Elektronik': ['Elektronik', ''],
+  'Home & Living': ['Haus & Garten', ''],
+  'Sport & Outdoor': ['Sport & Camping', ''],
+  'Unterhaltung': ['Musik, Filme & Bücher', ''],
+  // Beauty
+  'Beauty': ['Mode & Beauty', 'Kosmetik & Wellness'],
+  'Beauty – Make-up': ['Mode & Beauty', 'Kosmetik & Wellness'],
+  'Beauty – Hautpflege': ['Mode & Beauty', 'Kosmetik & Wellness'],
+  'Beauty – Haarpflege': ['Mode & Beauty', 'Kosmetik & Wellness'],
+  'Beauty – Parfüm & Düfte': ['Mode & Beauty', 'Kosmetik & Wellness'],
+  'Beauty – Beauty-Tools & -Geräte': ['Mode & Beauty', 'Kosmetik & Wellness'],
+  'Damen – Beauty': ['Mode & Beauty', 'Kosmetik & Wellness'],
+  // Haustiere
+  'Haustiere': ['Tiere', ''],
+  'Haustiere – Hunde': ['Tiere', 'Hunde'],
+  'Haustiere – Katzen': ['Tiere', 'Katzen'],
+  'Haustiere – Kleintiere': ['Tiere', 'Kleintiere'],
+  'Haustiere – Vögel': ['Tiere', 'Vögel'],
+  'Sonstiges': ['Sonstige', ''],
 }
 
 function getCategoryForListing(category) {
@@ -209,45 +228,156 @@ async function uploadImages(imageData) {
 }
 
 // ── Kategorie auswählen ───────────────────────────────────────────────────────
+// Kleinanzeigen hat 3 bekannte UI-Muster:
+//   A) Link/Button der ein Modal öffnet (modernes Design)
+//   B) Direkte Klick-Liste im Seitenbereich (älteres Design)
+//   C) Breadcrumb mit "Kategorie ändern"-Link
 async function selectCategory(listing) {
   const catInfo = getCategoryForListing(listing.category)
-  if (!catInfo) return
+  if (!catInfo) {
+    console.warn('[ListSync KA] Kein Kategorie-Mapping für:', listing.category)
+    return
+  }
 
   const [hauptkat, unterkat] = catInfo
   if (!hauptkat) return
 
+  console.log('[ListSync KA] Setze Kategorie:', hauptkat, '→', unterkat)
+
   try {
-    // Kategorie-Button/Link suchen
-    const catBtn = document.querySelector(
-      '#category-selector, [data-testid="category-selector"], a[href*="kategorie"], #postad-category-path-selector, .categorybox'
-    )
-    if (!catBtn) return
+    // ── Schritt 1: Kategorie-Trigger finden und klicken ──────────────────────
+    const triggerSels = [
+      // Modernes KA-Design (2024)
+      '[data-testid="posting-category-select"]',
+      '[data-testid="category-select"]',
+      '[data-testid="category-button"]',
+      // Älteres Design
+      '#postad-category-path-selector',
+      '#category-selector',
+      '.categorybox',
+      // Generische Fallbacks
+      'a[href*="kategorie"], button[class*="category"], [class*="CategorySelector"]',
+      // Breadcrumb-Link
+      'a[class*="category"], span[class*="category"] a',
+    ]
 
-    catBtn.click()
-    await wait(1000)
-
-    // Hauptkategorie klicken
-    const allLinks = [...document.querySelectorAll('a, li, [role="option"], [role="menuitem"]')]
-    const hauptEl = allLinks.find(el => el.textContent.trim() === hauptkat || el.textContent.includes(hauptkat))
-    if (hauptEl) {
-      hauptEl.click()
-      await wait(800)
+    let trigger = null
+    for (const sel of triggerSels) {
+      try {
+        const el = document.querySelector(sel)
+        if (el && el.offsetParent !== null) { trigger = el; break }
+      } catch {}
     }
 
-    // Unterkategorie klicken
+    // Fallback: Text-Suche nach "Kategorie wählen" / "Kategorie ändern"
+    if (!trigger) {
+      for (const el of document.querySelectorAll('a, button, [role="button"], span[tabindex]')) {
+        const t = (el.textContent || '').trim().toLowerCase()
+        if (t.includes('kategorie') && el.offsetParent !== null) {
+          trigger = el; break
+        }
+      }
+    }
+
+    if (!trigger) {
+      console.warn('[ListSync KA] Kategorie-Trigger nicht gefunden – Selektoren versucht:', triggerSels.join(', '))
+      return
+    }
+
+    console.log('[ListSync KA] Kategorie-Trigger:', trigger.tagName, trigger.id || trigger.className?.substring(0,30))
+    trigger.click()
+    await wait(1200)
+
+    // ── Schritt 2: Auf Modal / Kategorie-Overlay warten ─────────────────────
+    const modalSels = [
+      '[data-testid="category-dialog"]',
+      '[data-testid="category-modal"]',
+      '[role="dialog"]',
+      '[class*="CategoryModal"]',
+      '[class*="category-modal"]',
+      '[class*="overlay"]',
+      '[class*="Overlay"]',
+    ]
+    let modal = null
+    for (let i = 0; i < 15; i++) {
+      for (const sel of modalSels) {
+        const el = document.querySelector(sel)
+        if (el && el.offsetParent !== null) { modal = el; break }
+      }
+      if (modal) break
+      await wait(300)
+    }
+
+    const searchRoot = modal || document.body
+    console.log('[ListSync KA] Such-Root:', modal ? modal.tagName + (modal.getAttribute('role') || '') : 'document.body')
+
+    // ── Schritt 3: Hauptkategorie klicken ────────────────────────────────────
+    const hauptFound = await clickKACategory(hauptkat, searchRoot)
+    if (!hauptFound) {
+      console.warn('[ListSync KA] Hauptkategorie nicht gefunden:', hauptkat)
+      return
+    }
+    await wait(800)
+
+    // ── Schritt 4: Unterkategorie klicken (falls vorhanden) ──────────────────
     if (unterkat) {
-      const allLinks2 = [...document.querySelectorAll('a, li, [role="option"], [role="menuitem"]')]
-      const unterEl = allLinks2.find(el => el.textContent.trim() === unterkat || el.textContent.includes(unterkat))
-      if (unterEl) {
-        unterEl.click()
+      // Nach Klick auf Hauptkat erscheinen Unterkategorien – warten
+      await wait(600)
+      const unterFound = await clickKACategory(unterkat, modal || document.body)
+      if (!unterFound) {
+        console.warn('[ListSync KA] Unterkategorie nicht gefunden:', unterkat, '(Hauptkategorie wurde gesetzt)')
+      } else {
         await wait(600)
       }
     }
 
-    console.log('[ListSync KA] ✓ Kategorie gesetzt:', hauptkat, unterkat)
+    console.log('[ListSync KA] ✓ Kategorie gesetzt:', hauptkat, unterkat || '')
   } catch(e) {
     console.warn('[ListSync KA] Kategorie-Fehler:', e.message)
   }
+}
+
+// Sucht und klickt ein Kategorie-Element per Text innerhalb von root
+async function clickKACategory(text, root) {
+  const target = text.toLowerCase().trim()
+
+  const sels = [
+    'li', 'a', 'button', '[role="option"]', '[role="menuitem"]',
+    '[role="listitem"]', 'label', 'span[tabindex]', 'div[tabindex]',
+    '[class*="item"]', '[class*="category"]', '[class*="Category"]',
+  ]
+
+  const candidates = []
+  for (const sel of sels) {
+    for (const el of (root || document).querySelectorAll(sel)) {
+      if (el.offsetParent === null) continue
+      const raw = (el.innerText || el.textContent || '').trim()
+      const firstLine = raw.split('\n')[0].trim()
+      const lower = firstLine.toLowerCase()
+      if (lower === target) { candidates.push({ el, score: 1 }); break }
+      if (lower.startsWith(target)) candidates.push({ el, score: 2 })
+      else if (lower.includes(target) && firstLine.length < text.length + 40) candidates.push({ el, score: 3 })
+    }
+  }
+
+  if (!candidates.length) {
+    // Debug: zeige was sichtbar ist
+    const visible = []
+    for (const el of (root || document).querySelectorAll('li, a, button, [role="option"]')) {
+      if (el.offsetParent !== null) {
+        const t = (el.innerText || el.textContent || '').trim().split('\n')[0].substring(0, 40)
+        if (t) visible.push(t)
+      }
+    }
+    console.log('[ListSync KA] Kein Treffer für "' + text + '". Sichtbare Elemente:', visible.slice(0, 20).join(' | '))
+    return false
+  }
+
+  candidates.sort((a, b) => a.score - b.score)
+  const { el } = candidates[0]
+  console.log('[ListSync KA] Klicke:', el.tagName, '"' + (el.innerText || '').trim().substring(0, 30) + '"')
+  el.click()
+  return true
 }
 
 // ── Zustand auswählen ─────────────────────────────────────────────────────────
@@ -341,6 +471,58 @@ async function setShipping(listing) {
   } catch {}
 }
 
+// Wartet bis Upload-Thumbnails bei Kleinanzeigen sichtbar sind
+async function waitForKAThumbnails(timeout = 15000) {
+  const sels = [
+    '[data-testid*="photo-thumb"]',
+    '[class*="photo-preview"] img',
+    '[class*="upload-preview"] img',
+    '[class*="thumbnail"] img',
+    'figure img',
+    '[class*="ImagePreview"] img',
+  ]
+  return new Promise(resolve => {
+    const check = () => sels.some(s => {
+      const el = document.querySelector(s)
+      return el && el.getBoundingClientRect().width > 0
+    })
+    if (check()) return resolve(true)
+    const ob = new MutationObserver(() => { if (check()) { ob.disconnect(); resolve(true) } })
+    ob.observe(document.body, { childList: true, subtree: true, attributes: true })
+    setTimeout(() => { ob.disconnect(); resolve(false) }, timeout)
+  })
+}
+
+// Findet und klickt den Submit-Button
+async function submitKAForm() {
+  const sels = [
+    '[data-testid="submit-button"]',
+    '[data-testid="posting-submit-button"]',
+    'button[type="submit"]',
+  ]
+  for (const s of sels) {
+    const el = document.querySelector(s)
+    if (el && el.offsetParent !== null && !el.disabled) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await wait(500)
+      el.click()
+      return true
+    }
+  }
+  // Fallback: Button mit passendem Text
+  for (const btn of document.querySelectorAll('button')) {
+    if (btn.disabled || btn.offsetParent === null) continue
+    const t = (btn.innerText || btn.textContent || '').trim().toLowerCase()
+    if (t.includes('aufgeben') || t.includes('veröffentlichen') || t.includes('anzeige') || t.includes('weiter')) {
+      btn.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await wait(500)
+      btn.click()
+      return true
+    }
+  }
+  return false
+}
+
 // ── Hauptfunktion ─────────────────────────────────────────────────────────────
 async function fill() {
   const listing = await getListing()
@@ -429,7 +611,24 @@ async function fill() {
   await wait(500)
   await uploadImages(listing.imageData || [])
 
-  updateBanner('ListSync ✅ Fertig – bitte prüfen & absenden')
+  // Warte auf Upload-Thumbnails (max 20s), dann Auto-Submit
+  updateBanner('ListSync – Warte auf Bild-Upload…')
+  const thumbsReady = await waitForKAThumbnails(20000)
+  if (thumbsReady) await wait(1000)
+
+  updateBanner('ListSync – Anzeige wird aufgegeben…')
+  const submitted = await submitKAForm()
+  if (submitted) {
+    updateBanner('ListSync ✅ Anzeige aufgegeben!')
+    if (listing?.id) {
+      chrome.runtime.sendMessage({ type: 'LISTING_POSTED', listingId: listing.id, platform: 'kleinanzeigen' })
+        .catch(() => {})
+    }
+  } else {
+    updateBanner('ListSync ✅ Fertig – bitte prüfen & absenden')
+    console.warn('[ListSync KA] Submit-Button nicht gefunden – bitte manuell absenden')
+  }
+
   await chrome.storage.local.remove('pendingListing')
   console.log('[ListSync KA] ✅ Alles ausgefüllt')
 }

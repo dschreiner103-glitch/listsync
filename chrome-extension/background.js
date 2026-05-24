@@ -24,6 +24,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(e => sendResponse({ ok: false, error: e.message }))
     return true
   }
+  if (msg.type === 'LISTING_POSTED') {
+    // Content Script (Vinted/KA/eBay) meldet erfolgreichen Submit
+    forwardToListSyncBridge(msg).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }))
+    return true
+  }
   if (msg.type === 'INJECT_MAIN_IMAGES') {
     const tabId = sender.tab?.id
     if (!tabId) { sendResponse({ ok: false, error: 'Kein Tab' }); return true }
@@ -38,6 +43,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 })
 
+// ── ListSync-Bridge benachrichtigen ──────────────────────────────────────────
+
+async function forwardToListSyncBridge(msg) {
+  const tabs = await chrome.tabs.query({ url: [`${BASE_URL}/*`, 'http://localhost:3000/*'] })
+  if (!tabs.length) { console.warn('[ListSync BG] Kein ListSync-Tab für LISTING_POSTED'); return }
+  for (const tab of tabs) {
+    try { await chrome.tabs.sendMessage(tab.id, msg); break } catch(e) {}
+  }
+}
+
 // ── Image loader ──────────────────────────────────────────────────────────────
 
 async function fetchImageAsBase64(url) {
@@ -45,9 +60,20 @@ async function fetchImageAsBase64(url) {
     const res  = await fetch(url)
     if (!res.ok) return null
     const blob = await res.blob()
+    const mime = blob.type || 'image/jpeg'
+
+    // HEIC/HEIF werden von Chrome nicht dekodiert
+    if (mime.includes('heic') || mime.includes('heif')) {
+      console.warn('[ListSync BG] HEIC/HEIF übersprungen:', url)
+      return null
+    }
+    if (blob.size > 15 * 1024 * 1024) {
+      console.warn('[ListSync BG] Bild zu groß (>15MB):', url)
+      return null
+    }
     return await new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onload  = () => resolve({ base64: reader.result, type: blob.type || 'image/jpeg' })
+      reader.onload  = () => resolve({ base64: reader.result, type: mime })
       reader.onerror = reject
       reader.readAsDataURL(blob)
     })
@@ -57,7 +83,6 @@ async function fetchImageAsBase64(url) {
 // ── Post listing to platforms ─────────────────────────────────────────────────
 
 async function handlePost(listing, platforms) {
-  // Load images as base64 (max 8)
   const imageData = []
   for (const url of (listing.images || []).slice(0, 8)) {
     const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
@@ -70,35 +95,70 @@ async function handlePost(listing, platforms) {
   console.log('[ListSync BG] Bilder geladen:', imageData.length, '– ID:', listing.id)
 
   for (const platform of platforms) {
-    if (platform === 'vinted') {
-      await openVintedNewListing(imageData)
-    }
-    if (platform === 'kleinanzeigen') {
-      await openKleinanzeigenNewListing()
-    }
-    if (platform === 'ebay') {
-      await openEbayNewListing()
-    }
+    if (platform === 'vinted')        await openVintedNewListing()
+    if (platform === 'kleinanzeigen') await openKleinanzeigenNewListing()
+    if (platform === 'ebay')          await openEbayNewListing(listing)
   }
 }
 
 async function openKleinanzeigenNewListing() {
-  await chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/anzeige/aufgeben' })
+  await chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/anzeige-aufgeben' })
   console.log('[ListSync BG] ✓ Kleinanzeigen-Tab geöffnet')
 }
 
-async function openEbayNewListing() {
-  await chrome.tabs.create({ url: 'https://www.ebay.de/sl/list' })
-  console.log('[ListSync BG] ✓ eBay-Tab geöffnet')
+async function openEbayNewListing(listing) {
+  const categoryId = listing ? getEbayCategoryIdFromListing(listing) : null
+  const url = categoryId
+    ? `https://www.ebay.de/sl/list?category=${categoryId}`
+    : 'https://www.ebay.de/sl/list'
+  await chrome.tabs.create({ url })
+  console.log('[ListSync BG] ✓ eBay-Tab geöffnet, Kategorie-ID:', categoryId || '(keine)')
 }
 
-async function openVintedNewListing(imageData) {
-  const { activeVintedAccount } = await chrome.storage.local.get('activeVintedAccount')
-
-  // vinted.js content script übernimmt Formular + Bild-Injection
-  // (liest pendingListing inkl. imageData direkt aus chrome.storage)
+async function openVintedNewListing() {
   await chrome.tabs.create({ url: 'https://www.vinted.de/items/new' })
   console.log('[ListSync BG] ✓ Vinted-Tab geöffnet')
+}
+
+function getEbayCategoryIdFromListing(listing) {
+  const cat = listing?.category
+  if (!cat) return null
+  const EBAY_IDS = {
+    'Damen': '63861', 'Damen – Kleidung': '63861',
+    'Damen – Kleidung – Jacken & Mäntel': '63862',
+    'Damen – Kleidung – Pullover & Strickpullover': '63864',
+    'Damen – Kleidung – Jeans': '11554',
+    'Damen – Kleidung – Blazer & Anzüge': '3002',
+    'Damen – Kleidung – Unterwäsche & Nachtwäsche': '63863',
+    'Damen – Kleidung – Activewear': '137084',
+    'Damen – Schuhe': '63889', 'Damen – Taschen': '169291',
+    'Damen – Accessoires': '4251', 'Damen – Accessoires – Schmuck': '281',
+    'Damen – Accessoires – Uhren': '14324', 'Damen – Beauty': '26395',
+    'Herren': '57988', 'Herren – Kleidung': '57988',
+    'Herren – Kleidung – Jeans': '11483',
+    'Herren – Kleidung – Anzüge & Blazer': '3001',
+    'Herren – Kleidung – Sportartikel': '137084',
+    'Herren – Schuhe': '93427', 'Herren – Accessoires': '15322',
+    'Herren – Accessoires – Taschen & Rucksäcke': '169291',
+    'Kinder': '171146', 'Kinder – Mädchen': '171146', 'Kinder – Jungs': '171147',
+    'Kinder – Spielzeug': '220', 'Kinder – Kinderwagen, Tragen & Autositze': '100218',
+    'Elektronik': '293', 'Elektronik – Smartphones': '15032',
+    'Sport': '888', 'Sport & Outdoor': '888',
+    'Home': '11700', 'Home & Living': '11700',
+    'Unterhaltung': '11232', 'Unterhaltung – Bücher': '267',
+    'Beauty': '26395', 'Beauty – Make-up': '26395', 'Beauty – Hautpflege': '11854',
+    'Beauty – Haarpflege': '26395', 'Beauty – Parfüm & Düfte': '180345',
+    'Beauty – Beauty-Tools & -Geräte': '26395',
+    'Haustiere': '1281', 'Haustiere – Hunde': '20744', 'Haustiere – Katzen': '20741',
+    'Haustiere – Kleintiere': '20745', 'Haustiere – Vögel': '20746',
+    'Sonstiges': '99',
+  }
+  if (EBAY_IDS[cat]) return EBAY_IDS[cat]
+  const keys = Object.keys(EBAY_IDS).sort((a, b) => b.length - a.length)
+  for (const key of keys) {
+    if (cat.startsWith(key + ' – ') || cat === key) return EBAY_IDS[key]
+  }
+  return EBAY_IDS[cat.split(' – ')[0]] || null
 }
 
 // ── Vinted history import ─────────────────────────────────────────────────────
@@ -114,68 +174,43 @@ async function importVintedHistory(data, sourceTabId) {
     })
     const result = await res.json()
     console.log('[ListSync BG] Import:', result)
-    // Notify popup
     chrome.runtime.sendMessage({ type: 'IMPORT_DONE', result }).catch(() => {})
   } catch(e) {
     console.warn('[ListSync BG] Import fehlgeschlagen:', e.message)
   }
 }
 
-// ── Vinted Listing importieren (von Artikel-Detailseite) ─────────────────────
+// ── Vinted Listing importieren ────────────────────────────────────────────────
 
 async function importVintedListing(listing) {
   try {
-    // Bilder als Base64 laden (für späteren Upload zu ListSync)
     const uploadedImages = []
     for (const url of (listing.images || []).slice(0, 8)) {
       try {
-        // Vinted-Bilder direkt über Fetch laden (background hat host_permissions)
         const res = await fetch(url)
         if (!res.ok) continue
         const blob = await res.blob()
-        // Als FormData an ListSync Upload-API schicken
         const fd = new FormData()
         const ext = (blob.type || 'image/jpeg').split('/')[1] || 'jpg'
         fd.append('files', new File([blob], `import_${uploadedImages.length + 1}.${ext}`, { type: blob.type }))
-        const uploadRes = await fetch(`${BASE_URL}/api/upload`, {
-          method: 'POST',
-          body: fd,
-          credentials: 'include',
-        })
+        const uploadRes = await fetch(`${BASE_URL}/api/upload`, { method: 'POST', body: fd, credentials: 'include' })
         if (uploadRes.ok) {
           const { urls } = await uploadRes.json()
           if (urls?.[0]) uploadedImages.push(urls[0])
         }
-      } catch(e) {
-        console.warn('[ListSync BG] Bild-Upload fehlgeschlagen:', e.message)
-      }
+      } catch(e) { console.warn('[ListSync BG] Bild-Upload fehlgeschlagen:', e.message) }
     }
-
-    // Listing in ListSync erstellen
     const body = {
-      title:       listing.title || 'Vinted-Import',
-      description: listing.description || '',
-      price:       listing.price || 0,
-      buyPrice:    0,
-      category:    listing.category || 'Sonstiges',
-      condition:   listing.condition || '',
-      brand:       listing.brand || '',
-      size:        listing.size || '',
-      color:       listing.color || '',
-      images:      uploadedImages,
-      platforms:   ['vinted'],
-      shipping:    [],
-      shipSize:    '',
-      status:      'aktiv',
+      title: listing.title || 'Vinted-Import', description: listing.description || '',
+      price: listing.price || 0, buyPrice: 0, category: listing.category || 'Sonstiges',
+      condition: listing.condition || '', brand: listing.brand || '',
+      size: listing.size || '', color: listing.color || '',
+      images: uploadedImages, platforms: ['vinted'], shipping: [], shipSize: '', status: 'aktiv',
     }
-
     const res = await fetch(`${BASE_URL}/api/listings`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(body),
-      credentials: 'include',
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body), credentials: 'include',
     })
-
     if (!res.ok) throw new Error('API Fehler: ' + res.status)
     const result = await res.json()
     console.log('[ListSync BG] ✅ Vinted-Listing importiert:', result.id)
@@ -186,96 +221,206 @@ async function importVintedListing(listing) {
   }
 }
 
-// ── Image injection (runs in MAIN world) ──────────────────────────────────────
-// This function is serialized and injected into the page – no closures!
+// ── Image injection (runs in MAIN world via chrome.scripting.executeScript) ───
+// WICHTIG: Diese Funktion wird als String serialisiert und im MAIN world
+// der Zielseite ausgeführt. NUR synchroner Code, var statt let/const,
+// keine Arrow-Functions in kritischen Pfaden – maximale Kompatibilität.
 
 function injectImages(imageData) {
-  if (!imageData?.length) { console.warn('[ListSync MAIN] Keine Bilder'); return }
+  if (!imageData || !imageData.length) {
+    console.warn('[ListSync MAIN] Keine Bilder')
+    return
+  }
+  console.warn('[ListSync MAIN] Start –', imageData.length, 'Bilder')
 
-  function b64ToFile(img, i) {
-    const [, d] = img.base64.split(',')
-    const bin = atob(d)
-    const arr = new Uint8Array(bin.length)
-    for (let j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j)
-    const ext = (img.type || 'image/jpeg').split('/')[1] || 'jpg'
-    return new File([arr], `listsync_${i + 1}.${ext}`, { type: img.type || 'image/jpeg' })
+  // Base64 → File[]
+  var files = []
+  for (var i = 0; i < imageData.length; i++) {
+    try {
+      var img  = imageData[i]
+      var mime = (img.type || 'image/jpeg')
+      if (mime.indexOf('heic') !== -1 || mime.indexOf('heif') !== -1) continue
+      var b64  = img.base64.split(',')[1] || img.base64
+      var bin  = atob(b64)
+      var arr  = new Uint8Array(bin.length)
+      for (var j = 0; j < bin.length; j++) arr[j] = bin.charCodeAt(j)
+      files.push(new File([arr], 'photo_' + (i + 1) + '.jpg', { type: 'image/jpeg' }))
+    } catch(e) { console.warn('[ListSync MAIN] Bild-Fehler:', e.message) }
+  }
+  if (!files.length) { console.warn('[ListSync MAIN] Keine Dateien'); return }
+
+  var dt = new DataTransfer()
+  for (var k = 0; k < files.length; k++) dt.items.add(files[k])
+
+  // ── Hilfsfunktion: React-Fiber-Key vom DOM-Element ───────────────────────────
+  // Bevorzuge __reactFiber (enthält .return/.child/.sibling für walk-up).
+  // __reactProps ist nur ein Props-Objekt ohne Tree-Links.
+  function getFiberKey(el) {
+    var keys = Object.keys(el)
+    for (var x = 0; x < keys.length; x++) {
+      if (keys[x].indexOf('__reactFiber') === 0) return keys[x]
+    }
+    for (var y = 0; y < keys.length; y++) {
+      if (keys[y].indexOf('__reactInternals') === 0) return keys[y]
+    }
+    return null
   }
 
-  const files = imageData.map((img, i) => b64ToFile(img, i))
-  const dt = new DataTransfer()
-  files.forEach(f => dt.items.add(f))
+  // ── Hilfsfunktion: onChange via Fiber walk-up aufrufen ───────────────────────
+  // WICHTIG: onUploadFilesStart ist eine CALLBACK-PROP des Eltern-Komponenten –
+  // sie wird vom Upload-Kind AUFGERUFEN, löst aber selbst keinen Upload aus.
+  // Der echte Trigger ist onChange am File-Input (depth 1 im Fiber-Baum).
+  function callOnChange(el, fiberKey) {
+    var fnode = el[fiberKey]
+    var cnt = 0
+    while (fnode && cnt++ < 20) {
+      var fp = fnode.memoizedProps || fnode.pendingProps
+      if (fp && typeof fp.onChange === 'function') {
+        try {
+          fp.onChange({
+            target: el, currentTarget: el,
+            preventDefault: function(){}, stopPropagation: function(){},
+            persist: function(){}, nativeEvent: new Event('change', { bubbles: true }),
+            bubbles: true, cancelable: true,
+          })
+          console.warn('[ListSync MAIN] ✓ onChange (Fiber walk-up, Ebene ' + cnt + ')')
+          return true
+        } catch(e) { console.warn('[ListSync MAIN] onChange Fehler (Ebene ' + cnt + '):', e.message) }
+      }
+      fnode = fnode.return
+    }
+    return false
+  }
 
-  // Strategy 1: Find file input, use React Fiber
-  const inputSelectors = [
+  // ── Strategie 1 (Primär): File-Input → Dateien setzen → React onChange ───────
+  // Dies ist der korrekte Weg: löst Vinted's internen Upload-Handler aus.
+  // Echte Vinted-testids (live bestätigt): add-photos-input, media-upload, plus, dropzone
+  var fi = null
+  var inputSels = [
+    '[data-testid="add-photos-input"]',
+    '[data-testid="media-upload"] input[type="file"]',
+    '[data-testid="plus"] input[type="file"]',
+    '[data-testid="dropzone"] input[type="file"]',
     'input[type="file"][accept*="image"]',
-    'input[type="file"][name*="photo"]',
-    'input[type="file"][name*="image"]',
     'input[type="file"][multiple]',
     'input[type="file"]',
   ]
-  let fi = null
-  for (const sel of inputSelectors) {
-    fi = document.querySelector(sel)
-    if (fi) break
+  for (var s = 0; s < inputSels.length; s++) {
+    var candidate = document.querySelector(inputSels[s])
+    if (candidate) { fi = candidate; break }
   }
 
   if (fi) {
-    Object.defineProperty(fi, 'files', { get: () => dt.files, configurable: true })
+    console.warn('[ListSync MAIN] File-Input gefunden:', fi.getAttribute('data-testid') || fi.className || 'kein testid')
+    // Dateien in den File-Input injizieren (React liest .files beim onChange)
+    try { Object.defineProperty(fi, 'files', { get: function() { return dt.files }, configurable: true }) }
+    catch(e) { console.warn('[ListSync MAIN] defineProperty fehlgeschlagen:', e.message) }
 
-    // Try React Fiber first (most reliable for React apps)
-    const fk = Object.keys(fi).find(k =>
-      k.startsWith('__reactFiber') ||
-      k.startsWith('__reactInternals') ||
-      k.startsWith('__reactEventHandlers') ||
-      k.startsWith('__reactProps')
-    )
+    var fk = getFiberKey(fi)
     if (fk) {
-      let node = fi[fk]
-      while (node) {
-        const handler = node?.memoizedProps?.onChange || node?.pendingProps?.onChange
-        if (handler) {
-          try {
-            handler({
-              target: fi, currentTarget: fi,
-              preventDefault: () => {}, stopPropagation: () => {},
-              persist: () => {}, nativeEvent: new Event('change', { bubbles: true })
-            })
-            console.log('[ListSync MAIN] ✓ React Fiber –', files.length, 'Bilder')
-            return
-          } catch(e) { console.warn('[ListSync MAIN] Fiber-Fehler:', e.message) }
-        }
-        node = node.return
-      }
+      var ok = callOnChange(fi, fk)
+      if (ok) return
     }
-
-    // Fallback: native events
+    // Native fallback wenn Fiber nicht gefunden oder onChange fehlgeschlagen
     fi.dispatchEvent(new Event('change', { bubbles: true }))
     fi.dispatchEvent(new Event('input',  { bubbles: true }))
-    console.log('[ListSync MAIN] ✓ Native Events –', files.length, 'Bilder')
+    console.warn('[ListSync MAIN] ✓ Native change/input Events (Fallback)')
     return
   }
 
-  // Strategy 2: Drop zone
-  const dropSelectors = [
-    '[data-testid*="photo-upload"]',
-    '[data-testid*="upload"]',
-    '[class*="photo-upload"]',
-    '[class*="upload-zone"]',
-    '[class*="dropzone"]',
-    '[class*="drop-zone"]',
-    '[class*="UploadZone"]',
-    '[class*="PhotoUpload"]',
+  // ── Strategie 2: BFS – sucht File-Input-Fiber mit onChange im Fiber-Baum ──────
+  // Verwendet wenn der File-Input im DOM nicht gefunden wird (z.B. lazy render).
+  // KEIN Suchen nach onUploadFilesStart – das ist ein Callback-Prop, kein Trigger!
+  var rootEl = document.getElementById('__next') || document.querySelector('[id="root"]') || document.body
+  var rootFiberKey = null
+  var rootElKeys = Object.keys(rootEl)
+  for (var ri = 0; ri < rootElKeys.length; ri++) {
+    var rk = rootElKeys[ri]
+    if (rk.indexOf('__reactFiber') === 0 || rk.indexOf('__reactContainer') === 0 ||
+        rk.indexOf('_reactRootContainer') === 0) { rootFiberKey = rk; break }
+  }
+
+  if (rootFiberKey) {
+    var startFiber = rootEl[rootFiberKey]
+    if (startFiber && startFiber._internalRoot) startFiber = startFiber._internalRoot.current
+    if (startFiber && startFiber.current) startFiber = startFiber.current
+
+    var queue = startFiber ? [startFiber] : []
+    var visited = 0
+
+    while (queue.length > 0 && visited < 15000) {
+      var fnode = queue.shift()
+      visited++
+      if (!fnode) continue
+
+      // Suche: Fiber-Node für ein File-Input-Element mit onChange-Handler
+      var fprops = fnode.memoizedProps || fnode.pendingProps
+      if (fprops && fprops.type === 'file' && typeof fprops.onChange === 'function') {
+        var domEl = fnode.stateNode
+        if (domEl && domEl.tagName === 'INPUT') {
+          console.warn('[ListSync MAIN] BFS: File-Input Fiber gefunden (node #' + visited + ')')
+          try { Object.defineProperty(domEl, 'files', { get: function() { return dt.files }, configurable: true }) }
+          catch(e) {}
+          try {
+            fprops.onChange({
+              target: domEl, currentTarget: domEl,
+              preventDefault: function(){}, stopPropagation: function(){},
+              persist: function(){}, nativeEvent: new Event('change', { bubbles: true }),
+              bubbles: true, cancelable: true,
+            })
+            console.warn('[ListSync MAIN] ✓ onChange via BFS (node #' + visited + ')')
+            return
+          } catch(e) { console.warn('[ListSync MAIN] BFS onChange Fehler:', e.message) }
+        }
+      }
+      if (fnode.child)   queue.push(fnode.child)
+      if (fnode.sibling) queue.push(fnode.sibling)
+    }
+    console.warn('[ListSync MAIN] BFS: ' + visited + ' Nodes durchsucht, kein File-Input-onChange gefunden')
+  }
+
+  // ── Strategie 3: Drop-Zone ───────────────────────────────────────────────────
+  // Echte Vinted-testids: dropzone, media-upload, plus
+  var dropSels = [
+    '[data-testid="dropzone"]',
+    '[data-testid="media-upload"]',
+    '[data-testid="plus"]',
+    '[data-testid="media-upload-grid"]',
+    '[data-testid*="photo-upload"]', '[data-testid*="upload-photo"]',
+    '[class*="photo-upload"]', '[class*="upload-zone"]', '[class*="dropzone"]',
   ]
-  for (const sel of dropSelectors) {
-    const zone = document.querySelector(sel)
+  for (var d = 0; d < dropSels.length; d++) {
+    var zone = document.querySelector(dropSels[d])
     if (zone) {
       zone.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }))
       zone.dispatchEvent(new DragEvent('dragover',  { bubbles: true, cancelable: true, dataTransfer: dt }))
       zone.dispatchEvent(new DragEvent('drop',      { bubbles: true, cancelable: true, dataTransfer: dt }))
-      console.log('[ListSync MAIN] ✓ Drop-Event auf', sel)
+      console.log('[ListSync MAIN] ✓ Drop-Zone:', dropSels[d])
       return
     }
   }
 
-  console.warn('[ListSync MAIN] Kein Upload-Element gefunden')
+  // ── Strategie 4: Clipboard Paste ────────────────────────────────────────────
+  try {
+    var pasteData = new DataTransfer()
+    for (var p = 0; p < files.length; p++) pasteData.items.add(files[p])
+    var pasteEvent = new ClipboardEvent('paste', { clipboardData: pasteData, bubbles: true, cancelable: true })
+    var uploadArea = document.querySelector('[data-testid="dropzone"]') ||
+                     document.querySelector('[data-testid="media-upload"]') ||
+                     document.querySelector('[data-testid="plus"]') ||
+                     document.body
+    uploadArea.dispatchEvent(pasteEvent)
+    console.log('[ListSync MAIN] ✓ Clipboard Paste versucht')
+  } catch(e2) { console.warn('[ListSync MAIN] Clipboard Paste Fehler:', e2.message) }
+
+  // Debug: alle sichtbaren testids loggen
+  var allTestids = []
+  var allTidEls = document.querySelectorAll('[data-testid]')
+  for (var t = 0; t < allTidEls.length; t++) {
+    var tidEl = allTidEls[t]
+    var tidR = tidEl.getBoundingClientRect()
+    if (tidR.width > 0 && tidR.height > 0) allTestids.push(tidEl.getAttribute('data-testid'))
+  }
+  console.warn('[ListSync MAIN] Alle Strategien fehlgeschlagen. Sichtbare testids:', allTestids.slice(0, 40).join(', '))
+  console.warn('[ListSync MAIN] File inputs im DOM:', document.querySelectorAll('input[type="file"]').length)
 }
