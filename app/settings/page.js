@@ -4,6 +4,36 @@ import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import { PLATFORMS } from '@/components/Badge'
 
+function Ic({ children, size = 16, sw = 1.8 }) {
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">{children}</svg>
+}
+
+// ── Styled section card ───────────────────────────────────────────────────────
+function Section({ title, children }) {
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '20px 20px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: 0 }}>{title}</h2>
+      {children}
+    </div>
+  )
+}
+
+// ── Labeled input ─────────────────────────────────────────────────────────────
+function Field({ label, children }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>{label}</label>
+      {children}
+    </div>
+  )
+}
+
+const inputStyle = {
+  width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 12,
+  background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit',
+  boxSizing: 'border-box', transition: 'border-color .15s, box-shadow .15s',
+}
+
 export default function Settings() {
   const [goals, setGoals]           = useState({ day: 0, month: 0 })
   const [relistDays, setRelistDays] = useState(5)
@@ -16,7 +46,7 @@ export default function Settings() {
 
   useEffect(() => {
     fetch('/api/settings').then(r=>r.json()).then(s=>{
-      if (s.dayGoal    !== undefined) setGoals({ day: s.dayGoal, month: s.monthGoal })
+      if (s.dayGoal !== undefined) setGoals({ day: s.dayGoal, month: s.monthGoal })
       if (s.relistDays !== undefined) setRelistDays(s.relistDays)
       setBusiness({ shopName: s.shopName||'', address: s.address||'', taxId: s.taxId||'', kleinunternehmer: s.kleinunternehmer !== false })
     })
@@ -27,8 +57,8 @@ export default function Settings() {
     })
   }, [])
 
-  const showToast = (msg, color='green') => {
-    setToast({ msg, color })
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
   }
 
@@ -41,15 +71,14 @@ export default function Settings() {
         body: JSON.stringify({ dayGoal: goals.day, monthGoal: goals.month, relistDays, ...business })
       })
       showToast('✅ Einstellungen gespeichert!')
-    } catch { showToast('Fehler beim Speichern', 'red') }
+    } catch { showToast('Fehler beim Speichern', 'error') }
     finally { setSaving(false) }
   }
 
   const openModal = (id) => {
-    const p = PLATFORMS[id]
     const existing = platforms[id] || {}
     setCreds({ apiKey: existing.apiKey || '', username: existing.username || '', password: '' })
-    setModal({ id, name: p.name, type: id === 'ebay' ? 'api' : 'login' })
+    setModal({ id, name: PLATFORMS[id].name, type: id === 'ebay' ? 'api' : 'login' })
   }
 
   const connectPlatform = async () => {
@@ -60,193 +89,262 @@ export default function Settings() {
     if (type === 'login') body.username = creds.username
     try {
       const res = await fetch('/api/platforms', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
       const updated = await res.json()
       setPlatforms(prev => ({ ...prev, [id]: updated }))
       setModal(null)
       showToast(`✅ ${PLATFORMS[id].name} verbunden!`)
-    } catch { showToast('Fehler beim Verbinden', 'red') }
+    } catch { showToast('Fehler beim Verbinden', 'error') }
   }
 
   const disconnectPlatform = async (id) => {
     try {
       await fetch('/api/platforms', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ platform: id, connected: false })
       })
       setPlatforms(prev => ({ ...prev, [id]: { ...prev[id], connected: false } }))
       showToast(`${PLATFORMS[id].name} getrennt`)
-    } catch { showToast('Fehler', 'red') }
+    } catch { showToast('Fehler', 'error') }
   }
 
   return (
     <div className="ls-page">
-      <Sidebar/>
+      <Sidebar />
       <main className="md:ml-60 ls-page-content">
-        <div className="max-w-lg mx-auto px-4 py-5 space-y-4">
-          <h1 className="text-2xl font-extrabold text-gray-900">Einstellungen</h1>
+        <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
 
-          {/* Business info */}
-          <div id="business" className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
-            <h2 className="font-bold text-gray-900">🏪 Geschäftsinfo (für Belege)</h2>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Name / Shopname</label>
-              <input type="text" value={business.shopName} onChange={e=>setBusiness(b=>({...b,shopName:e.target.value}))}
+          {/* Header */}
+          <div>
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Einstellungen</h1>
+            <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>App-Konfiguration und Geschäftsinfos</p>
+          </div>
+
+          {/* ── Business info ── */}
+          <Section title="🏪 Geschäftsinfo">
+            <Field label="Name / Shopname">
+              <input type="text" value={business.shopName}
+                onChange={e => setBusiness(b => ({ ...b, shopName: e.target.value }))}
                 placeholder="Dein Name oder Shopname"
-                className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm"/>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Adresse</label>
-              <textarea rows={3} value={business.address} onChange={e=>setBusiness(b=>({...b,address:e.target.value}))}
+                style={inputStyle}
+                onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+              />
+            </Field>
+            <Field label="Adresse">
+              <textarea rows={3} value={business.address}
+                onChange={e => setBusiness(b => ({ ...b, address: e.target.value }))}
                 placeholder={"Musterstraße 1\n12345 Musterstadt"}
-                className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm resize-none"/>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Steuernummer (optional)</label>
-              <input type="text" value={business.taxId} onChange={e=>setBusiness(b=>({...b,taxId:e.target.value}))}
+                style={{ ...inputStyle, resize: 'vertical' }}
+                onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+              />
+            </Field>
+            <Field label="Steuernummer (optional)">
+              <input type="text" value={business.taxId}
+                onChange={e => setBusiness(b => ({ ...b, taxId: e.target.value }))}
                 placeholder="12/345/67890"
-                className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm"/>
-            </div>
-            <div className="flex items-center gap-3">
-              <input type="checkbox" id="klein" checked={business.kleinunternehmer}
-                onChange={e=>setBusiness(b=>({...b,kleinunternehmer:e.target.checked}))}
-                className="w-4 h-4 accent-indigo-600"/>
-              <label htmlFor="klein" className="text-sm font-semibold text-gray-700">
-                Kleinunternehmer nach §19 UStG (keine Umsatzsteuer)
-              </label>
-            </div>
-          </div>
+                style={inputStyle}
+                onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+              />
+            </Field>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: 5, flexShrink: 0,
+                border: `2px solid ${business.kleinunternehmer ? '#6366f1' : 'var(--border)'}`,
+                background: business.kleinunternehmer ? '#6366f1' : 'var(--input-bg)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all .15s', cursor: 'pointer',
+              }}
+                onClick={() => setBusiness(b => ({ ...b, kleinunternehmer: !b.kleinunternehmer }))}>
+                {business.kleinunternehmer && (
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                )}
+              </div>
+              <span style={{ fontSize: 13.5, color: 'var(--text-2)', fontWeight: 500, lineHeight: 1.4 }}>
+                Kleinunternehmer nach §19 UStG <span style={{ color: 'var(--text-3)', fontSize: 12 }}>(keine Umsatzsteuer)</span>
+              </span>
+            </label>
+          </Section>
 
-          {/* Goals */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
-            <h2 className="font-bold text-gray-900">🎯 Umsatzziele</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Tagesziel (€)</label>
+          {/* ── Goals ── */}
+          <Section title="🎯 Umsatzziele">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <Field label="Tagesziel (€)">
                 <input type="number" min="0" value={goals.day}
-                  onChange={e=>setGoals(g=>({...g,day:Number(e.target.value)}))}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm"/>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Monatsziel (€)</label>
+                  onChange={e => setGoals(g => ({ ...g, day: Number(e.target.value) }))}
+                  style={{ ...inputStyle, textAlign: 'center', fontWeight: 700 }}
+                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+                />
+              </Field>
+              <Field label="Monatsziel (€)">
                 <input type="number" min="0" value={goals.month}
-                  onChange={e=>setGoals(g=>({...g,month:Number(e.target.value)}))}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm"/>
-              </div>
+                  onChange={e => setGoals(g => ({ ...g, month: Number(e.target.value) }))}
+                  style={{ ...inputStyle, textAlign: 'center', fontWeight: 700 }}
+                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+                />
+              </Field>
             </div>
-          </div>
+          </Section>
 
-          {/* Relist */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
-            <h2 className="font-bold text-gray-900">🔄 Relisting-Erinnerung</h2>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Erinnere mich nach</label>
-              <div className="flex items-center gap-3">
+          {/* ── Relist ── */}
+          <Section title="🔄 Relisting-Erinnerung">
+            <Field label="Erinnere mich nach">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <input type="number" min="1" max="60" value={relistDays}
-                  onChange={e=>setRelistDays(Number(e.target.value))}
-                  className="w-24 px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm font-bold text-center"/>
-                <span className="text-sm text-gray-600 font-medium">Tagen ohne Verkauf</span>
+                  onChange={e => setRelistDays(Number(e.target.value))}
+                  style={{ ...inputStyle, width: 80, textAlign: 'center', fontWeight: 700 }}
+                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+                />
+                <span style={{ fontSize: 13.5, color: 'var(--text-2)', fontWeight: 500 }}>Tagen ohne Verkauf</span>
               </div>
-              <div className="flex gap-2 mt-3 flex-wrap">
-                {[3,5,7,14].map(d=>(
-                  <button key={d} onClick={()=>setRelistDays(d)}
-                    className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${relistDays===d?'bg-indigo-600 text-white border-indigo-600':'bg-white text-gray-600 border-gray-200 hover:border-indigo-300'}`}>
-                    {d} Tage
-                  </button>
-                ))}
-              </div>
+            </Field>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[3,5,7,14].map(d => (
+                <button key={d} onClick={() => setRelistDays(d)}
+                  style={{
+                    padding: '8px 16px', borderRadius: 11, fontSize: 13, fontWeight: 700,
+                    border: `1.5px solid ${relistDays === d ? '#6366f1' : 'var(--border)'}`,
+                    background: relistDays === d ? 'rgba(99,102,241,0.08)' : 'var(--surface)',
+                    color: relistDays === d ? '#6366f1' : 'var(--text-2)',
+                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
+                  }}>
+                  {d} Tage
+                </button>
+              ))}
             </div>
-          </div>
+          </Section>
 
-          {/* Platform Accounts */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
-            <h2 className="font-bold text-gray-900">Plattform-Konten</h2>
+          {/* ── Platform accounts ── */}
+          <Section title="Plattform-Konten">
             {Object.entries(PLATFORMS).map(([id, p]) => {
               const acc = platforms[id] || {}
               const connected = acc.connected
               return (
-                <div key={id} className="flex items-center justify-between py-1">
-                  <div className="flex items-center gap-2.5">
-                    <span style={{width:8,height:8,borderRadius:'50%',background:p.dot,display:'inline-block'}}/>
-                    <span className="font-semibold text-sm text-gray-900">{p.name}</span>
-                    {id==='ebay'
-                      ? <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">API</span>
-                      : <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">Login</span>}
-                    {connected && <span className="text-xs text-green-600 font-semibold">● Verbunden{acc.username ? ` (${acc.username})` : ''}</span>}
+                <div key={id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '2px 0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.dot, display: 'inline-block', flexShrink: 0 }}/>
+                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-1)' }}>{p.name}</span>
+                    <span style={{
+                      fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 7,
+                      background: id === 'ebay' ? 'rgba(99,102,241,0.1)' : 'rgba(59,130,246,0.1)',
+                      color: id === 'ebay' ? '#6366f1' : '#3b82f6',
+                    }}>{id === 'ebay' ? 'API' : 'Login'}</span>
+                    {connected && (
+                      <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>
+                        ● {acc.username ? acc.username : 'Verbunden'}
+                      </span>
+                    )}
                   </div>
                   {connected
-                    ? <button onClick={()=>disconnectPlatform(id)}
-                        className="text-sm px-4 py-1.5 bg-red-50 text-red-600 rounded-lg font-semibold hover:bg-red-100 transition-colors">
+                    ? <button onClick={() => disconnectPlatform(id)}
+                        style={{ fontSize: 12.5, padding: '6px 14px', borderRadius: 10, background: 'rgba(239,68,68,0.07)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
                         Trennen
                       </button>
-                    : <button onClick={()=>openModal(id)}
-                        className="text-sm px-4 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg font-semibold hover:bg-indigo-100 transition-colors">
+                    : <button onClick={() => openModal(id)}
+                        style={{ fontSize: 12.5, padding: '6px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.07)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
                         Verbinden
-                      </button>}
+                      </button>
+                  }
                 </div>
               )
             })}
-          </div>
+          </Section>
 
-          {/* Plan */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="font-bold text-gray-900">Plan</h2>
-              <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">Freemium</span>
+          {/* ── Plan ── */}
+          <Section title="Plan">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 13.5, color: 'var(--text-2)', fontWeight: 500 }}>Aktueller Plan</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>Freemium</span>
             </div>
-            <button className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold text-sm">
+            <button style={{
+              width: '100%', padding: '13px', borderRadius: 14,
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
+              border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
+              boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
+            }}>
               ✨ Auf Pro upgraden – ab 9€/Monat
             </button>
-          </div>
+          </Section>
 
+          {/* ── Save button ── */}
           <button onClick={saveSettings} disabled={saving}
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-bold transition-colors">
-            {saving ? 'Speichern…' : 'Speichern'}
+            className="ls-btn-primary"
+            style={{ padding: '15px', borderRadius: 16, fontSize: 15, width: '100%', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Speichern…' : 'Einstellungen speichern'}
           </button>
+
         </div>
       </main>
-      <MobileNav/>
+      <MobileNav />
 
-      {/* Connect Modal */}
+      {/* ── Connect Modal ── */}
       {modal && (
-        <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-extrabold text-gray-900">{modal.name} verbinden</h3>
-              <button onClick={()=>setModal(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 font-bold hover:bg-gray-200">✕</button>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50, padding: '16px',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)',
+        }}
+          className="md:items-center"
+          onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 24, width: '100%', maxWidth: 420,
+            padding: '24px', boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          }}>
+            {/* Modal header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>{modal.name} verbinden</h3>
+              <button onClick={() => setModal(null)}
+                style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--modal-close)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
             </div>
 
             {modal.type === 'api' ? (
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">eBay API-Schlüssel</label>
-                <input value={creds.apiKey} onChange={e=>setCreds(c=>({...c,apiKey:e.target.value}))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>eBay API-Schlüssel</label>
+                <input value={creds.apiKey} onChange={e => setCreds(c => ({ ...c, apiKey: e.target.value }))}
                   placeholder="App ID / Production Key"
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:border-indigo-400"/>
-                <p className="text-xs text-gray-400 mt-2">Erhältlich unter developer.ebay.com → My Account → Application Keys</p>
+                  style={inputStyle}
+                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+                />
+                <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>Erhältlich unter developer.ebay.com → My Account → Application Keys</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Benutzername / E-Mail</label>
-                  <input value={creds.username} onChange={e=>setCreds(c=>({...c,username:e.target.value}))}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)' }}>Benutzername / E-Mail</label>
+                  <input value={creds.username} onChange={e => setCreds(c => ({ ...c, username: e.target.value }))}
                     placeholder={`Dein ${modal.name}-Benutzername`}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:border-indigo-400"/>
+                    style={inputStyle}
+                    onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                    onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+                  />
                 </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-700">
-                  <strong>Hinweis:</strong> Das Posting auf {modal.name} läuft über die ListSync Chrome Extension. Dein Account wird nur zur Anzeige gespeichert.
+                <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-border)', borderRadius: 12, padding: '12px 14px' }}>
+                  <p style={{ fontSize: 12.5, color: 'var(--warn-text)', margin: 0, lineHeight: 1.5 }}>
+                    <strong style={{ color: 'var(--warn-title)' }}>Hinweis:</strong> Das Posting auf {modal.name} läuft über die ListSync Chrome Extension. Dein Account wird nur zur Anzeige gespeichert.
+                  </p>
                 </div>
               </div>
             )}
 
-            <div className="flex gap-3">
-              <button onClick={()=>setModal(null)} className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50">Abbrechen</button>
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button onClick={() => setModal(null)}
+                style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Abbrechen
+              </button>
               <button onClick={connectPlatform}
-                disabled={modal.type==='api'?!creds.apiKey.trim():!creds.username.trim()}
-                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-300 text-white rounded-xl font-bold transition-colors">
+                disabled={modal.type === 'api' ? !creds.apiKey.trim() : !creds.username.trim()}
+                className="ls-btn-primary"
+                style={{ flex: 1, padding: '12px', borderRadius: 13, fontSize: 14 }}>
                 Verbinden
               </button>
             </div>
@@ -254,9 +352,16 @@ export default function Settings() {
         </div>
       )}
 
-      {/* Toast */}
+      {/* ── Toast ── */}
       {toast && (
-        <div className={`fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-white text-sm font-medium shadow-2xl whitespace-nowrap ${toast.color==='red'?'bg-red-600':'bg-green-600'}`}>
+        <div style={{
+          position: 'fixed', bottom: 88, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 60, padding: '12px 22px', borderRadius: 14, color: '#fff',
+          fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap',
+          background: toast.type === 'error' ? '#ef4444' : '#0f172a',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.2)',
+        }}
+          className="md:bottom-8">
           {toast.msg}
         </div>
       )}
