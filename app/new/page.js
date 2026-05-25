@@ -38,16 +38,24 @@ export default function NewListing() {
     if (imgs.length + files.length > 8) { alert('Maximal 8 Bilder'); return }
     setUploading(true)
     try {
-      const fd = new FormData()
-      files.forEach(f => fd.append('files', f))
-      const res  = await fetch('/api/upload', { method:'POST', body: fd })
-      const data = await res.json()
-      const newImgs = data.urls.map((url, i) => ({
-        url,
-        preview: URL.createObjectURL(files[i])
-      }))
+      let newImgs
+      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+        // Produktion: direkter Upload zum Vercel Blob CDN (kein Server-Umweg)
+        const { upload } = await import('@vercel/blob/client')
+        const results = await Promise.all(files.map(file =>
+          upload(file.name, file, { access: 'public', handleUploadUrl: '/api/upload' })
+        ))
+        newImgs = results.map((blob, i) => ({ url: blob.url, preview: URL.createObjectURL(files[i]) }))
+      } else {
+        // Lokal: Server-Upload
+        const fd = new FormData()
+        files.forEach(f => fd.append('files', f))
+        const res  = await fetch('/api/upload', { method: 'POST', body: fd })
+        const data = await res.json()
+        newImgs = data.urls.map((url, i) => ({ url, preview: URL.createObjectURL(files[i]) }))
+      }
       setImgs(x => [...x, ...newImgs])
-    } catch { alert('Upload fehlgeschlagen. Bitte erneut versuchen.') }
+    } catch(err) { alert('Upload fehlgeschlagen: ' + err.message) }
     finally { setUploading(false); e.target.value = '' }
   }
 
