@@ -125,6 +125,37 @@ export default function Listings() {
     showToast('Listing gelöscht')
   }
 
+  const duplicateListing = async (original) => {
+    const res = await fetch('/api/listings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title:       `${original.title} (Kopie)`,
+        description: original.description || '',
+        price:       original.price || 0,
+        buyPrice:    original.buyPrice || 0,
+        condition:   original.condition || '',
+        category:    original.category || '',
+        brand:       original.brand || '',
+        size:        original.size || '',
+        color:       original.color || '',
+        material:    original.material || '',
+        shipping:    original.shipping || [],
+        shipSize:    original.shipSize || '',
+        images:      original.images || [],
+        platforms:   [],
+        status:      'inaktiv',
+      }),
+    })
+    const created = await res.json()
+    setListings(ls => [
+      { ...created, platforms: [], images: original.images || [] },
+      ...ls,
+    ])
+    setEditForm(null)
+    showToast(`📋 "${original.title}" dupliziert`)
+  }
+
   const doPost = async (id) => {
     const listing = listings.find(l => l.id === id)
     await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platforms: selPlatforms }) })
@@ -143,7 +174,8 @@ export default function Listings() {
     }
   }
 
-  const [sortBy, setSortBy] = useState('newest')
+  const [sortBy, setSortBy]       = useState('newest')
+  const [pltFilter, setPltFilter] = useState('alle') // 'alle' | 'vinted' | 'kleinanzeigen' | 'ebay'
 
   const relistAlerts = listings.filter(needsRelist)
   const tabs = [
@@ -154,7 +186,9 @@ export default function Listings() {
   ]
   const filtered = listings.filter(l =>
     (filter === 'alle' || l.status === filter) &&
-    (!search || l.title.toLowerCase().includes(search.toLowerCase()))
+    (pltFilter === 'alle' || (l.platforms || []).includes(pltFilter)) &&
+    (!search || l.title.toLowerCase().includes(search.toLowerCase()) ||
+                (l.description || '').toLowerCase().includes(search.toLowerCase()))
   )
   const visible = [...filtered].sort((a, b) => {
     if (sortBy === 'newest')    return new Date(b.createdAt) - new Date(a.createdAt)
@@ -361,6 +395,29 @@ export default function Listings() {
               </button>
             ))}
           </div>
+
+          {/* ── Platform filter chips ── */}
+          {listings.some(l => (l.platforms || []).length > 0) && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {[
+                { id: 'alle', label: 'Alle Plattformen', dot: null },
+                ...Object.entries(PLATFORMS).filter(([id]) => listings.some(l => (l.platforms||[]).includes(id))).map(([id, p]) => ({ id, label: p.name, dot: p.dot })),
+              ].map(p => (
+                <button key={p.id} onClick={() => setPltFilter(p.id)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
+                    border: `1.5px solid ${pltFilter === p.id ? (p.dot || '#818cf8') : 'var(--border)'}`,
+                    background: pltFilter === p.id ? `${p.dot || '#6366f1'}15` : 'var(--surface)',
+                    color: pltFilter === p.id ? (p.dot || '#6366f1') : 'var(--text-3)',
+                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
+                  }}>
+                  {p.dot && <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.dot, display: 'inline-block' }}/>}
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* ── Listing cards ── */}
           {loading ? (
@@ -662,7 +719,15 @@ export default function Listings() {
                 style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }} />
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
+            <button onClick={() => {
+              const orig = listings.find(l => l.id === editForm.id)
+              if (orig) duplicateListing(orig)
+            }}
+              style={{ padding: '12px 14px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--modal-close)', fontWeight: 700, fontSize: 13, color: 'var(--text-2)', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}
+              title="Listing duplizieren">
+              📋
+            </button>
             <button onClick={() => setEditForm(null)}
               style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Abbrechen
