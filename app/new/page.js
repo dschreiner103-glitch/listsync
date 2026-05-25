@@ -96,12 +96,12 @@ export default function NewListing() {
   return (
     <div className="ls-page">
       <Sidebar/>
-      <main className="md:ml-60 pb-20 md:pb-8">
-        <div className="max-w-xl mx-auto px-4 py-6">
+      <main className="md:ml-60 ls-page-content">
+        <div className="max-w-xl mx-auto px-4 py-5">
           <div className="flex items-center gap-3 mb-6">
             <button onClick={()=>step>1?setStep(s=>s-1):router.push('/listings')}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold">←</button>
-            <h1 className="text-xl font-extrabold text-gray-900">Neues Listing</h1>
+              className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-base">←</button>
+            <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Neues Listing</h1>
           </div>
 
           {/* Steps */}
@@ -265,17 +265,17 @@ export default function NewListing() {
                 )}
               </div>
               {imgs.length>0&&(
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-3 gap-2.5">
                   {imgs.map((img,i)=>(
-                    <div key={i} className="aspect-square bg-gray-100 rounded-xl relative overflow-hidden group">
+                    <div key={i} className="aspect-square bg-gray-100 rounded-2xl relative overflow-hidden">
                       <img src={img.preview||img.url} alt="" className="w-full h-full object-cover"/>
                       <button onClick={()=>removeImg(i)}
-                        className="absolute top-1 right-1 w-6 h-6 bg-black/60 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
-                      {i===0&&<span className="absolute bottom-1 left-1 text-xs bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">Haupt</span>}
+                        className="absolute top-1.5 right-1.5 w-7 h-7 bg-black/55 text-white rounded-full text-xs flex items-center justify-center">✕</button>
+                      {i===0&&<span className="absolute bottom-1.5 left-1.5 text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-md font-bold">Haupt</span>}
                     </div>
                   ))}
                   {imgs.length<8&&!uploading&&(
-                    <div onClick={()=>fileRef.current.click()} className="aspect-square border-2 border-dashed border-gray-200 rounded-xl flex items-center justify-center text-2xl text-gray-300 hover:border-indigo-300 cursor-pointer">+</div>
+                    <div onClick={()=>fileRef.current.click()} className="aspect-square border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center text-3xl text-gray-300 hover:border-indigo-300 cursor-pointer">+</div>
                   )}
                 </div>
               )}

@@ -34,24 +34,50 @@ export default function RootLayout({ children }) {
 
           /* ── Theme variables ── */
           :root {
-            --bg:       #f0f2f7;
-            --surface:  #ffffff;
-            --border:   #e8ecf2;
-            --text-1:   #111827;
-            --text-2:   #6b7280;
-            --text-3:   #9ca3af;
-            --divider:  #f0f2f7;
-            --input-bg: #ffffff;
+            --bg:             #f0f2f7;
+            --surface:        #ffffff;
+            --border:         #e8ecf2;
+            --text-1:         #111827;
+            --text-2:         #6b7280;
+            --text-3:         #9ca3af;
+            --divider:        #f0f2f7;
+            --input-bg:       #ffffff;
+            --chip-active:    #111827;
+            --chip-active-fg: #ffffff;
+            --chip-border:    #e2e8f0;
+            --tab-bg:         #e8ecf0;
+            --tab-active:     #ffffff;
+            --modal-close:    #f0f2f7;
+            --row-hover:      #f8fafc;
+            --warn-bg:        #fffbeb;
+            --warn-border:    #fde68a;
+            --warn-text:      #92400e;
+            --warn-title:     #78350f;
+            --success-bg:     #f0fdf4;
+            --success-border: #bbf7d0;
           }
           html.dark {
-            --bg:       #0d1117;
-            --surface:  #161b22;
-            --border:   #30363d;
-            --text-1:   #e6edf3;
-            --text-2:   #b1bac4;
-            --text-3:   #8b949e;
-            --divider:  rgba(255,255,255,0.08);
-            --input-bg: #0d1117;
+            --bg:             #0d1117;
+            --surface:        #161b22;
+            --border:         #30363d;
+            --text-1:         #e6edf3;
+            --text-2:         #b1bac4;
+            --text-3:         #8b949e;
+            --divider:        rgba(255,255,255,0.08);
+            --input-bg:       #0d1117;
+            --chip-active:    rgba(255,255,255,0.11);
+            --chip-active-fg: var(--text-1);
+            --chip-border:    var(--border);
+            --tab-bg:         #1c2128;
+            --tab-active:     #2d333b;
+            --modal-close:    #21262d;
+            --row-hover:      #1c2128;
+            --warn-bg:        rgba(245,158,11,0.08);
+            --warn-border:    rgba(245,158,11,0.22);
+            --warn-text:      #fbbf24;
+            --warn-title:     #fcd34d;
+            --success-bg:     rgba(16,185,129,0.07);
+            --success-border: rgba(16,185,129,0.25);
           }
 
           /* ── Global dark overrides ── */
@@ -113,6 +139,40 @@ export default function RootLayout({ children }) {
           html.dark .hover\:bg-gray-100:hover { background: #21262d !important; }
           html.dark .hover\:bg-gray-200:hover { background: #30363d !important; }
 
+          /* New listing page dark overrides */
+          html.dark .bg-emerald-50, html.dark .bg-green-50 { background: rgba(16,185,129,0.07) !important; }
+          html.dark .border-emerald-200, html.dark .border-green-200 { border-color: rgba(16,185,129,0.2) !important; }
+          html.dark .text-emerald-700, html.dark .text-green-700 { color: #34d399 !important; }
+          html.dark .text-green-600 { color: #6ee7b7 !important; }
+          html.dark .bg-indigo-50 { background: rgba(99,102,241,0.07) !important; }
+          html.dark [class*="bg-indigo-50"] { background: rgba(99,102,241,0.07) !important; }
+          html.dark .border-indigo-50 { border-color: rgba(99,102,241,0.15) !important; }
+          html.dark .text-indigo-700 { color: #a5b4fc !important; }
+          html.dark .text-indigo-600 { color: #818cf8 !important; }
+          html.dark .text-indigo-500 { color: #818cf8 !important; }
+          html.dark .border-gray-300 { border-color: #484f58 !important; }
+          html.dark .hover\:border-gray-200:hover { border-color: var(--border) !important; }
+          html.dark .hover\:border-indigo-300:hover { border-color: #818cf8 !important; }
+          html.dark .hover\:bg-indigo-50\/20:hover { background: rgba(99,102,241,0.05) !important; }
+
+          /* Settings / badge colors dark overrides */
+          html.dark .bg-amber-50 { background: rgba(245,158,11,0.08) !important; }
+          html.dark .border-amber-200 { border-color: rgba(245,158,11,0.2) !important; }
+          html.dark .text-amber-700 { color: #fcd34d !important; }
+          html.dark .bg-red-50 { background: rgba(239,68,68,0.08) !important; }
+          html.dark .hover\:bg-red-100:hover { background: rgba(239,68,68,0.15) !important; }
+          html.dark .bg-green-100 { background: rgba(34,197,94,0.1) !important; }
+          html.dark .text-green-700 { color: #4ade80 !important; }
+          html.dark .bg-blue-100 { background: rgba(59,130,246,0.1) !important; }
+          html.dark .text-blue-700 { color: #60a5fa !important; }
+          html.dark .bg-indigo-100 { background: rgba(99,102,241,0.12) !important; }
+          html.dark .hover\:bg-indigo-100:hover { background: rgba(99,102,241,0.18) !important; }
+          html.dark .text-red-600 { color: #f87171 !important; }
+          html.dark .text-green-600 { color: #4ade80 !important; }
+
+          /* Fix select arrow in dark mode */
+          html.dark select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important; }
+
           ::-webkit-scrollbar { width: 5px; height: 5px; }
           ::-webkit-scrollbar-track { background: transparent; }
           ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -126,6 +186,29 @@ export default function RootLayout({ children }) {
           select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px !important; }
           .line-clamp-1 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; }
           .line-clamp-2 { overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+
+          /* ── Mobile responsive helpers ── */
+          .ls-content { padding: 28px 22px; }
+          @media (max-width: 640px) { .ls-content { padding: 18px 14px; } }
+
+          .ls-grid-3 { display: grid; gap: 14px; grid-template-columns: 1fr; }
+          @media (min-width: 640px) { .ls-grid-3 { grid-template-columns: repeat(2,1fr); } }
+          @media (min-width: 900px) { .ls-grid-3 { grid-template-columns: repeat(3,1fr); } }
+
+          .ls-grid-2-1 { display: grid; gap: 14px; grid-template-columns: 1fr; }
+          @media (min-width: 760px) { .ls-grid-2-1 { grid-template-columns: 2fr 1fr; } }
+
+          /* ── Platform picker / modal items in dark mode ── */
+          html.dark .ls-platform-option { background: var(--surface) !important; }
+          html.dark .ls-platform-option.selected { background: rgba(99,102,241,0.08) !important; }
+
+          /* ── Prevent tap highlight flash on mobile ── */
+          button, a { -webkit-tap-highlight-color: transparent; }
+
+          /* ── Safe area for iPhone notch/home bar ── */
+          .ls-mobile-nav { padding-bottom: env(safe-area-inset-bottom, 0); }
+          .ls-page-content { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0)); }
+          @media (min-width: 768px) { .ls-page-content { padding-bottom: 40px; } }
         `}</style>
       </head>
       <body>

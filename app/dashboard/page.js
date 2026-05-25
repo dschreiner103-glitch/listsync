@@ -31,11 +31,11 @@ function PeriodChips({ period, setPeriod }) {
         return (
           <button key={p.val} onClick={() => setPeriod(p.val)}
             style={{
-              padding: '5px 11px', borderRadius: 20, fontSize: 11.5, fontWeight: 600,
-              cursor: 'pointer', transition: 'all .12s',
-              border: active ? 'none' : '1px solid #e5e7eb',
-              background: active ? '#111827' : 'transparent',
-              color: active ? '#fff' : '#6b7280',
+              padding: '6px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+              cursor: 'pointer', transition: 'all .12s', minHeight: 34,
+              border: active ? 'none' : '1px solid var(--chip-border)',
+              background: active ? 'var(--chip-active)' : 'transparent',
+              color: active ? 'var(--chip-active-fg)' : 'var(--text-2)',
               fontFamily: 'inherit',
             }}>
             {p.label}
@@ -176,7 +176,7 @@ function DonutGauge({ pct, label, sub }) {
   return (
     <div style={{ textAlign: 'center' }}>
       <svg width="140" height="78" viewBox="0 0 140 78" style={{ display: 'block', margin: '0 auto' }}>
-        <path d={d} fill="none" stroke="#f0f2f7" strokeWidth="10" strokeLinecap="round"/>
+        <path d={d} fill="none" style={{ stroke: 'var(--border)' }} strokeWidth="10" strokeLinecap="round"/>
         <path d={d} fill="none" stroke="#3b82f6" strokeWidth="10" strokeLinecap="round"
           strokeDasharray={`${progress} ${circ}`}/>
       </svg>
@@ -271,8 +271,8 @@ export default function Dashboard() {
   return (
     <div className="ls-page">
       <Sidebar activeCount={active.length} />
-      <main className="md:ml-60 pb-20 md:pb-10">
-        <div style={{ maxWidth: 900, margin: '0 auto', padding: '32px 24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <main className="md:ml-60 ls-page-content">
+        <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }} className="ls-content">
 
           {/* ── Header ── */}
           <div>
@@ -281,7 +281,7 @@ export default function Dashboard() {
           </div>
 
           {/* ── Stat cards + Goal row ── */}
-          <div style={{ display: 'grid', gap: 16 }} className="md:grid-cols-3">
+          <div className="ls-grid-3">
 
             {/* Einnahmen */}
             <StatCard
@@ -335,10 +335,10 @@ export default function Dashboard() {
           </div>
 
           {/* ── Chart + Marge row ── */}
-          <div style={{ display: 'grid', gap: 16 }} className="md:grid-cols-3">
+          <div className="ls-grid-2-1">
 
-            {/* Line chart – takes 2 cols */}
-            <div className="ls-card md:col-span-2" style={{ padding: '22px 24px' }}>
+            {/* Line chart */}
+            <div className="ls-card" style={{ padding: '20px 20px' }}>
               <STitle title="Monatliche Einnahmen">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-2)' }}>
@@ -363,7 +363,7 @@ export default function Dashboard() {
               </div>
               <div style={{ borderTop: '1px solid var(--divider)', paddingTop: 16 }}>
                 <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 4px' }}>Gesamtgewinn</p>
-                <p style={{ fontSize: 22, fontWeight: 800, color: totalProfit > 0 ? '#16a34a' : '#111827', margin: 0, letterSpacing: '-0.02em' }}>{fmt(totalProfit)}</p>
+                <p style={{ fontSize: 22, fontWeight: 800, color: totalProfit > 0 ? '#16a34a' : 'var(--text-1)', margin: 0, letterSpacing: '-0.02em' }}>{fmt(totalProfit)}</p>
               </div>
               <div style={{ borderTop: '1px solid var(--divider)', paddingTop: 16 }}>
                 <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 4px' }}>Aktive Listings</p>
@@ -391,8 +391,8 @@ export default function Dashboard() {
                         <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 8 }}>{p.count} Verkauf{p.count !== 1 ? 'e' : ''}</span>
                       </div>
                     </div>
-                    <div style={{ width: '100%', background: 'var(--surface)', borderRadius: 10, height: 6 }}>
-                      <div style={{ height: '100%', borderRadius: 10, background: p.dot, opacity: 0.8, width: `${totalRev > 0 ? (p.revenue / totalRev) * 100 : 0}%`, transition: 'width .5s ease' }}/>
+                    <div style={{ width: '100%', background: 'var(--border)', borderRadius: 10, height: 5 }}>
+                      <div style={{ height: '100%', borderRadius: 10, background: p.dot, width: `${totalRev > 0 ? (p.revenue / totalRev) * 100 : 0}%`, transition: 'width .5s ease' }}/>
                     </div>
                   </div>
                 ))}
@@ -413,7 +413,7 @@ export default function Dashboard() {
                 {listings.slice(0, 4).map(l => (
                   <div key={l.id} onClick={() => router.push('/listings')}
                     style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 10px', borderRadius: 12, cursor: 'pointer', transition: 'background .1s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--row-hover)'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     {Array.isArray(l.images) && l.images[0]
                       ? <img src={l.images[0]} alt="" style={{ width: 42, height: 42, borderRadius: 11, objectFit: 'cover', flexShrink: 0 }}/>
@@ -455,9 +455,9 @@ export default function Dashboard() {
               + Neues Listing
             </button>
             <button onClick={() => router.push('/listings')}
-              style={{ padding: '13px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: 'var(--surface)', border: '1px solid #e5e7eb', color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit', transition: 'background .12s' }}
-              onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-              onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+              style={{ padding: '13px', borderRadius: 12, fontSize: 14, fontWeight: 700, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit', transition: 'background .12s' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--row-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}>
               Alle Listings →
             </button>
           </div>

@@ -212,8 +212,8 @@ export default function Buchhaltung() {
         </div>
       )}
       <Sidebar />
-      <main className="md:ml-60 pb-20 md:pb-8">
-        <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
+      <main className="md:ml-60 ls-page-content">
+        <div className="max-w-6xl mx-auto px-3 py-5 space-y-4">
 
           {/* Header */}
           <div className="flex items-center justify-between gap-3 flex-wrap">

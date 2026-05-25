@@ -93,8 +93,8 @@ export default function Belege() {
   return (
     <div className="ls-page">
       <Sidebar />
-      <main className="md:ml-60 pb-20 md:pb-8">
-        <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
+      <main className="md:ml-60 ls-page-content">
+        <div className="max-w-4xl mx-auto px-4 py-5 space-y-4">
 
           {/* Header */}
           <div className="flex items-center justify-between gap-3 flex-wrap">

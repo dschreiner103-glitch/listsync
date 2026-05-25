@@ -86,8 +86,8 @@ export default function Settings() {
   return (
     <div className="ls-page">
       <Sidebar/>
-      <main className="md:ml-60 pb-20 md:pb-8">
-        <div className="max-w-lg mx-auto px-4 py-6 space-y-5">
+      <main className="md:ml-60 ls-page-content">
+        <div className="max-w-lg mx-auto px-4 py-5 space-y-4">
           <h1 className="text-2xl font-extrabold text-gray-900">Einstellungen</h1>
 
           {/* Business info */}

@@ -109,10 +109,10 @@ export default function Listings() {
   })
 
   const actionBtn = (bg, color, border = 'transparent') => ({
-    flex: 1, padding: '9px 8px', borderRadius: 11, fontSize: 12.5, fontWeight: 700,
+    flex: 1, padding: '10px 8px', borderRadius: 11, fontSize: 13, fontWeight: 700,
     border: `1px solid ${border}`, background: bg, color, cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-    transition: 'opacity .12s',
+    transition: 'opacity .12s', fontFamily: 'inherit',
   })
 
   // ── Modal helpers ─────────────────────────────────────────────────────────
@@ -139,7 +139,7 @@ export default function Listings() {
       <h2 style={{ fontWeight: 800, fontSize: 17, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em' }}>{title}</h2>
       <button onClick={() => setModal(null)}
         style={{
-          width: 30, height: 30, borderRadius: 9, background: '#f0f2f7',
+          width: 32, height: 32, borderRadius: 10, background: 'var(--modal-close)',
           border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: 'var(--text-2)',
         }}>{ICONS.close}</button>
@@ -147,7 +147,7 @@ export default function Listings() {
   )
 
   const ListingPreview = ({ l }) => (
-    <div style={{ background: 'var(--surface)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
+    <div style={{ background: 'var(--row-hover)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center' }}>
       {Array.isArray(l.images) && l.images[0]
         ? <img src={l.images[0]} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}/>
         : <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: CARD_COLORS[l.id % 5], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 18, color: '#475569' }}>{l.title.charAt(0)}</div>
@@ -167,14 +167,14 @@ export default function Listings() {
           <div key={id}
             onClick={() => setSelPlatforms(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])}
             style={{
-              border: `2px solid ${sel ? '#818cf8' : '#e8ecf2'}`,
+              border: `2px solid ${sel ? '#818cf8' : 'var(--border)'}`,
               borderRadius: 14, padding: '12px 14px', cursor: 'pointer',
-              background: sel ? 'rgba(99,102,241,0.04)' : '#fff',
+              background: sel ? 'rgba(99,102,241,0.07)' : 'var(--surface)',
               display: 'flex', alignItems: 'center', gap: 12, transition: 'all .15s',
             }}>
             <div style={{
               width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-              border: `2px solid ${sel ? '#6366f1' : '#d1d5db'}`,
+              border: `2px solid ${sel ? '#6366f1' : 'var(--border)'}`,
               background: sel ? '#6366f1' : 'transparent',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
@@ -182,7 +182,7 @@ export default function Listings() {
             </div>
             <PlatformBadge plt={id} />
             {l?.platforms?.includes(id) && (
-              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', background: '#f0f2f7', padding: '2px 8px', borderRadius: 8 }}>vorher aktiv</span>
+              <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, color: 'var(--text-3)', background: 'var(--modal-close)', padding: '2px 8px', borderRadius: 8 }}>aktiv</span>
             )}
           </div>
         )
@@ -193,8 +193,8 @@ export default function Listings() {
   return (
     <div className="ls-page">
       <Sidebar activeCount={listings.filter(l => l.status === 'aktiv').length} />
-      <main className="md:ml-60 pb-20 md:pb-10">
-        <div style={{ maxWidth: 820, margin: '0 auto', padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <main className="md:ml-60 ls-page-content">
+        <div style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
 
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -206,16 +206,16 @@ export default function Listings() {
 
           {/* ── Relist Alerts ── */}
           {relistAlerts.length > 0 && (
-            <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 18, padding: '14px 18px' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#92400e', margin: '0 0 10px' }}>
+            <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-border)', borderRadius: 18, padding: '14px 18px' }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn-title)', margin: '0 0 10px' }}>
                 {relistAlerts.length} Artikel sollten erneut gelistet werden
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {relistAlerts.map(l => (
-                  <div key={l.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', borderRadius: 11, padding: '9px 12px', border: '1px solid #fde68a' }}>
+                  <div key={l.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--surface)', borderRadius: 11, padding: '9px 12px', border: '1px solid var(--warn-border)' }}>
                     <span style={{ fontSize: 13.5, color: 'var(--text-1)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, marginRight: 12 }}>{l.title}</span>
                     <button onClick={() => openRelistModal(l.id)}
-                      style={{ fontSize: 12, fontWeight: 700, padding: '6px 14px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 8px rgba(245,158,11,0.3)' }}>
+                      style={{ fontSize: 12, fontWeight: 700, padding: '6px 14px', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', flexShrink: 0, boxShadow: '0 2px 8px rgba(245,158,11,0.3)', fontFamily: 'inherit' }}>
                       Relisten
                     </button>
                   </div>
@@ -229,24 +229,24 @@ export default function Listings() {
             <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)', display: 'flex' }}>{ICONS.search}</span>
             <input type="text" placeholder="Listings durchsuchen…" value={search} onChange={e => setSearch(e.target.value)}
               style={{
-                width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 11, paddingBottom: 11,
-                background: '#fff', border: '1px solid var(--border)', borderRadius: 14, fontSize: 13.5,
+                width: '100%', paddingLeft: 40, paddingRight: 16, paddingTop: 12, paddingBottom: 12,
+                background: 'var(--input-bg)', border: '1px solid var(--border)', borderRadius: 14, fontSize: 14,
                 color: 'var(--text-1)', boxShadow: '0 1px 4px rgba(15,23,42,.04)',
               }} />
           </div>
 
           {/* ── Tabs ── */}
-          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 14, background: '#e8ecf2' }}>
+          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 14, background: 'var(--tab-bg)' }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => setFilter(t.id)}
                 style={{
-                  flex: 1, padding: '8px 6px', borderRadius: 11, border: 'none', cursor: 'pointer',
-                  fontSize: 12.5, fontWeight: 700, transition: 'all .15s',
-                  background: filter === t.id ? '#fff' : 'transparent',
-                  color: filter === t.id ? '#0f172a' : '#6b7280',
+                  flex: 1, padding: '9px 6px', borderRadius: 11, border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 700, transition: 'all .15s', fontFamily: 'inherit',
+                  background: filter === t.id ? 'var(--tab-active)' : 'transparent',
+                  color: filter === t.id ? 'var(--text-1)' : 'var(--text-2)',
                   boxShadow: filter === t.id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 }}>
-                {t.label} <span style={{ color: filter === t.id ? '#6366f1' : '#9ca3af' }}>({t.count})</span>
+                {t.label} <span style={{ color: filter === t.id ? '#6366f1' : 'var(--text-3)' }}>({t.count})</span>
               </button>
             ))}
           </div>
@@ -300,7 +300,7 @@ export default function Listings() {
                     {l.status === 'aktiv' && (
                       <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)' }}>
                         <button onClick={() => openRelistModal(l.id)}
-                          style={actionBtn(aged ? '#fffbeb' : '#f8f9fc', aged ? '#d97706' : '#4b5563', aged ? '#fde68a' : '#e8ecf2')}>
+                          style={actionBtn(aged ? 'var(--warn-bg)' : 'var(--row-hover)', aged ? '#d97706' : 'var(--text-2)', aged ? 'var(--warn-border)' : 'var(--border)')}>
                           {ICONS.relist} Relisten
                         </button>
                         <button onClick={() => { setSelPlatforms([...l.platforms]); setModal({ type: 'crosspost', id: l.id }) }}
@@ -352,12 +352,12 @@ export default function Listings() {
           <ListingPreview l={modalListing} />
           <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Auf welchen Plattformen?</p>
           <PlatformPicker l={modalListing} />
-          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
-            <p style={{ fontSize: 12.5, color: '#d97706', margin: 0 }}>Timer wird zurückgesetzt – nächste Erinnerung in <strong>{relistDays} Tagen</strong></p>
+          <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-border)', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
+            <p style={{ fontSize: 12.5, color: 'var(--warn-text)', margin: 0 }}>Timer wird zurückgesetzt – nächste Erinnerung in <strong>{relistDays} Tagen</strong></p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => setModal(null)}
-              style={{ flex: 1, padding: '12px', borderRadius: 13, border: '1px solid var(--border)', background: '#fff', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer' }}>
+              style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Abbrechen
             </button>
             <button onClick={() => doRelist(modalListing.id)} disabled={selPlatforms.length === 0}
@@ -382,13 +382,13 @@ export default function Listings() {
                 <div key={id} style={{ marginBottom: 8 }}>
                   <div onClick={() => setSelPlatforms(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])}
                     style={{
-                      border: `2px solid ${sel ? '#818cf8' : '#e8ecf2'}`, borderRadius: 14, padding: '12px 14px',
-                      cursor: 'pointer', background: sel ? 'rgba(99,102,241,0.04)' : '#fff',
+                      border: `2px solid ${sel ? '#818cf8' : 'var(--border)'}`, borderRadius: 14, padding: '12px 14px',
+                      cursor: 'pointer', background: sel ? 'rgba(99,102,241,0.07)' : 'var(--surface)',
                       display: 'flex', alignItems: 'center', gap: 12, transition: 'all .15s',
                     }}>
                     <div style={{
                       width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                      border: `2px solid ${sel ? '#6366f1' : '#d1d5db'}`,
+                      border: `2px solid ${sel ? '#6366f1' : 'var(--border)'}`,
                       background: sel ? '#6366f1' : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
@@ -397,7 +397,7 @@ export default function Listings() {
                     <PlatformBadge plt={id} />
                   </div>
                   {sel && (
-                    <div style={{ margin: '6px 0 0 2px', padding: '10px 14px', borderRadius: 12, background: p.bg.replace('bg-', '').includes('-') ? '#f8f9fc' : '#f8f9fc', border: '1px solid var(--border)' }}>
+                    <div style={{ margin: '6px 0 0 2px', padding: '10px 14px', borderRadius: 12, background: 'var(--row-hover)', border: '1px solid var(--border)' }}>
                       <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>Optimierter Titel</p>
                       <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>
                         {id === 'ebay' ? (modalListing.title + ' | Top Zustand ✅').substring(0, 80)
@@ -423,16 +423,16 @@ export default function Listings() {
         <ModalWrap>
           <ModalHeader title="Als verkauft markieren" />
           <ListingPreview l={modalListing} />
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 14, padding: '14px 16px', marginBottom: 18 }}>
+          <div style={{ background: 'var(--success-bg)', border: '1px solid var(--success-border)', borderRadius: 14, padding: '14px 16px', marginBottom: 18 }}>
             <p style={{ fontSize: 13.5, fontWeight: 700, color: '#059669', margin: '0 0 6px' }}>Erwarteter Gewinn: +{fmt(profit(modalListing))}</p>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{modalListing.platforms.map(p => <PlatformBadge key={p} plt={p} />)}</div>
           </div>
-          <div style={{ background: '#fef9ec', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 14px', marginBottom: 20 }}>
-            <p style={{ fontSize: 12.5, color: '#92400e', margin: 0, fontWeight: 600 }}>Wird auf allen Plattformen als inaktiv markiert</p>
+          <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-border)', borderRadius: 12, padding: '12px 14px', marginBottom: 20 }}>
+            <p style={{ fontSize: 12.5, color: 'var(--warn-text)', margin: 0, fontWeight: 600 }}>Wird auf allen Plattformen als inaktiv markiert</p>
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => setModal(null)}
-              style={{ flex: 1, padding: '12px', borderRadius: 13, border: '1px solid var(--border)', background: '#fff', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer' }}>
+              style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Abbrechen
             </button>
             <button onClick={() => markSold(modalListing.id)}

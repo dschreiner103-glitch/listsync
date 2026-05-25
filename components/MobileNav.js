@@ -37,42 +37,43 @@ export default function MobileNav() {
   const { dark, toggle } = useDark()
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 flex"
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 flex ls-mobile-nav"
       style={{
-        background: 'var(--surface)', height: 68,
+        background: 'var(--surface)', minHeight: 60,
         borderTop: '1px solid var(--border)',
-        boxShadow: '0 -4px 24px rgba(15,23,42,0.07)',
+        boxShadow: '0 -2px 16px rgba(15,23,42,0.06)',
       }}>
       {items.map((n, i) => {
         if (n.primary) return (
           <button key="new" onClick={() => router.push('/new')}
-            className="flex-1 flex flex-col items-center justify-center" style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
+            className="flex-1 flex flex-col items-center justify-center"
+            style={{ border: 'none', background: 'none', cursor: 'pointer', paddingBottom: 8 }}>
             <div style={{
-              width: 46, height: 46,
+              width: 48, height: 48,
               background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
               borderRadius: '50%',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', marginTop: -22,
-              boxShadow: '0 6px 18px rgba(99,102,241,0.45), 0 0 0 4px #f0f2f7',
+              color: '#fff', marginTop: -24,
+              boxShadow: '0 6px 18px rgba(99,102,241,0.45), 0 0 0 4px var(--bg)',
             }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                 <path d="M12 5v14M5 12h14"/>
               </svg>
             </div>
-            <span style={{ fontSize: 10, color: '#6366f1', fontWeight: 700, marginTop: 3 }}>Neu</span>
+            <span style={{ fontSize: 10, color: '#6366f1', fontWeight: 700, marginTop: 4 }}>Neu</span>
           </button>
         )
         const active = pathname.startsWith(n.href)
         return (
           <button key={n.href} onClick={() => router.push(n.href)}
             className="flex-1 flex flex-col items-center justify-center gap-1"
-            style={{ border: 'none', background: 'none', cursor: 'pointer', color: active ? '#6366f1' : 'var(--text-3)' }}>
+            style={{ border: 'none', background: 'none', cursor: 'pointer', color: active ? '#6366f1' : 'var(--text-3)', position: 'relative', paddingBottom: 8, minHeight: 60 }}>
             {n.icon}
-            <span style={{ fontSize: 10, fontWeight: active ? 700 : 500 }}>{n.label}</span>
+            <span style={{ fontSize: 10.5, fontWeight: active ? 700 : 500 }}>{n.label}</span>
             {active && (
               <span style={{
-                position: 'absolute', bottom: 0,
-                width: 20, height: 2.5, borderRadius: 2,
+                position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+                width: 24, height: 2.5, borderRadius: '0 0 3px 3px',
                 background: '#6366f1',
               }}/>
             )}
