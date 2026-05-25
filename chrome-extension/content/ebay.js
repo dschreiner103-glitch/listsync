@@ -350,7 +350,136 @@ async function handlePrelist() {
   }
 }
 
-// ── Hauptfunktion ─────────────────────────────────────────────────────────────
+// ── Neues /lstng Interface ────────────────────────────────────────────────────
+
+async function fillLstng() {
+  const listing = await getListing()
+  if (!listing) return
+  showBanner(listing)
+  updateStatus('Neues eBay-Formular wird ausgefüllt…')
+
+  // Seite braucht Zeit zum Laden (React SPA)
+  await wait(3500)
+
+  // 1. TITEL — "Angebotstitel" Feld (vom Prelist bereits befüllt, aber überschreiben)
+  try {
+    // Suche alle sichtbaren Text-Inputs und nimm den mit Angebotstitel-Label
+    const titleInput = await waitForAny([
+      'input[aria-label*="Angebotstitel"]',
+      'input[aria-label*="Titel"]',
+      'input[id*="title"]',
+      'input[name*="title"]',
+    ], 8000).catch(() => null)
+
+    // Fallback: erstes nicht-hidden text-input
+    const inp = titleInput || [...document.querySelectorAll('input[type="text"], input:not([type])')].find(el => {
+      const label = document.querySelector(`label[for="${el.id}"]`)
+      return label?.textContent?.includes('Angebotstitel') || label?.textContent?.includes('Titel')
+    })
+
+    if (inp) {
+      inp.focus()
+      await wait(200)
+      const suffix = ' | Top Zustand ✅'
+      const title = (listing.title + suffix).substring(0, 80)
+      setNativeValue(inp, title)
+      console.log('[ListSync eBay lstng] ✓ Titel:', title)
+    }
+  } catch(e) { console.warn('[ListSync eBay lstng] Titel-Fehler:', e.message) }
+
+  await wait(400)
+
+  // 2. ZUSTAND — Buttons "Neu" / "Gebraucht"
+  try {
+    const cond = (listing.condition || '').toLowerCase()
+    const isNew = cond.includes('neu') || cond.includes('etikett')
+    const targetText = isNew ? 'Neu' : 'Gebraucht'
+
+    // Suche Button mit exaktem Text
+    const allBtns = Array.from(document.querySelectorAll('button, [role="button"], [role="radio"]'))
+    const condBtn = allBtns.find(b => b.textContent.trim() === targetText)
+    if (condBtn) {
+      condBtn.click()
+      console.log('[ListSync eBay lstng] ✓ Zustand:', targetText)
+    } else {
+      // Fallback: "Gebraucht" als sicherer Standard
+      const gebraucht = allBtns.find(b => b.textContent.trim() === 'Gebraucht')
+      if (gebraucht) gebraucht.click()
+    }
+  } catch(e) { console.warn('[ListSync eBay lstng] Zustand-Fehler:', e.message) }
+
+  await wait(400)
+
+  // 3. BESCHREIBUNG — Rich-Text contenteditable Editor
+  try {
+    let desc = listing.description || ''
+    const extras = []
+    if (listing.brand)     extras.push(`Marke: ${listing.brand}`)
+    if (listing.condition) extras.push(`Zustand: ${listing.condition}`)
+    if (listing.size)      extras.push(`Größe: ${listing.size}`)
+    if (listing.color)     extras.push(`Farbe: ${listing.color}`)
+    if (extras.length) desc = (desc ? desc + '\n\n' : '') + extras.join('\n')
+
+    // Beschreibungsbereich hat contenteditable="true" und placeholder-Text
+    const editor = [...document.querySelectorAll('[contenteditable="true"]')].find(el => {
+      const placeholder = el.getAttribute('placeholder') || el.getAttribute('aria-placeholder') || ''
+      const parentText  = el.closest('section, div')?.querySelector('[class*="label"], [class*="heading"], h2, h3, h4')?.textContent || ''
+      return placeholder.toLowerCase().includes('beschreibung')
+          || parentText.toLowerCase().includes('beschreibung')
+          || el.textContent.includes('Verfassen Sie eine')
+    }) || document.querySelector('[contenteditable="true"]')
+
+    if (editor) {
+      editor.focus()
+      await wait(300)
+      editor.innerHTML = desc.replace(/\n/g, '<br>')
+      editor.dispatchEvent(new Event('input',  { bubbles: true }))
+      editor.dispatchEvent(new Event('change', { bubbles: true }))
+      console.log('[ListSync eBay lstng] ✓ Beschreibung')
+    }
+  } catch(e) { console.warn('[ListSync eBay lstng] Beschreibung-Fehler:', e.message) }
+
+  await wait(400)
+
+  // 4. PREIS — "Artikelpreis" Feld mit € Symbol
+  try {
+    // Suche Input in der Nähe von "Artikelpreis" Label
+    const priceInput = await waitForAny([
+      'input[aria-label*="Artikelpreis"]',
+      'input[aria-label*="Preis"]',
+      'input[id*="price"]',
+      'input[name*="price"]',
+    ], 5000).catch(() => null)
+
+    // Fallback: Input neben einem Label das "Artikelpreis" enthält
+    const allLabels = Array.from(document.querySelectorAll('label, [class*="label"]'))
+    const priceLabel = allLabels.find(l => l.textContent.trim() === 'Artikelpreis')
+    const inp = priceInput || (priceLabel
+      ? document.getElementById(priceLabel.htmlFor) || priceLabel.closest('div')?.querySelector('input')
+      : null)
+
+    if (inp) {
+      inp.focus()
+      await wait(200)
+      const priceStr = String(Number(listing.price).toFixed(2)).replace('.', ',')
+      setNativeValue(inp, priceStr)
+      console.log('[ListSync eBay lstng] ✓ Preis:', priceStr)
+    }
+  } catch(e) { console.warn('[ListSync eBay lstng] Preis-Fehler:', e.message) }
+
+  await wait(400)
+
+  // 5. BILDER hochladen
+  updateStatus('Bilder werden hochgeladen…')
+  await wait(500)
+  await uploadImages(listing.imageData || [])
+
+  updateStatus('✅ Fertig – Lieferung prüfen & Angebot einstellen', true)
+  await chrome.storage.local.remove('pendingListing')
+  console.log('[ListSync eBay lstng] ✅ Alles ausgefüllt')
+}
+
+// ── Altes /sl/list Interface ───────────────────────────────────────────────────
 
 async function fill() {
   const listing = await getListing()
@@ -390,8 +519,9 @@ function init() {
   const path = window.location.pathname
   if (path.includes('/prelist')) {
     setTimeout(handlePrelist, 2000)
-  } else if (path.includes('/lstng') || path.includes('/sl/list')) {
-    // Neues eBay Listing-Interface (/lstng) oder altes (/sl/list)
+  } else if (path.includes('/lstng')) {
+    setTimeout(fillLstng, 3000)
+  } else if (path.includes('/sl/list')) {
     setTimeout(fill, 3000)
   }
 }
