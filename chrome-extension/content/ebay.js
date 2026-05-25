@@ -410,7 +410,7 @@ async function fillLstng() {
 
   await wait(400)
 
-  // 3. BESCHREIBUNG — Rich-Text contenteditable Editor
+  // 3. BESCHREIBUNG — über "HTML-Code anzeigen" Checkbox → textarea
   try {
     let desc = listing.description || ''
     const extras = []
@@ -420,26 +420,116 @@ async function fillLstng() {
     if (listing.color)     extras.push(`Farbe: ${listing.color}`)
     if (extras.length) desc = (desc ? desc + '\n\n' : '') + extras.join('\n')
 
-    // Beschreibungsbereich hat contenteditable="true" und placeholder-Text
-    const editor = [...document.querySelectorAll('[contenteditable="true"]')].find(el => {
-      const placeholder = el.getAttribute('placeholder') || el.getAttribute('aria-placeholder') || ''
-      const parentText  = el.closest('section, div')?.querySelector('[class*="label"], [class*="heading"], h2, h3, h4')?.textContent || ''
-      return placeholder.toLowerCase().includes('beschreibung')
-          || parentText.toLowerCase().includes('beschreibung')
-          || el.textContent.includes('Verfassen Sie eine')
-    }) || document.querySelector('[contenteditable="true"]')
+    // Strategie 1: "HTML-Code anzeigen" Checkbox klicken → gibt einfaches textarea
+    const allEls = Array.from(document.querySelectorAll('label, span, div'))
+    const htmlLabel = allEls.find(el => el.textContent?.trim() === 'HTML-Code anzeigen')
+    let filledViaHtml = false
+    if (htmlLabel) {
+      const cb = htmlLabel.tagName === 'LABEL'
+        ? document.getElementById(htmlLabel.htmlFor) || htmlLabel.querySelector('input[type="checkbox"]')
+        : htmlLabel.previousElementSibling?.querySelector?.('input[type="checkbox"]')
+          || htmlLabel.closest('label')?.querySelector('input[type="checkbox"]')
+      if (cb && !cb.checked) {
+        cb.click()
+        await wait(600)
+      }
+      const ta = document.querySelector('textarea[class*="desc"], textarea[name*="desc"], textarea[id*="desc"], textarea')
+      if (ta) {
+        ta.focus()
+        setNativeValue(ta, desc)
+        filledViaHtml = true
+        console.log('[ListSync eBay lstng] ✓ Beschreibung via HTML-textarea')
+      }
+    }
 
-    if (editor) {
-      editor.focus()
-      await wait(300)
-      editor.innerHTML = desc.replace(/\n/g, '<br>')
-      editor.dispatchEvent(new Event('input',  { bubbles: true }))
-      editor.dispatchEvent(new Event('change', { bubbles: true }))
-      console.log('[ListSync eBay lstng] ✓ Beschreibung')
+    // Strategie 2: contenteditable direkt befüllen
+    if (!filledViaHtml) {
+      // Scrolle zur Beschreibung – sie erscheint nach Fotos & Merkmalen
+      const allSections = Array.from(document.querySelectorAll('section, [class*="section"], [class*="module"]'))
+      const descSection = allSections.find(s => s.textContent.includes('BESCHREIBUNG') || s.textContent.includes('Beschreibung'))
+      if (descSection) descSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await wait(400)
+
+      const editables = Array.from(document.querySelectorAll('[contenteditable="true"]'))
+      // Nimm das größte contenteditable (wahrscheinlich der Editor)
+      const editor = editables.sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0]
+      if (editor) {
+        editor.click()
+        editor.focus()
+        await wait(300)
+        // Alles selektieren und ersetzen
+        document.execCommand('selectAll', false, null)
+        document.execCommand('delete', false, null)
+        document.execCommand('insertText', false, desc)
+        if (!editor.textContent.trim()) {
+          // execCommand hat nicht funktioniert – innerHTML setzen
+          editor.innerHTML = desc.replace(/\n/g, '<br>')
+          editor.dispatchEvent(new Event('input',  { bubbles: true }))
+        }
+        console.log('[ListSync eBay lstng] ✓ Beschreibung via contenteditable')
+      }
     }
   } catch(e) { console.warn('[ListSync eBay lstng] Beschreibung-Fehler:', e.message) }
 
-  await wait(400)
+  await wait(500)
+
+  // 3b. ARTIKELMERKMALE — Marke & Farbe befüllen
+  async function fillAspect(labelText, value) {
+    if (!value) return false
+    try {
+      // Label-Element suchen
+      const allLabels = Array.from(document.querySelectorAll('label, span, div, a'))
+      const label = allLabels.find(el =>
+        el.children.length === 0 && el.textContent.trim() === labelText
+      )
+      if (!label) return false
+
+      // Container des Feldes
+      const container = label.closest('[class*="aspect"], [class*="Aspect"]')
+        || label.closest('li, tr, [class*="row"], [class*="field"]')
+        || label.parentElement?.parentElement
+
+      if (!container) return false
+
+      // Input/Combobox im Container
+      const input = container.querySelector('input[type="text"], input:not([type])')
+      const btn   = container.querySelector('button[aria-haspopup], button[aria-expanded], [role="combobox"]')
+
+      if (input) {
+        input.focus()
+        setNativeValue(input, value)
+        await wait(400)
+        // Dropdown-Option suchen und klicken
+        const option = [...document.querySelectorAll('[role="option"], [role="listitem"], li')]
+          .find(el => el.textContent.trim().toLowerCase() === value.toLowerCase()
+                   || el.textContent.trim().toLowerCase().startsWith(value.toLowerCase()))
+        if (option) { option.click(); return true }
+        // Enter drücken als Fallback
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
+        return true
+      } else if (btn) {
+        btn.click()
+        await wait(400)
+        const option = [...document.querySelectorAll('[role="option"], li, button')]
+          .find(el => el.textContent.trim().toLowerCase().includes(value.toLowerCase()))
+        if (option) { option.click(); return true }
+      }
+      return false
+    } catch { return false }
+  }
+
+  if (listing.brand) {
+    const ok = await fillAspect('Marke', listing.brand)
+    if (ok) console.log('[ListSync eBay lstng] ✓ Marke:', listing.brand)
+    await wait(300)
+  }
+  if (listing.color) {
+    const ok = await fillAspect('Farbe', listing.color)
+    if (ok) console.log('[ListSync eBay lstng] ✓ Farbe:', listing.color)
+    await wait(300)
+  }
+
+  await wait(300)
 
   // 4. PREIS — "Artikelpreis" Feld mit € Symbol
   try {
