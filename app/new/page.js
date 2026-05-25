@@ -15,7 +15,7 @@ export default function NewListing() {
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [mobileHelper, setMobileHelper] = useState(null)
-  const [imgs, setImgs]       = useState([])   // array of { url, preview }
+  const [imgs, setImgs]       = useState([])
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
     condition:'Sehr gut', category:'',
@@ -25,7 +25,7 @@ export default function NewListing() {
 
   const set = (k,v) => setForm(f=>({...f,[k]:v}))
   const togglePlt  = p => set('platforms', form.platforms.includes(p)?form.platforms.filter(x=>x!==p):[...form.platforms,p])
-  const toggleShip = s => set('shipping',  form.shipping.includes(s) ?form.shipping.filter(x=>x!==s) :[...form.shipping,s])
+  const toggleShip = s => set('shipping',  form.shipping.includes(s)?form.shipping.filter(x=>x!==s):[...form.shipping,s])
 
   const validate = () => {
     const e = {}
@@ -42,14 +42,12 @@ export default function NewListing() {
     try {
       let newImgs
       if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-        // Produktion: direkter Upload zum Vercel Blob CDN (kein Server-Umweg)
         const { upload } = await import('@vercel/blob/client')
         const results = await Promise.all(files.map(file =>
           upload(file.name, file, { access: 'public', handleUploadUrl: '/api/upload' })
         ))
         newImgs = results.map((blob, i) => ({ url: blob.url, preview: URL.createObjectURL(files[i]) }))
       } else {
-        // Lokal: Server-Upload
         const fd = new FormData()
         files.forEach(f => fd.append('files', f))
         const res  = await fetch('/api/upload', { method: 'POST', body: fd })
@@ -69,19 +67,10 @@ export default function NewListing() {
     setLoading(true)
     try {
       const res = await fetch('/api/listings', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
-          ...form,
-          price:    Number(form.price),
-          buyPrice: Number(form.buyPrice||0),
-          images:   imgs.map(i=>i.url),
-          brand:    form.brand,
-          size:     form.size,
-          color:    form.color,
-          material: form.material,
-          shipping: form.shipping,
-          shipSize: form.shipSize,
+          ...form, price: Number(form.price), buyPrice: Number(form.buyPrice||0),
+          images: imgs.map(i=>i.url),
         })
       })
       if(res.ok) {
@@ -93,8 +82,7 @@ export default function NewListing() {
             window.postMessage({ type: 'LISTSYNC_POST', listing: { ...created, images: imgs.map(i=>i.url) }, platforms: extPlatforms }, '*')
           } else {
             setMobileHelper({ listing: { ...created, images: imgs.map(i=>i.url) }, platforms: extPlatforms })
-            setLoading(false)
-            return
+            setLoading(false); return
           }
         }
         sessionStorage.setItem('ls_just_created', created?.title || 'Listing erstellt')
@@ -103,114 +91,129 @@ export default function NewListing() {
         const err = await res.json().catch(() => ({}))
         alert('Fehler beim Speichern: ' + (err.error || res.status))
       }
-    } catch(e) {
-      alert('Netzwerkfehler: ' + e.message)
-    } finally { setLoading(false) }
+    } catch(e) { alert('Netzwerkfehler: ' + e.message) }
+    finally { setLoading(false) }
   }
+
+  const lbl  = { display:'block', fontSize:13, fontWeight:600, color:'var(--text-2)', marginBottom:6 }
+  const inp  = { width:'100%', padding:'12px 14px', border:'1px solid var(--border)', borderRadius:12, fontSize:14, background:'var(--input-bg)', color:'var(--text-1)', fontFamily:'inherit' }
+  const inpErr = { ...inp, borderColor:'rgba(239,68,68,0.5)', boxShadow:'0 0 0 3px rgba(239,68,68,0.08)' }
+
+  const CheckBox = ({ checked }) => (
+    <div style={{
+      width:20, height:20, borderRadius:6, flexShrink:0,
+      border:`2px solid ${checked?'#6366f1':'var(--border)'}`,
+      background:checked?'#6366f1':'transparent',
+      display:'flex', alignItems:'center', justifyContent:'center',
+    }}>
+      {checked && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+    </div>
+  )
 
   return (
     <div className="ls-page">
       <Sidebar/>
       <main className="md:ml-60 ls-page-content">
-        <div className="max-w-xl mx-auto px-4 py-5">
-          <div className="flex items-center gap-3 mb-6">
+        <div style={{ maxWidth:560, margin:'0 auto', padding:'20px 16px 32px' }}>
+
+          {/* Header */}
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:28 }}>
             <button onClick={()=>step>1?setStep(s=>s-1):router.push('/listings')}
-              className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold text-base">←</button>
-            <h1 className="text-xl font-extrabold text-gray-900 tracking-tight">Neues Listing</h1>
+              style={{ width:36, height:36, borderRadius:'50%', border:'none', cursor:'pointer', background:'var(--modal-close)', color:'var(--text-2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, flexShrink:0 }}>←</button>
+            <h1 style={{ fontSize:20, fontWeight:800, color:'var(--text-1)', margin:0, letterSpacing:'-0.02em' }}>Neues Listing</h1>
           </div>
 
-          {/* Steps */}
-          <div className="flex items-center mb-8">
+          {/* Step indicator */}
+          <div style={{ display:'flex', alignItems:'center', marginBottom:32 }}>
             {['Basis-Info','Bilder','Plattformen'].map((label,i) => {
               const s=i+1; const done=s<step; const active=s===step
               return (
-                <div key={s} className="flex items-center flex-1">
-                  <div className="flex flex-col items-center gap-1">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${done?'bg-green-500 text-white':active?'bg-indigo-600 text-white':'bg-gray-100 text-gray-400'}`}>{done?'✓':s}</div>
-                    <span className={`text-xs font-semibold ${active?'text-indigo-600':'text-gray-400'}`}>{label}</span>
+                <div key={s} style={{ display:'flex', alignItems:'center', flex:1 }}>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                    <div style={{
+                      width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
+                      fontSize:13, fontWeight:700,
+                      background: done?'#22c55e':active?'#6366f1':'var(--modal-close)',
+                      color: (done||active)?'#fff':'var(--text-3)',
+                    }}>{done?'✓':s}</div>
+                    <span style={{ fontSize:11, fontWeight:600, color:active?'#6366f1':'var(--text-3)', whiteSpace:'nowrap' }}>{label}</span>
                   </div>
-                  {s<3&&<div className={`flex-1 h-0.5 mb-4 mx-1 ${done?'bg-green-400':'bg-gray-200'}`}/>}
+                  {s<3 && <div style={{ flex:1, height:2, margin:'0 4px 16px', background:done?'#22c55e':'var(--border)' }}/>}
                 </div>
               )
             })}
           </div>
 
+          {/* ── Step 1 ── */}
           {step===1 && (
-            <div className="space-y-4">
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Titel *</label>
-                <input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="z.B. Nike Air Force 1 Weiß Gr. 43"
-                  className={`w-full px-4 py-3 bg-white border rounded-xl text-sm ${errors.title?'border-red-300':'border-gray-200 focus:border-indigo-400'}`}/>
-                {errors.title&&<p className="text-red-500 text-xs mt-1">{errors.title}</p>}
-                <p className="text-xs text-gray-400 mt-1">{form.title.length}/80 Zeichen</p>
+                <label style={lbl}>Titel *</label>
+                <input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="z.B. Nike Air Force 1 Weiß Gr. 43" style={errors.title?inpErr:inp}/>
+                {errors.title && <p style={{ color:'#ef4444', fontSize:12, margin:'4px 0 0' }}>{errors.title}</p>}
+                <p style={{ fontSize:12, color:'var(--text-3)', margin:'4px 0 0' }}>{form.title.length}/80 Zeichen</p>
               </div>
+
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Beschreibung</label>
+                <label style={lbl}>Beschreibung</label>
                 <textarea value={form.description} onChange={e=>set('description',e.target.value)} rows={4}
-                  placeholder="Beschreibe deinen Artikel…"
-                  className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm resize-none"/>
+                  placeholder="Beschreibe deinen Artikel…" style={{ ...inp, resize:'vertical' }}/>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Verkaufspreis * (€)</label>
-                  <input type="number" min="0" value={form.price} onChange={e=>set('price',e.target.value)}
-                    className={`w-full px-4 py-3 bg-white border rounded-xl text-sm ${errors.price?'border-red-300':'border-gray-200 focus:border-indigo-400'}`}/>
-                  {errors.price&&<p className="text-red-500 text-xs mt-1">{errors.price}</p>}
+                  <label style={lbl}>Verkaufspreis * (€)</label>
+                  <input type="number" min="0" value={form.price} onChange={e=>set('price',e.target.value)} style={errors.price?inpErr:inp}/>
+                  {errors.price && <p style={{ color:'#ef4444', fontSize:12, margin:'4px 0 0' }}>{errors.price}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Einkaufspreis (€)</label>
-                  <input type="number" min="0" value={form.buyPrice} onChange={e=>set('buyPrice',e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm"/>
+                  <label style={lbl}>Einkaufspreis (€)</label>
+                  <input type="number" min="0" value={form.buyPrice} onChange={e=>set('buyPrice',e.target.value)} style={inp}/>
                 </div>
               </div>
-              {form.price&&form.buyPrice&&Number(form.price)>Number(form.buyPrice)&&(
-                <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm text-emerald-700 font-semibold">
+
+              {form.price && form.buyPrice && Number(form.price)>Number(form.buyPrice) && (
+                <div style={{ background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:14, padding:'12px 16px', fontSize:13.5, color:'#10b981', fontWeight:700 }}>
                   💰 Erwarteter Gewinn: +{fmt(Number(form.price)-Number(form.buyPrice))}
                 </div>
               )}
-              <div className="grid grid-cols-2 gap-3">
+
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Zustand</label>
-                  <select value={form.condition} onChange={e=>set('condition',e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm">
+                  <label style={lbl}>Zustand</label>
+                  <select value={form.condition} onChange={e=>set('condition',e.target.value)} style={inp}>
                     {CONDITIONS.map(c=><option key={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Kategorie</label>
+                  <label style={lbl}>Kategorie</label>
                   <CategoryPicker value={form.category} onChange={v=>{ set('category',v); set('size','') }}/>
                 </div>
               </div>
 
-              {/* Vinted-spezifische Felder */}
-              <div className="pt-2 pb-1">
-                <p className="text-xs font-bold text-indigo-500 uppercase tracking-wide">🏷️ Vinted-Details</p>
-              </div>
+              <p style={{ fontSize:11.5, fontWeight:700, color:'#818cf8', textTransform:'uppercase', letterSpacing:'0.05em', margin:'4px 0 0' }}>🏷️ Vinted-Details</p>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Marke</label>
-                  <select value={form.brand} onChange={e=>set('brand',e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm">
+                  <label style={lbl}>Marke</label>
+                  <select value={form.brand} onChange={e=>set('brand',e.target.value)} style={inp}>
                     <option value="">– keine Angabe –</option>
                     {BRANDS.map(b=><option key={b}>{b}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Farbe</label>
-                  <select value={form.color} onChange={e=>set('color',e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm">
+                  <label style={lbl}>Farbe</label>
+                  <select value={form.color} onChange={e=>set('color',e.target.value)} style={inp}>
                     <option value="">– keine Angabe –</option>
                     {COLORS.map(c=><option key={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
 
-              {getSizes(form.category).length > 0 && (
+              {getSizes(form.category).length>0 && (
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">Größe</label>
-                  <select value={form.size} onChange={e=>set('size',e.target.value)}
-                    className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm">
+                  <label style={lbl}>Größe</label>
+                  <select value={form.size} onChange={e=>set('size',e.target.value)} style={inp}>
                     <option value="">– keine Angabe –</option>
                     {getSizes(form.category).map(s=><option key={s}>{s}</option>)}
                   </select>
@@ -218,28 +221,25 @@ export default function NewListing() {
               )}
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Material</label>
-                <select value={form.material} onChange={e=>set('material',e.target.value)}
-                  className="w-full px-4 py-3 bg-white border border-gray-200 focus:border-indigo-400 rounded-xl text-sm">
+                <label style={lbl}>Material</label>
+                <select value={form.material} onChange={e=>set('material',e.target.value)} style={inp}>
                   <option value="">– keine Angabe –</option>
                   {MATERIALS.map(m=><option key={m}>{m}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Versandoptionen</label>
-                <div className="space-y-2">
-                  {SHIPPING_OPTIONS.map(opt=>{
+                <label style={{ ...lbl, marginBottom:10 }}>Versandoptionen</label>
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {SHIPPING_OPTIONS.map(opt => {
                     const sel = form.shipping.includes(opt.id)
                     return (
                       <div key={opt.id} onClick={()=>toggleShip(opt.id)}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all ${sel?'border-indigo-400 bg-indigo-50/40':'border-gray-100 bg-white hover:border-gray-200'}`}>
-                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 ${sel?'border-indigo-600 bg-indigo-600':'border-gray-300'}`}>
-                          {sel&&<span className="text-white text-xs font-extrabold">✓</span>}
-                        </div>
+                        style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.07)':'var(--surface)', transition:'all .15s' }}>
+                        <CheckBox checked={sel}/>
                         <div>
-                          <p className="text-sm font-semibold text-gray-800">{opt.label}</p>
-                          <p className="text-xs text-gray-400">{opt.desc}</p>
+                          <p style={{ fontSize:13.5, fontWeight:600, color:'var(--text-1)', margin:0 }}>{opt.label}</p>
+                          <p style={{ fontSize:12, color:'var(--text-3)', margin:'2px 0 0' }}>{opt.desc}</p>
                         </div>
                       </div>
                     )
@@ -248,16 +248,16 @@ export default function NewListing() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Versandgröße</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {SHIP_SIZES.map(sz=>{
-                    const sel = form.shipSize === sz.id
+                <label style={{ ...lbl, marginBottom:10 }}>Versandgröße</label>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                  {SHIP_SIZES.map(sz => {
+                    const sel = form.shipSize===sz.id
                     return (
-                      <div key={sz.id} onClick={()=>set('shipSize', sel ? '' : sz.id)}
-                        className={`flex flex-col items-center gap-0.5 px-3 py-3 rounded-xl border-2 cursor-pointer transition-all text-center ${sel?'border-indigo-400 bg-indigo-50/40':'border-gray-100 bg-white hover:border-gray-200'}`}>
-                        <span className="text-lg">{sz.id==='S'?'📦':sz.id==='M'?'🗃️':'🏗️'}</span>
-                        <p className={`text-sm font-bold ${sel?'text-indigo-700':'text-gray-800'}`}>{sz.label}</p>
-                        <p className="text-xs text-gray-400 leading-tight">{sz.desc}</p>
+                      <div key={sz.id} onClick={()=>set('shipSize',sel?'':sz.id)}
+                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'12px 8px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.07)':'var(--surface)', textAlign:'center', transition:'all .15s' }}>
+                        <span style={{ fontSize:22 }}>{sz.id==='S'?'📦':sz.id==='M'?'🗃️':'🏗️'}</span>
+                        <p style={{ fontSize:13, fontWeight:700, color:sel?'#6366f1':'var(--text-1)', margin:0 }}>{sz.label}</p>
+                        <p style={{ fontSize:11, color:'var(--text-3)', margin:0, lineHeight:1.3 }}>{sz.desc}</p>
                       </div>
                     )
                   })}
@@ -266,53 +266,56 @@ export default function NewListing() {
             </div>
           )}
 
+          {/* ── Step 2 ── */}
           {step===2 && (
-            <div className="space-y-4">
-              <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange}/>
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+              <input ref={fileRef} type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handleFileChange}/>
               <div onClick={()=>!uploading&&imgs.length<8&&fileRef.current.click()}
-                className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer select-none transition-all ${uploading?'border-indigo-300 bg-indigo-50/30':'border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/20'}`}>
+                style={{ border:`2px dashed ${uploading?'#818cf8':'var(--border)'}`, borderRadius:20, padding:'40px 20px', textAlign:'center', cursor:imgs.length>=8?'default':'pointer', userSelect:'none', background:uploading?'rgba(99,102,241,0.04)':'var(--surface)', transition:'all .15s' }}>
                 {uploading ? (
-                  <><p className="text-3xl mb-3 animate-pulse">⏳</p><p className="font-semibold text-indigo-600">Wird hochgeladen…</p></>
+                  <><p style={{ fontSize:36, margin:'0 0 10px' }}>⏳</p><p style={{ fontWeight:600, color:'#818cf8', margin:0 }}>Wird hochgeladen…</p></>
                 ) : (
-                  <><p className="text-4xl mb-3">📷</p>
-                  <p className="font-semibold text-gray-700">Tippe zum Hochladen</p>
-                  <p className="text-xs text-gray-400 mt-1">JPG, PNG, HEIC · max. 8 Bilder</p></>
+                  <><p style={{ fontSize:42, margin:'0 0 10px' }}>📷</p>
+                  <p style={{ fontWeight:600, color:'var(--text-1)', margin:'0 0 4px' }}>Tippe zum Hochladen</p>
+                  <p style={{ fontSize:12, color:'var(--text-3)', margin:0 }}>JPG, PNG, HEIC · max. 8 Bilder</p></>
                 )}
               </div>
-              {imgs.length>0&&(
-                <div className="grid grid-cols-3 gap-2.5">
-                  {imgs.map((img,i)=>(
-                    <div key={i} className="aspect-square bg-gray-100 rounded-2xl relative overflow-hidden">
-                      <img src={img.preview||img.url} alt="" className="w-full h-full object-cover"/>
+              {imgs.length>0 && (
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+                  {imgs.map((img,i) => (
+                    <div key={i} style={{ aspectRatio:'1', borderRadius:16, position:'relative', overflow:'hidden', background:'var(--modal-close)' }}>
+                      <img src={img.preview||img.url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                       <button onClick={()=>removeImg(i)}
-                        className="absolute top-1.5 right-1.5 w-7 h-7 bg-black/55 text-white rounded-full text-xs flex items-center justify-center">✕</button>
-                      {i===0&&<span className="absolute bottom-1.5 left-1.5 text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-md font-bold">Haupt</span>}
+                        style={{ position:'absolute', top:6, right:6, width:28, height:28, borderRadius:'50%', background:'rgba(0,0,0,0.55)', color:'#fff', border:'none', cursor:'pointer', fontSize:12, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
+                      {i===0 && <span style={{ position:'absolute', bottom:6, left:6, fontSize:10, background:'#6366f1', color:'#fff', padding:'2px 7px', borderRadius:6, fontWeight:700 }}>Haupt</span>}
                     </div>
                   ))}
-                  {imgs.length<8&&!uploading&&(
-                    <div onClick={()=>fileRef.current.click()} className="aspect-square border-2 border-dashed border-gray-200 rounded-2xl flex items-center justify-center text-3xl text-gray-300 hover:border-indigo-300 cursor-pointer">+</div>
+                  {imgs.length<8&&!uploading && (
+                    <div onClick={()=>fileRef.current.click()}
+                      style={{ aspectRatio:'1', border:'2px dashed var(--border)', borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center', fontSize:28, color:'var(--text-3)', cursor:'pointer' }}>+</div>
                   )}
                 </div>
               )}
-              <p className="text-xs text-gray-400 text-center">{imgs.length}/8 Bilder hochgeladen</p>
+              <p style={{ fontSize:12, color:'var(--text-3)', textAlign:'center' }}>{imgs.length}/8 Bilder hochgeladen</p>
             </div>
           )}
 
+          {/* ── Step 3 ── */}
           {step===3 && (
-            <div className="space-y-4">
-              {errors.platforms&&<p className="text-red-500 text-sm font-semibold">{errors.platforms}</p>}
-              {Object.entries(PLATFORMS).map(([id,p])=>{
-                const sel=form.platforms.includes(id)
+            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+              {errors.platforms && <p style={{ color:'#ef4444', fontSize:13, fontWeight:600 }}>{errors.platforms}</p>}
+              {Object.entries(PLATFORMS).map(([id,p]) => {
+                const sel = form.platforms.includes(id)
                 return (
-                  <div key={id} onClick={()=>{togglePlt(id);setErrors({})}}
-                    className={`border-2 rounded-2xl p-4 cursor-pointer transition-all ${sel?'border-indigo-400 bg-indigo-50/30':'border-gray-100 bg-white hover:border-gray-200'}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${sel?'border-indigo-600 bg-indigo-600':'border-gray-300'}`}>
-                        {sel&&<span className="text-white text-xs font-extrabold">✓</span>}
+                  <div key={id} onClick={()=>{ togglePlt(id); setErrors({}) }}
+                    style={{ border:`2px solid ${sel?'#818cf8':'var(--border)'}`, borderRadius:20, padding:16, cursor:'pointer', background:sel?'rgba(99,102,241,0.06)':'var(--surface)', transition:'all .15s' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                      <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0, border:`2px solid ${sel?'#6366f1':'var(--border)'}`, background:sel?'#6366f1':'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
                       </div>
                       <PlatformBadge plt={id}/>
                     </div>
-                    {sel&&(
+                    {sel && (
                       <div className={`mt-3 p-3 rounded-xl ${p.bg} border ${p.border}`}>
                         <p className="text-xs font-bold text-gray-500 uppercase mb-1">Optimierter Titel</p>
                         <p className={`text-sm font-semibold ${p.text}`}>{optimizeTitle(form.title||'Dein Artikel',id)}</p>
@@ -321,32 +324,37 @@ export default function NewListing() {
                   </div>
                 )
               })}
-              {form.platforms.length>0&&(
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-                  <p className="text-sm font-bold text-green-700">✨ Bereit zum Veröffentlichen</p>
-                  <p className="text-xs text-green-600 mt-1">Wird auf {form.platforms.length} Plattform{form.platforms.length>1?'en':''} gepostet.</p>
+              {form.platforms.length>0 && (
+                <div style={{ background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:20, padding:16 }}>
+                  <p style={{ fontSize:13.5, fontWeight:700, color:'#10b981', margin:'0 0 4px' }}>✨ Bereit zum Veröffentlichen</p>
+                  <p style={{ fontSize:12, color:'#10b981', margin:0, opacity:0.8 }}>Wird auf {form.platforms.length} Plattform{form.platforms.length>1?'en':''} gepostet.</p>
                 </div>
               )}
             </div>
           )}
 
-          <div className="flex gap-3 mt-8">
-            {step>1&&<button onClick={()=>setStep(s=>s-1)} className="px-6 py-3 border border-gray-200 rounded-xl text-gray-700 font-semibold hover:bg-gray-50">← Zurück</button>}
+          {/* Navigation */}
+          <div style={{ display:'flex', gap:12, marginTop:32 }}>
+            {step>1 && (
+              <button onClick={()=>setStep(s=>s-1)}
+                style={{ padding:'14px 20px', borderRadius:14, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-1)', fontWeight:600, fontSize:14, cursor:'pointer', fontFamily:'inherit' }}>
+                ← Zurück
+              </button>
+            )}
             <button onClick={handleNext} disabled={loading||uploading}
-              className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-xl font-bold transition-colors">
-              {loading ? 'Wird gespeichert…' : step<3 ? 'Weiter →' : '🚀 Listing erstellen & posten'}
+              className="ls-btn-primary"
+              style={{ flex:1, padding:14, borderRadius:14, fontSize:15 }}>
+              {loading?'Wird gespeichert…':step<3?'Weiter →':'🚀 Listing erstellen & posten'}
             </button>
           </div>
         </div>
       </main>
       <MobileNav/>
-
-      {/* Mobile Post Helper (no extension) */}
       {mobileHelper && (
         <MobilePostHelper
           listing={mobileHelper.listing}
           platforms={mobileHelper.platforms}
-          onClose={() => { setMobileHelper(null); router.push('/listings') }}
+          onClose={()=>{ setMobileHelper(null); router.push('/listings') }}
         />
       )}
     </div>
