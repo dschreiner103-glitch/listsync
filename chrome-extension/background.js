@@ -83,22 +83,30 @@ async function fetchImageAsBase64(url) {
 // ── Post listing to platforms ─────────────────────────────────────────────────
 
 async function handlePost(listing, platforms) {
-  const imageData = []
-  for (const url of (listing.images || []).slice(0, 8)) {
-    const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
-    const data = await fetchImageAsBase64(fullUrl)
-    if (data) imageData.push(data)
-  }
+  // 1. Listing sofort ohne Bilder speichern – Tab kann sofort öffnen
+  await chrome.storage.local.set({ pendingListing: { ...listing, imageData: [] } })
 
-  const fullListing = { ...listing, imageData }
-  await chrome.storage.local.set({ pendingListing: fullListing })
+  // 2. Tabs sofort öffnen (parallel, nicht warten)
+  const tabPromises = platforms.map(platform => {
+    if (platform === 'vinted')        return openVintedNewListing()
+    if (platform === 'kleinanzeigen') return openKleinanzeigenNewListing()
+    if (platform === 'ebay')          return openEbayNewListing(listing)
+    return Promise.resolve()
+  })
+
+  // 3. Bilder parallel laden (während Vinted-Tab lädt, spart ~2-5s)
+  const imageData = (await Promise.all(
+    (listing.images || []).slice(0, 8).map(url => {
+      const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
+      return fetchImageAsBase64(fullUrl)
+    })
+  )).filter(Boolean)
+
+  // 4. Storage mit Bildern aktualisieren – Content Script liest sie in injectImages() nochmal
+  await chrome.storage.local.set({ pendingListing: { ...listing, imageData } })
   console.log('[ListSync BG] Bilder geladen:', imageData.length, '– ID:', listing.id)
 
-  for (const platform of platforms) {
-    if (platform === 'vinted')        await openVintedNewListing()
-    if (platform === 'kleinanzeigen') await openKleinanzeigenNewListing()
-    if (platform === 'ebay')          await openEbayNewListing(listing)
-  }
+  await Promise.all(tabPromises)
 }
 
 async function openKleinanzeigenNewListing() {

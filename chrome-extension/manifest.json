@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ListSync",
-  "version": "2.5",
+  "version": "2.6",
   "description": "Automatisch auf Vinted, Kleinanzeigen & eBay posten + Vinted-Historie synchronisieren",
   "permissions": ["tabs", "scripting", "storage", "activeTab"],
   "host_permissions": [
