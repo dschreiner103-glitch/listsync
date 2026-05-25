@@ -388,9 +388,10 @@ async function fill() {
 
 function init() {
   const path = window.location.pathname
-  if (path.includes('/prelist/') || path.includes('/prelist')) {
+  if (path.includes('/prelist')) {
     setTimeout(handlePrelist, 2000)
-  } else {
+  } else if (path.includes('/lstng') || path.includes('/sl/list')) {
+    // Neues eBay Listing-Interface (/lstng) oder altes (/sl/list)
     setTimeout(fill, 3000)
   }
 }

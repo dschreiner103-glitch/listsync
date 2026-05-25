@@ -52,7 +52,8 @@
     {
       "matches": [
         "https://www.ebay.de/sl/list*",
-        "https://www.ebay.de/sl/*"
+        "https://www.ebay.de/sl/*",
+        "https://www.ebay.de/lstng*"
       ],
       "js": ["content/ebay.js"],
       "run_at": "document_idle"
