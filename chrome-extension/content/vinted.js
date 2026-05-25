@@ -439,6 +439,14 @@ async function waitForAnyPanelItems(timeout = 6000) {
       const dropLis = [...document.querySelectorAll('[class*="input-dropdown__content"] li, [class*="input-dropdown"] li')]
         .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
       if (dropLis.length > 0) return true
+      // Größe-Grid: role="radio" Items (Vinted zeigt Größen oft als Radio-Karten)
+      const radios = [...document.querySelectorAll('[role="radio"]:not([aria-disabled="true"])')]
+        .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+      if (radios.length > 0) return true
+      // Größe/Material: data-testid="size-*" oder "material-*" Items
+      const sizeItems = [...document.querySelectorAll('[data-testid^="size-"], [data-testid^="material-"]')]
+        .filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+      if (sizeItems.length > 0) return true
       // Generisch: role="option" in Dialog
       const opts = [...document.querySelectorAll('[role="dialog"] [role="option"], [role="listbox"] [role="option"]')]
       if (opts.some(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })) return true
@@ -811,7 +819,14 @@ async function clickVintedField(testid, value, name, opts = {}) {
   // 3. Warte bis IRGENDEIN Panel sichtbar ist (catalog-N, condition-N, dialog…)
   const ready = await waitForAnyPanelItems(6000)
   if (!ready) {
-    console.warn('[ListSync] Kein Panel geöffnet für:', name)
+    console.warn('[ListSync] Kein klassisches Panel erkannt für:', name, '– versuche trotzdem Text-Suche')
+    // Vielleicht gibt es ein Radio-Grid oder unbekanntes Panel – trotzdem versuchen
+    const found = await findAndClickText(value, document.body)
+    if (found) { setStatus('✓ ' + name + ' (direkt)'); return true }
+    // Letzter Versuch: catalog-items nochmal prüfen (können verzögert erscheinen)
+    const foundCat = await clickCatalogItem(value)
+    if (foundCat) { setStatus('✓ ' + name); return true }
+    console.warn('[ListSync] Panel-Timeout für:', name, '– überspringe')
     return false
   }
   await wait(400)
