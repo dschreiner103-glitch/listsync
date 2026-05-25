@@ -3,6 +3,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
+import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, fmt } from '@/components/Badge'
 import CategoryPicker from '@/components/CategoryPicker'
 
@@ -13,6 +14,7 @@ export default function NewListing() {
   const [errors, setErrors]   = useState({})
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [mobileHelper, setMobileHelper] = useState(null)
   const [imgs, setImgs]       = useState([])   // array of { url, preview }
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
@@ -83,6 +85,18 @@ export default function NewListing() {
         })
       })
       if(res.ok) {
+        const created = await res.json().catch(() => null)
+        const extPlatforms = form.platforms.filter(p => ['vinted','kleinanzeigen','ebay'].includes(p))
+        const hasExtension = typeof window !== 'undefined' && !!window.__LISTSYNC_EXTENSION__
+        if (extPlatforms.length > 0 && created) {
+          if (hasExtension) {
+            window.postMessage({ type: 'LISTSYNC_POST', listing: { ...created, images: imgs.map(i=>i.url) }, platforms: extPlatforms }, '*')
+          } else {
+            setMobileHelper({ listing: { ...created, images: imgs.map(i=>i.url) }, platforms: extPlatforms })
+            setLoading(false)
+            return
+          }
+        }
         router.push('/listings')
       } else {
         const err = await res.json().catch(() => ({}))
@@ -325,6 +339,15 @@ export default function NewListing() {
         </div>
       </main>
       <MobileNav/>
+
+      {/* Mobile Post Helper (no extension) */}
+      {mobileHelper && (
+        <MobilePostHelper
+          listing={mobileHelper.listing}
+          platforms={mobileHelper.platforms}
+          onClose={() => { setMobileHelper(null); router.push('/listings') }}
+        />
+      )}
     </div>
   )
 }

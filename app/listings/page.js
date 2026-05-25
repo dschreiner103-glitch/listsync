@@ -1,7 +1,8 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
+import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, StatusBadge, PLATFORMS, fmt, profit, CARD_COLORS } from '@/components/Badge'
 
 // ── Icon helper ───────────────────────────────────────────────────────────────
@@ -25,11 +26,25 @@ export default function Listings() {
   const [toast, setToast]               = useState(null)
   const [selPlatforms, setSelPlatforms] = useState([])
   const [relistDays, setRelistDays]     = useState(5)
+  const [mobileHelper, setMobileHelper] = useState(null) // { listing, platforms }
+  const [extStatus, setExtStatus]       = useState(null)  // null | true | false
 
   useEffect(() => {
     fetch('/api/listings').then(r => r.json()).then(setListings)
     fetch('/api/settings').then(r => r.json()).then(s => { if (s.relistDays) setRelistDays(s.relistDays) })
+    // Check extension after a short delay (bridge fires LISTSYNC_EXTENSION_READY)
+    const check = () => setExtStatus(!!window.__LISTSYNC_EXTENSION__)
+    if (typeof window !== 'undefined') {
+      window.addEventListener('LISTSYNC_EXTENSION_READY', () => setExtStatus(true), { once: true })
+      setTimeout(() => setExtStatus(!!window.__LISTSYNC_EXTENSION__), 2500)
+    }
   }, [])
+
+  // Extension detection: bridge sets window.__LISTSYNC_EXTENSION__ = true
+  const hasExtension = () => {
+    if (typeof window === 'undefined') return false
+    return !!window.__LISTSYNC_EXTENSION__
+  }
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
@@ -52,13 +67,17 @@ export default function Listings() {
     const updated = await res.json()
     setListings(ls => ls.map(l => l.id === id ? { ...l, days: 0, relistedAt: updated.relistedAt, status: 'aktiv' } : l))
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
+    setModal(null)
     if (extPlatforms.length > 0 && listing) {
-      window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
-      showToast(`Relisten auf ${extPlatforms.join(' & ')}…`)
+      if (hasExtension()) {
+        window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
+        showToast(`Relisten auf ${extPlatforms.join(' & ')}…`)
+      } else {
+        setMobileHelper({ listing, platforms: extPlatforms })
+      }
     } else {
       showToast('Erneut gelistet – Timer zurückgesetzt')
     }
-    setModal(null)
   }
 
   const markSold = async (id) => {
@@ -73,13 +92,17 @@ export default function Listings() {
     await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platforms: selPlatforms }) })
     setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms } : l))
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
+    setModal(null)
     if (extPlatforms.length > 0 && listing) {
-      window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
-      showToast(`Öffne ${extPlatforms.join(' & ')}…`)
+      if (hasExtension()) {
+        window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
+        showToast(`Öffne ${extPlatforms.join(' & ')}…`)
+      } else {
+        setMobileHelper({ listing, platforms: extPlatforms })
+      }
     } else {
       showToast(`Auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''} gepostet`)
     }
-    setModal(null)
   }
 
   const relistAlerts = listings.filter(needsRelist)
@@ -202,6 +225,21 @@ export default function Listings() {
               <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Meine Listings</h1>
               <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>{visible.length} Artikel</p>
             </div>
+            {/* Extension status indicator */}
+            {extStatus === true && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}/>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#16a34a' }}>Extension aktiv</span>
+              </div>
+            )}
+            {extStatus === false && (
+              <a href="https://chrome.google.com/webstore" target="_blank" rel="noreferrer"
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.22)', textDecoration: 'none' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}/>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#d97706' }} className="hidden md:inline">Extension installieren</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: '#d97706' }} className="md:hidden">Kein Extension</span>
+              </a>
+            )}
           </div>
 
           {/* ── Relist Alerts ── */}
@@ -459,6 +497,15 @@ export default function Listings() {
           className="md:bottom-8">
           {toast.msg}
         </div>
+      )}
+
+      {/* ── Mobile Post Helper (no extension) ── */}
+      {mobileHelper && (
+        <MobilePostHelper
+          listing={mobileHelper.listing}
+          platforms={mobileHelper.platforms}
+          onClose={() => setMobileHelper(null)}
+        />
       )}
     </div>
   )
