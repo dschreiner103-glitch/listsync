@@ -32,41 +32,38 @@ function downloadCSV(rows) {
   a.download = `ListSync-Buchhaltung.csv`; a.click()
 }
 
-// ── Inline editable cell ──────────────────────────────────────────────────────
-function EditCell({ value, type='text', onSave, className='' }) {
+// ── Inline editable cell ─────────────────────────────────────────────────────
+function EditCell({ value, type='text', onSave }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(value)
-
   function start() { setVal(value); setEditing(true) }
   function cancel() { setEditing(false) }
   function save() {
     const v = type === 'number' ? parseFloat(String(val).replace(',','.')) || 0 : val
-    onSave(v)
-    setEditing(false)
+    onSave(v); setEditing(false)
   }
-
   if (editing) return (
     <input
       autoFocus
-      type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
+      type={type==='number'?'number':type==='date'?'date':'text'}
       value={val}
       onChange={e => setVal(e.target.value)}
       onBlur={save}
       onKeyDown={e => { if (e.key==='Enter') save(); if (e.key==='Escape') cancel() }}
-      className="w-full border border-indigo-400 rounded px-1.5 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+      style={{
+        width: '100%', background: 'var(--input-bg)', border: '1px solid #818cf8',
+        borderRadius: 6, padding: '3px 6px', fontSize: 13, color: 'var(--text-1)',
+        fontFamily: 'inherit', boxShadow: '0 0 0 2px rgba(99,102,241,0.15)',
+      }}
       step={type==='number'?'0.01':undefined}
     />
   )
-
   return (
-    <span
-      onClick={start}
-      title="Klicken zum Bearbeiten"
-      className={`cursor-pointer hover:bg-indigo-50 hover:text-indigo-700 rounded px-1 -mx-1 transition-colors group relative ${className}`}
-    >
-      {value}
-      <span className="ml-1 opacity-0 group-hover:opacity-40 text-xs">✏️</span>
-    </span>
+    <span onClick={start} title="Klicken zum Bearbeiten"
+      style={{ cursor: 'pointer', borderRadius: 4, padding: '1px 4px', transition: 'background .1s' }}
+      onMouseOver={e => e.currentTarget.style.background='rgba(99,102,241,0.07)'}
+      onMouseOut={e => e.currentTarget.style.background='transparent'}
+    >{value} <span style={{ fontSize: 10, opacity: 0.4 }}>✏</span></span>
   )
 }
 
@@ -74,30 +71,111 @@ function EditCell({ value, type='text', onSave, className='' }) {
 function SortTh({ label, col, sort, setSort }) {
   const active = sort.col === col
   return (
-    <th
-      onClick={() => setSort(s => ({ col, dir: s.col===col && s.dir==='asc' ? 'desc' : 'asc' }))}
-      className="px-3 py-3 text-xs font-bold text-gray-400 uppercase tracking-wide whitespace-nowrap cursor-pointer hover:text-indigo-600 select-none"
-    >
-      {label}
-      <span className="ml-1 text-gray-300">
-        {active ? (sort.dir==='asc' ? '↑' : '↓') : '↕'}
-      </span>
+    <th onClick={() => setSort(s => ({ col, dir: s.col===col && s.dir==='asc' ? 'desc' : 'asc' }))}
+      style={{
+        padding: '12px 10px', fontSize: 11, fontWeight: 700, color: active ? '#818cf8' : 'var(--text-3)',
+        textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+        cursor: 'pointer', userSelect: 'none', transition: 'color .12s',
+      }}>
+      {label} <span style={{ color: active ? '#818cf8' : 'var(--border)' }}>{active ? (sort.dir==='asc'?'↑':'↓') : '↕'}</span>
     </th>
+  )
+}
+
+// ── Status badge ──────────────────────────────────────────────────────────────
+const STATUS_COLORS = {
+  verkauft: { bg: 'rgba(34,197,94,0.1)',  color: '#16a34a', label: 'Verkauft' },
+  aktiv:    { bg: 'rgba(59,130,246,0.1)', color: '#2563eb', label: 'Aktiv'    },
+  inaktiv:  { bg: 'rgba(107,114,128,0.1)',color: '#6b7280', label: 'Inaktiv'  },
+}
+
+// ── Mobile card ───────────────────────────────────────────────────────────────
+function MobileCard({ l, i, onDelete, deleting, onPatch }) {
+  const np  = netProfit(l)
+  const mg  = margin(l)
+  const sc  = STATUS_COLORS[l.status] || STATUS_COLORS.inaktiv
+  return (
+    <div style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 18, padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,.04)',
+    }}>
+      {/* Top row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)', margin: '0 0 4px', lineHeight: 1.3 }}>{l.title}</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 8, background: sc.bg, color: sc.color }}>{sc.label}</span>
+            {(l.platforms||[]).map(p => (
+              <span key={p} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-3)' }}>{PLATFORMS[p]?.name || p}</span>
+            ))}
+          </div>
+        </div>
+        <p style={{ fontWeight: 800, fontSize: 16, color: np >= 0 ? '#10b981' : '#ef4444', flexShrink: 0, margin: 0 }}>+{fmtEur(np)}</p>
+      </div>
+
+      {/* Financials row */}
+      <div style={{ display: 'flex', gap: 0, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', marginBottom: 12 }}>
+        {[
+          { label: 'EK', val: fmtEur(l.buyPrice||0), color: 'var(--text-2)' },
+          { label: 'VK', val: fmtEur(l.price||0), color: 'var(--text-1)' },
+          { label: 'Marge', val: mg != null ? `${mg.toFixed(0)}%` : '—', color: mg >= 30 ? '#10b981' : mg >= 10 ? '#f59e0b' : '#ef4444' },
+        ].map((item, idx) => (
+          <div key={idx} style={{
+            flex: 1, padding: '8px 6px', textAlign: 'center',
+            borderRight: idx < 2 ? '1px solid var(--border)' : 'none',
+            background: 'var(--row-hover)',
+          }}>
+            <p style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', margin: '0 0 2px' }}>{item.label}</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: item.color, margin: 0 }}>{item.val}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Date + actions */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
+          {new Date(l.updatedAt||l.createdAt).toLocaleDateString('de')}
+        </span>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={() => window.open(`/belege/${l.id}`, '_blank')}
+            style={{
+              fontSize: 12, padding: '5px 12px', borderRadius: 9,
+              background: 'rgba(99,102,241,0.07)', color: '#6366f1',
+              border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+            Beleg
+          </button>
+          <button
+            onClick={() => onDelete(l.id)}
+            disabled={deleting === l.id}
+            style={{
+              fontSize: 12, padding: '5px 10px', borderRadius: 9,
+              background: 'rgba(239,68,68,0.07)', color: '#ef4444',
+              border: '1px solid rgba(239,68,68,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              opacity: deleting === l.id ? 0.5 : 1,
+            }}>
+            {deleting === l.id ? '…' : '🗑'}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Buchhaltung() {
   const router = useRouter()
-  const [listings, setListings]   = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [saving, setSaving]       = useState(null) // id of row being saved
-  const [deleting, setDeleting]   = useState(null) // id of row being deleted
+  const [listings, setListings]     = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [saving, setSaving]         = useState(null)
+  const [deleting, setDeleting]     = useState(null)
   const [confirmClear, setConfirmClear] = useState(false)
-  const [month, setMonth]         = useState('')
-  const [year, setYear]           = useState(String(new Date().getFullYear()))
-  const [statusFilter, setStatus] = useState('alle')
-  const [sort, setSort]           = useState({ col: 'date', dir: 'desc' })
+  const [month, setMonth]           = useState('')
+  const [year, setYear]             = useState(String(new Date().getFullYear()))
+  const [statusFilter, setStatus]   = useState('alle')
+  const [sort, setSort]             = useState({ col: 'date', dir: 'desc' })
+  const [isMobile, setIsMobile]     = useState(false)
 
   useEffect(() => {
     fetch('/api/listings').then(r => r.json()).then(d => {
@@ -107,6 +185,11 @@ export default function Buchhaltung() {
       })) : [])
       setLoading(false)
     })
+    const mq = window.matchMedia('(max-width: 767px)')
+    setIsMobile(mq.matches)
+    const h = e => setIsMobile(e.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
   }, [])
 
   const years = useMemo(() => {
@@ -116,29 +199,27 @@ export default function Buchhaltung() {
 
   const MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
-  const filtered = useMemo(() => {
-    return listings.filter(l => {
-      const d = new Date(l.updatedAt||l.createdAt)
-      if (year  && String(d.getFullYear()) !== year) return false
-      if (month && String(d.getMonth()+1).padStart(2,'0') !== month) return false
-      if (statusFilter !== 'alle' && l.status !== statusFilter) return false
-      return true
-    })
-  }, [listings, year, month, statusFilter])
+  const filtered = useMemo(() => listings.filter(l => {
+    const d = new Date(l.updatedAt||l.createdAt)
+    if (year  && String(d.getFullYear()) !== year) return false
+    if (month && String(d.getMonth()+1).padStart(2,'0') !== month) return false
+    if (statusFilter !== 'alle' && l.status !== statusFilter) return false
+    return true
+  }), [listings, year, month, statusFilter])
 
   const sorted = useMemo(() => {
     const arr = [...filtered]
     const { col, dir } = sort
     const mul = dir === 'asc' ? 1 : -1
     arr.sort((a, b) => {
-      if (col === 'date')   return mul * (new Date(a.updatedAt||a.createdAt) - new Date(b.updatedAt||b.createdAt))
-      if (col === 'title')  return mul * (a.title||'').localeCompare(b.title||'','de')
-      if (col === 'price')  return mul * ((a.price||0) - (b.price||0))
-      if (col === 'buyPrice') return mul * ((a.buyPrice||0) - (b.buyPrice||0))
-      if (col === 'profit') return mul * (netProfit(a) - netProfit(b))
-      if (col === 'margin') { const ma=margin(a)??-999, mb=margin(b)??-999; return mul*(ma-mb) }
-      if (col === 'fee')    return mul * (fee(a) - fee(b))
-      if (col === 'status') return mul * (a.status||'').localeCompare(b.status||'','de')
+      if (col==='date')     return mul * (new Date(a.updatedAt||a.createdAt) - new Date(b.updatedAt||b.createdAt))
+      if (col==='title')    return mul * (a.title||'').localeCompare(b.title||'','de')
+      if (col==='price')    return mul * ((a.price||0) - (b.price||0))
+      if (col==='buyPrice') return mul * ((a.buyPrice||0) - (b.buyPrice||0))
+      if (col==='profit')   return mul * (netProfit(a) - netProfit(b))
+      if (col==='margin')   { const ma=margin(a)??-999, mb=margin(b)??-999; return mul*(ma-mb) }
+      if (col==='fee')      return mul * (fee(a) - fee(b))
+      if (col==='status')   return mul * (a.status||'').localeCompare(b.status||'','de')
       return 0
     })
     return arr
@@ -151,12 +232,10 @@ export default function Buchhaltung() {
     profit:   filtered.reduce((s,l)=>s+netProfit(l),0),
   }), [filtered])
 
-  // Patch a listing field
   async function patch(id, data) {
     setSaving(id)
     const res = await fetch(`/api/listings/${id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
     const updated = await res.json()
@@ -180,112 +259,154 @@ export default function Buchhaltung() {
     setListings([])
   }
 
-  function patchDate(id, dateStr) {
-    if (!dateStr) return
-    patch(id, { updatedAt: new Date(dateStr).toISOString() })
+  function formatDateInput(l) {
+    return new Date(l.updatedAt||l.createdAt).toISOString().split('T')[0]
   }
 
-  function formatDateInput(l) {
-    const d = new Date(l.updatedAt||l.createdAt)
-    return d.toISOString().split('T')[0]
+  const selStyle = {
+    padding: '9px 32px 9px 12px', borderRadius: 12, border: '1px solid var(--border)',
+    background: 'var(--surface)', color: 'var(--text-1)', fontSize: 13.5,
+    fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
   }
 
   return (
     <div className="ls-page">
-      {/* Confirm clear modal */}
+
+      {/* ── Confirm clear modal ── */}
       {confirmClear && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full">
-            <h3 className="text-lg font-extrabold text-gray-900 mb-2">Tabelle wirklich leeren?</h3>
-            <p className="text-sm text-gray-500 mb-5">Alle {listings.length} Einträge werden unwiderruflich gelöscht.</p>
-            <div className="flex gap-3 justify-end">
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'rgba(0,0,0,0.45)', padding: '16px', backdropFilter: 'blur(4px)',
+        }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 22, padding: '24px',
+            maxWidth: 360, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.3)',
+          }}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 8px' }}>Tabelle leeren?</h3>
+            <p style={{ fontSize: 13.5, color: 'var(--text-2)', margin: '0 0 20px' }}>
+              Alle {listings.length} Einträge werden unwiderruflich gelöscht.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => setConfirmClear(false)}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-semibold text-sm">
+                style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
                 Abbrechen
               </button>
               <button onClick={clearAll}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold text-sm">
-                Ja, alles löschen
+                style={{ flex: 1, padding: '12px', borderRadius: 12, background: '#ef4444', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(239,68,68,0.3)' }}>
+                Löschen
               </button>
             </div>
           </div>
         </div>
       )}
+
       <Sidebar />
       <main className="md:ml-60 ls-page-content">
-        <div className="max-w-6xl mx-auto px-3 py-5 space-y-4">
+        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
 
-          {/* Header */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* ── Header ── */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
-              <h1 className="text-2xl font-extrabold text-gray-900">📊 Buchhaltung</h1>
-              <p className="text-gray-400 text-sm mt-0.5">Klicke auf Zellen um sie zu bearbeiten · Spalten sortieren per Klick</p>
+              <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Buchhaltung</h1>
+              <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>
+                {isMobile ? 'Tap auf Karte für Details' : 'Klicke auf Zellen zum Bearbeiten · Spalten sortieren per Klick'}
+              </p>
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => downloadCSV(sorted)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-semibold text-sm">
+                style={{ padding: '9px 16px', borderRadius: 12, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 ⬇ CSV
               </button>
               <button onClick={() => router.push('/belege')}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold text-sm">
+                style={{ padding: '9px 16px', borderRadius: 12, background: 'rgba(99,102,241,0.07)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 🧾 Belege
               </button>
               <button onClick={() => setConfirmClear(true)}
-                className="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-600 rounded-xl font-semibold text-sm">
-                🗑 Alles löschen
+                style={{ padding: '9px 14px', borderRadius: 12, background: 'rgba(239,68,68,0.07)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                🗑
               </button>
             </div>
           </div>
 
-          {/* Summary */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* ── Summary cards ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }} className="md:grid-cols-4">
             {[
-              { label:'Umsatz',     val: fmtEur(totals.revenue),  color:'text-indigo-600', bg:'bg-indigo-50' },
-              { label:'Einkauf',    val: fmtEur(totals.purchase), color:'text-red-600',    bg:'bg-red-50'    },
-              { label:'Gebühren',   val: fmtEur(totals.fees),     color:'text-amber-600',  bg:'bg-amber-50'  },
-              { label:'Netto-Gewinn', val: fmtEur(totals.profit), color: totals.profit>=0?'text-green-600':'text-red-600', bg:'bg-green-50' },
+              { label: 'Umsatz',        val: fmtEur(totals.revenue),  bg: 'rgba(99,102,241,0.07)',  color: '#6366f1'  },
+              { label: 'Einkauf',       val: fmtEur(totals.purchase), bg: 'rgba(239,68,68,0.07)',   color: '#ef4444'  },
+              { label: 'Gebühren',      val: fmtEur(totals.fees),     bg: 'rgba(245,158,11,0.07)',  color: '#d97706'  },
+              { label: 'Netto-Gewinn',  val: fmtEur(totals.profit),   bg: totals.profit>=0 ? 'rgba(16,185,129,0.07)' : 'rgba(239,68,68,0.07)', color: totals.profit>=0 ? '#10b981' : '#ef4444' },
             ].map(s => (
-              <div key={s.label} className={`${s.bg} rounded-2xl p-4 border border-gray-100`}>
-                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{s.label}</p>
-                <p className={`text-xl font-extrabold mt-1 ${s.color}`}>{s.val}</p>
+              <div key={s.label} style={{
+                background: s.bg, borderRadius: 18, padding: '14px 16px',
+                border: '1px solid var(--border)',
+              }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>{s.label}</p>
+                <p style={{ fontSize: 20, fontWeight: 800, color: s.color, margin: 0 }}>{s.val}</p>
               </div>
             ))}
           </div>
 
-          {/* Filters */}
-          <div className="bg-white rounded-2xl p-4 border border-gray-100 flex gap-3 flex-wrap items-center">
-            <select value={statusFilter} onChange={e=>setStatus(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-semibold bg-white">
+          {/* ── Filters ── */}
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 18, padding: '14px 16px',
+            display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
+          }}>
+            <select value={statusFilter} onChange={e => setStatus(e.target.value)} style={selStyle}>
               <option value="alle">Alle Status</option>
               <option value="verkauft">Verkauft</option>
               <option value="aktiv">Aktiv</option>
               <option value="inaktiv">Inaktiv</option>
             </select>
-            <select value={year} onChange={e=>setYear(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-semibold bg-white">
+            <select value={year} onChange={e => setYear(e.target.value)} style={selStyle}>
               <option value="">Alle Jahre</option>
-              {years.map(y=><option key={y} value={y}>{y}</option>)}
+              {years.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
-            <select value={month} onChange={e=>setMonth(e.target.value)}
-              className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-semibold bg-white">
+            <select value={month} onChange={e => setMonth(e.target.value)} style={selStyle}>
               <option value="">Alle Monate</option>
-              {MONTHS.map((m,i)=><option key={i} value={String(i+1).padStart(2,'0')}>{m}</option>)}
+              {MONTHS.map((m,i) => <option key={i} value={String(i+1).padStart(2,'0')}>{m}</option>)}
             </select>
-            <span className="text-sm text-gray-400 ml-auto">{sorted.length} Einträge</span>
+            <span style={{ fontSize: 13, color: 'var(--text-3)', marginLeft: 'auto', fontWeight: 600 }}>{sorted.length} Einträge</span>
           </div>
 
-          {/* Table */}
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            {loading ? (
-              <div className="p-10 text-center text-gray-400">Lade…</div>
-            ) : sorted.length === 0 ? (
-              <div className="p-10 text-center text-gray-400">Keine Einträge</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-gray-100 bg-gray-50">
-                    <tr>
-                      <th className="px-3 py-3 text-xs font-bold text-gray-400 uppercase tracking-wide">#</th>
+          {/* ── Content: mobile cards / desktop table ── */}
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[1,2,3].map(i => (
+                <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 16 }}>
+                  <div className="ls-skeleton" style={{ height: 18, width: '60%', marginBottom: 10 }}/>
+                  <div className="ls-skeleton" style={{ height: 12, width: '40%', marginBottom: 10 }}/>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="ls-skeleton" style={{ height: 40, flex: 1, borderRadius: 10 }}/>
+                    <div className="ls-skeleton" style={{ height: 40, flex: 1, borderRadius: 10 }}/>
+                    <div className="ls-skeleton" style={{ height: 40, flex: 1, borderRadius: 10 }}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : sorted.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-3)', fontWeight: 600, fontSize: 14 }}>
+              Keine Einträge
+            </div>
+          ) : isMobile ? (
+            /* ── Mobile: card list ── */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {sorted.map((l, i) => (
+                <MobileCard key={l.id} l={l} i={i} onDelete={deleteRow} deleting={deleting} onPatch={patch} />
+              ))}
+            </div>
+          ) : (
+            /* ── Desktop: full table ── */
+            <div style={{
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 20, overflow: 'hidden',
+            }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--row-hover)' }}>
+                      <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>#</th>
                       <SortTh label="Artikel"  col="title"    sort={sort} setSort={setSort}/>
                       <SortTh label="Status"   col="status"   sort={sort} setSort={setSort}/>
                       <SortTh label="EK"       col="buyPrice" sort={sort} setSort={setSort}/>
@@ -293,108 +414,76 @@ export default function Buchhaltung() {
                       <SortTh label="Gebühr"   col="fee"      sort={sort} setSort={setSort}/>
                       <SortTh label="Gewinn"   col="profit"   sort={sort} setSort={setSort}/>
                       <SortTh label="Marge"    col="margin"   sort={sort} setSort={setSort}/>
-                      <th className="px-3 py-3 text-xs font-bold text-gray-400 uppercase tracking-wide">Plattform</th>
+                      <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Plattform</th>
                       <SortTh label="Datum"    col="date"     sort={sort} setSort={setSort}/>
-                      <th className="px-3 py-3"/>
+                      <th style={{ padding: '12px 10px' }}/>
                     </tr>
                   </thead>
                   <tbody>
                     {sorted.map((l, i) => {
                       const np = netProfit(l)
                       const mg = margin(l)
+                      const sc = STATUS_COLORS[l.status] || STATUS_COLORS.inaktiv
                       const isSaving = saving === l.id
                       return (
-                        <tr key={l.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${isSaving ? 'opacity-60' : ''}`}>
-                          <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">{i+1}</td>
-
-                          {/* Artikel – editierbar */}
-                          <td className="px-3 py-2.5 max-w-[180px]">
-                            <EditCell
-                              value={l.title}
-                              onSave={v => patch(l.id, { title: v })}
-                              className="font-semibold text-gray-900 truncate block"
-                            />
+                        <tr key={l.id} style={{
+                          borderBottom: '1px solid var(--divider)', opacity: isSaving ? 0.6 : 1,
+                          transition: 'background .1s',
+                        }}
+                          onMouseOver={e => e.currentTarget.style.background='var(--row-hover)'}
+                          onMouseOut={e => e.currentTarget.style.background='transparent'}
+                        >
+                          <td style={{ padding: '10px', color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 12 }}>{i+1}</td>
+                          <td style={{ padding: '10px', maxWidth: 180 }}>
+                            <EditCell value={l.title} onSave={v => patch(l.id, { title: v })} />
                           </td>
-
-                          {/* Status – editierbar via select */}
-                          <td className="px-3 py-2.5">
-                            <select
-                              value={l.status}
-                              onChange={e => patch(l.id, { status: e.target.value })}
-                              className={`text-xs font-bold px-2 py-0.5 rounded-full border-0 cursor-pointer
-                                ${l.status==='verkauft'?'bg-green-100 text-green-700':
-                                  l.status==='aktiv'?'bg-blue-100 text-blue-700':
-                                  'bg-gray-100 text-gray-500'}`}
-                            >
+                          <td style={{ padding: '10px' }}>
+                            <select value={l.status} onChange={e => patch(l.id, { status: e.target.value })}
+                              style={{
+                                fontSize: 11, fontWeight: 700, padding: '3px 20px 3px 8px', borderRadius: 8,
+                                border: 'none', cursor: 'pointer', background: sc.bg, color: sc.color,
+                                fontFamily: 'inherit',
+                              }}>
                               <option value="aktiv">aktiv</option>
                               <option value="verkauft">verkauft</option>
                               <option value="inaktiv">inaktiv</option>
                             </select>
                           </td>
-
-                          {/* EK – editierbar */}
-                          <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">
-                            <EditCell
-                              value={(l.buyPrice||0).toFixed(2).replace('.',',')}
-                              type="number"
-                              onSave={v => patch(l.id, { buyPrice: v })}
-                            />
+                          <td style={{ padding: '10px', color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
+                            <EditCell value={(l.buyPrice||0).toFixed(2).replace('.',',')} type="number" onSave={v => patch(l.id, { buyPrice: v })} />
                           </td>
-
-                          {/* VK – editierbar */}
-                          <td className="px-3 py-2.5 font-semibold text-gray-900 whitespace-nowrap">
-                            <EditCell
-                              value={(l.price||0).toFixed(2).replace('.',',')}
-                              type="number"
-                              onSave={v => patch(l.id, { price: v })}
-                            />
+                          <td style={{ padding: '10px', fontWeight: 600, color: 'var(--text-1)', whiteSpace: 'nowrap' }}>
+                            <EditCell value={(l.price||0).toFixed(2).replace('.',',')} type="number" onSave={v => patch(l.id, { price: v })} />
                           </td>
-
-                          <td className="px-3 py-2.5 text-amber-600 whitespace-nowrap">
+                          <td style={{ padding: '10px', color: '#d97706', whiteSpace: 'nowrap' }}>
                             {fee(l) > 0 ? `−${fmtEur(fee(l))}` : '—'}
                           </td>
-
-                          <td className={`px-3 py-2.5 font-bold whitespace-nowrap ${np>=0?'text-green-600':'text-red-600'}`}>
+                          <td style={{ padding: '10px', fontWeight: 700, color: np>=0 ? '#10b981' : '#ef4444', whiteSpace: 'nowrap' }}>
                             {fmtEur(np)}
                           </td>
-
-                          <td className="px-3 py-2.5 whitespace-nowrap">
+                          <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>
                             {mg !== null ? (
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full
-                                ${mg>=30?'bg-green-100 text-green-700':mg>=10?'bg-amber-100 text-amber-700':'bg-red-100 text-red-700'}`}>
-                                {mg.toFixed(0)}%
-                              </span>
+                              <span style={{
+                                fontSize: 11, fontWeight: 700, padding: '3px 8px', borderRadius: 8,
+                                background: mg>=30 ? 'rgba(16,185,129,0.1)' : mg>=10 ? 'rgba(245,158,11,0.1)' : 'rgba(239,68,68,0.1)',
+                                color: mg>=30 ? '#10b981' : mg>=10 ? '#d97706' : '#ef4444',
+                              }}>{mg.toFixed(0)}%</span>
                             ) : '—'}
                           </td>
-
-                          <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">
-                            {(l.platforms||[]).map(p=>PLATFORMS[p]?.name||p).join(', ')||'—'}
+                          <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                            {(l.platforms||[]).map(p => PLATFORMS[p]?.name || p).join(', ') || '—'}
                           </td>
-
-                          {/* Datum – editierbar */}
-                          <td className="px-3 py-2.5 text-gray-400 text-xs whitespace-nowrap">
-                            <EditCell
-                              value={formatDateInput(l)}
-                              type="date"
-                              onSave={v => patchDate(l.id, v)}
-                              className="font-mono"
-                            />
+                          <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                            <EditCell value={formatDateInput(l)} type="date" onSave={v => { if (v) patch(l.id, { updatedAt: new Date(v).toISOString() }) }} />
                           </td>
-
-                          <td className="px-3 py-2.5">
-                            <div className="flex gap-1.5 items-center">
-                              <button
-                                onClick={() => window.open(`/belege/${l.id}`, '_blank')}
-                                className="text-xs px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg font-semibold whitespace-nowrap"
-                              >
+                          <td style={{ padding: '10px' }}>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <button onClick={() => window.open(`/belege/${l.id}`, '_blank')}
+                                style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, background: 'rgba(99,102,241,0.07)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
                                 Beleg
                               </button>
-                              <button
-                                onClick={() => deleteRow(l.id)}
-                                disabled={deleting === l.id}
-                                title="Eintrag löschen"
-                                className="text-xs px-2 py-1 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg font-semibold disabled:opacity-40"
-                              >
+                              <button onClick={() => deleteRow(l.id)} disabled={deleting === l.id}
+                                style={{ fontSize: 12, padding: '4px 8px', borderRadius: 8, background: 'rgba(239,68,68,0.07)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', opacity: deleting === l.id ? 0.5 : 1 }}>
                                 {deleting === l.id ? '…' : '🗑'}
                               </button>
                             </div>
@@ -404,19 +493,21 @@ export default function Buchhaltung() {
                     })}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-gray-50 border-t-2 border-gray-200 font-bold text-sm">
-                      <td colSpan={3} className="px-3 py-3 text-gray-500 text-xs uppercase">Gesamt ({sorted.length})</td>
-                      <td className="px-3 py-3 text-gray-700">{fmtEur(totals.purchase)}</td>
-                      <td className="px-3 py-3 text-gray-900">{fmtEur(totals.revenue)}</td>
-                      <td className="px-3 py-3 text-amber-600">{totals.fees>0?`−${fmtEur(totals.fees)}`:'—'}</td>
-                      <td className={`px-3 py-3 font-extrabold ${totals.profit>=0?'text-green-600':'text-red-600'}`}>{fmtEur(totals.profit)}</td>
+                    <tr style={{ background: 'var(--row-hover)', borderTop: '2px solid var(--border)' }}>
+                      <td colSpan={3} style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                        Gesamt ({sorted.length})
+                      </td>
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-2)' }}>{fmtEur(totals.purchase)}</td>
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-1)' }}>{fmtEur(totals.revenue)}</td>
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: '#d97706' }}>{totals.fees>0 ? `−${fmtEur(totals.fees)}` : '—'}</td>
+                      <td style={{ padding: '12px 10px', fontWeight: 800, color: totals.profit>=0 ? '#10b981' : '#ef4444' }}>{fmtEur(totals.profit)}</td>
                       <td colSpan={4}/>
                     </tr>
                   </tfoot>
                 </table>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
         </div>
       </main>
