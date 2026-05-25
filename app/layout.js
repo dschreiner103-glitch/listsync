@@ -155,6 +155,8 @@ export default function RootLayout({ children }) {
           html.dark .hover\:border-gray-200:hover { border-color: var(--border) !important; }
           html.dark .hover\:border-indigo-300:hover { border-color: #818cf8 !important; }
           html.dark .hover\:bg-indigo-50\/20:hover { background: rgba(99,102,241,0.05) !important; }
+          html.dark .hover\:text-indigo-600:hover { color: #818cf8 !important; }
+          html.dark .hover\:text-indigo-700:hover { color: #a5b4fc !important; }
 
           /* Settings / badge colors dark overrides */
           html.dark .bg-amber-50 { background: rgba(245,158,11,0.08) !important; }
