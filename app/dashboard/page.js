@@ -127,7 +127,7 @@ function LineChart({ data }) {
                 stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3 3"/>
             </>
           )}
-          {/* Invisible hover areas */}
+          {/* Invisible hover/touch areas */}
           {data.map((_, i) => (
             <rect key={i}
               x={toX(i) - (W / data.length) / 2}
@@ -135,6 +135,8 @@ function LineChart({ data }) {
               fill="transparent"
               onMouseEnter={() => setHovered(i)}
               onMouseLeave={() => setHovered(null)}
+              onTouchStart={e => { e.preventDefault(); setHovered(i) }}
+              onTouchEnd={() => setTimeout(() => setHovered(null), 1500)}
               style={{ cursor: 'default' }}
             />
           ))}
@@ -275,13 +277,37 @@ export default function Dashboard() {
         <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }} className="ls-content">
 
           {/* ── Header ── */}
-          <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 2px', letterSpacing: '-0.03em' }}>Dashboard</h1>
-            <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: 0, fontWeight: 500 }}>Dein Vinted-Business auf einen Blick</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 2px', letterSpacing: '-0.03em' }}>Dashboard</h1>
+              <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: 0, fontWeight: 500 }}>Dein Vinted-Business auf einen Blick</p>
+            </div>
+            {loading && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: '#6366f1', animation: 'spin 0.7s linear infinite' }}/>
+                <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Lädt…</span>
+              </div>
+            )}
           </div>
 
+          {/* ── Skeleton loader ── */}
+          {loading && (
+            <div className="ls-grid-3">
+              {[1,2,3].map(i => (
+                <div key={i} className="ls-card" style={{ padding: 20 }}>
+                  <div className="ls-skeleton" style={{ height: 14, width: '55%', marginBottom: 14 }}/>
+                  <div className="ls-skeleton" style={{ height: 36, width: '70%', marginBottom: 8 }}/>
+                  <div className="ls-skeleton" style={{ height: 11, width: '45%', marginBottom: 14 }}/>
+                  <div style={{ display: 'flex', gap: 5 }}>
+                    {[1,2,3,4].map(j => <div key={j} className="ls-skeleton" style={{ height: 28, flex: 1, borderRadius: 14 }}/>)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* ── Stat cards + Goal row ── */}
-          <div className="ls-grid-3">
+          {!loading && (<div className="ls-grid-3">
 
             {/* Einnahmen */}
             <StatCard
@@ -301,7 +327,7 @@ export default function Dashboard() {
               iconBg="rgba(34,197,94,0.1)" iconColor="#22c55e"
               computeValue={f => {
                 const g = f.reduce((s, l) => s + (l.price - (l.buyPrice || 0)), 0)
-                return <span style={{ color: g > 0 ? '#16a34a' : '#111827' }}>{fmt(g)}</span>
+                return <span style={{ color: g > 0 ? '#16a34a' : 'var(--text-1)' }}>{fmt(g)}</span>
               }}
               computeSub={f => {
                 const rev = f.reduce((s, l) => s + l.price, 0)
@@ -332,10 +358,10 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-          </div>
+          </div>)}
 
           {/* ── Chart + Marge row ── */}
-          <div className="ls-grid-2-1">
+          {!loading && <div className="ls-grid-2-1">
 
             {/* Line chart */}
             <div className="ls-card" style={{ padding: '20px 20px' }}>
@@ -370,7 +396,7 @@ export default function Dashboard() {
                 <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em' }}>{active.length}</p>
               </div>
             </div>
-          </div>
+          </div>}
 
           {/* ── Platform breakdown ── */}
           <Card>

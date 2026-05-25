@@ -20,6 +20,7 @@ const ICONS = {
 
 export default function Listings() {
   const [listings, setListings]         = useState([])
+  const [loading, setLoading]           = useState(true)
   const [filter, setFilter]             = useState('alle')
   const [search, setSearch]             = useState('')
   const [modal, setModal]               = useState(null)
@@ -30,7 +31,7 @@ export default function Listings() {
   const [extStatus, setExtStatus]       = useState(null)  // null | true | false
 
   useEffect(() => {
-    fetch('/api/listings').then(r => r.json()).then(setListings)
+    fetch('/api/listings').then(r => r.json()).then(d => { setListings(d); setLoading(false) })
     fetch('/api/settings').then(r => r.json()).then(s => { if (s.relistDays) setRelistDays(s.relistDays) })
     // Check extension after a short delay (bridge fires LISTSYNC_EXTENSION_READY)
     const check = () => setExtStatus(!!window.__LISTSYNC_EXTENSION__)
@@ -290,10 +291,29 @@ export default function Listings() {
           </div>
 
           {/* ── Listing cards ── */}
-          {visible.length === 0 ? (
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {[1,2,3].map(i => (
+                <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 16 }}>
+                  <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+                    <div className="ls-skeleton" style={{ width: 58, height: 58, borderRadius: 13, flexShrink: 0 }}/>
+                    <div style={{ flex: 1 }}>
+                      <div className="ls-skeleton" style={{ height: 16, width: '65%', marginBottom: 8 }}/>
+                      <div className="ls-skeleton" style={{ height: 12, width: '45%', marginBottom: 8 }}/>
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        <div className="ls-skeleton" style={{ height: 20, width: 52, borderRadius: 10 }}/>
+                        <div className="ls-skeleton" style={{ height: 20, width: 60, borderRadius: 10 }}/>
+                      </div>
+                    </div>
+                    <div className="ls-skeleton" style={{ height: 18, width: 42, flexShrink: 0 }}/>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : visible.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 56, height: 56, borderRadius: 16, background: '#f0f2f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#c4c9d4" strokeWidth="1.75" strokeLinecap="round"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/></svg>
+              <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--modal-close)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-3)" strokeWidth="1.75" strokeLinecap="round"><path d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/></svg>
               </div>
               <p style={{ fontWeight: 700, color: 'var(--text-2)', fontSize: 14, margin: 0 }}>Keine Listings gefunden</p>
             </div>
@@ -307,12 +327,12 @@ export default function Listings() {
                     {/* Main row */}
                     <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                       {imgs.length > 0
-                        ? <img src={imgs[0]} alt="" style={{ width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, background: '#f0f2f7' }}/>
+                        ? <img src={imgs[0]} alt="" style={{ width: 58, height: 58, borderRadius: 13, objectFit: 'cover', flexShrink: 0, background: 'var(--border)' }}/>
                         : <div style={{
                             width: 58, height: 58, borderRadius: 13, flexShrink: 0,
                             background: CARD_COLORS[l.id % 5],
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontWeight: 800, fontSize: 22, color: '#475569',
+                            fontWeight: 800, fontSize: 22, color: 'var(--text-1)',
                           }}>{l.title.charAt(0)}</div>
                       }
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -324,7 +344,7 @@ export default function Listings() {
                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
                           <StatusBadge status={l.status} />
                           {aged && (
-                            <span style={{ fontSize: 11.5, background: '#fef3c7', color: '#d97706', padding: '2px 8px', borderRadius: 8, fontWeight: 700 }}>
+                            <span style={{ fontSize: 11.5, background: 'var(--warn-bg)', color: 'var(--warn-text)', padding: '2px 8px', borderRadius: 8, fontWeight: 700, border: '1px solid var(--warn-border)' }}>
                               Relist
                             </span>
                           )}

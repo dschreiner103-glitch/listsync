@@ -170,6 +170,17 @@ export default function RootLayout({ children }) {
           html.dark .text-red-600 { color: #f87171 !important; }
           html.dark .text-green-600 { color: #4ade80 !important; }
 
+          /* Platform badge dark overrides */
+          html.dark .bg-yellow-50  { background: rgba(202,138,4,0.1) !important; }
+          html.dark .border-yellow-200 { border-color: rgba(202,138,4,0.25) !important; }
+          html.dark .text-yellow-800 { color: #fcd34d !important; }
+          html.dark .bg-teal-50    { background: rgba(13,148,136,0.1) !important; }
+          html.dark .border-teal-200 { border-color: rgba(13,148,136,0.25) !important; }
+          html.dark .text-teal-700 { color: #2dd4bf !important; }
+          html.dark .bg-orange-50  { background: rgba(234,88,12,0.1) !important; }
+          html.dark .border-orange-200 { border-color: rgba(234,88,12,0.25) !important; }
+          html.dark .text-orange-800 { color: #fb923c !important; }
+
           /* Fix select arrow in dark mode */
           html.dark select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") !important; }
 
@@ -204,6 +215,12 @@ export default function RootLayout({ children }) {
 
           /* ── Prevent tap highlight flash on mobile ── */
           button, a { -webkit-tap-highlight-color: transparent; }
+
+          /* ── Spin animation for loading indicators ── */
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .4 } }
+          .ls-skeleton { background: linear-gradient(90deg, var(--border) 25%, var(--divider) 50%, var(--border) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 8px; }
+          @keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
 
           /* ── Safe area for iPhone notch/home bar ── */
           .ls-mobile-nav { padding-bottom: env(safe-area-inset-bottom, 0); }
