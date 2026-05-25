@@ -48,24 +48,29 @@ export async function POST(req) {
   if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
   const data = await req.json()
-  const listing = await prisma.listing.create({
-    data: {
-      title:       data.title,
-      description: data.description || '',
-      price:       Number(data.price),
-      buyPrice:    Number(data.buyPrice || 0),
-      condition:   data.condition  || 'Gut',
-      category:    data.category   || 'Sonstiges',
-      brand:       data.brand      || '',
-      size:        data.size       || '',
-      color:       data.color      || '',
-      material:    data.material   || '',
-      shipping:    JSON.stringify(data.shipping || []),
-      shipSize:    data.shipSize || '',
-      platforms:   JSON.stringify(data.platforms || []),
-      images:      JSON.stringify(data.images    || []),
-      userId:      Number(session.user.id),
-    }
-  })
-  return NextResponse.json(parseListing(listing), { status: 201 })
+  try {
+    const listing = await prisma.listing.create({
+      data: {
+        title:       data.title,
+        description: data.description || '',
+        price:       Number(data.price),
+        buyPrice:    Number(data.buyPrice || 0),
+        condition:   data.condition  || 'Gut',
+        category:    data.category   || 'Sonstiges',
+        brand:       data.brand      || '',
+        size:        data.size       || '',
+        color:       data.color      || '',
+        material:    data.material   || '',
+        shipping:    JSON.stringify(data.shipping || []),
+        shipSize:    data.shipSize || '',
+        platforms:   JSON.stringify(data.platforms || []),
+        images:      JSON.stringify(data.images    || []),
+        userId:      Number(session.user.id),
+      }
+    })
+    return NextResponse.json(parseListing(listing), { status: 201 })
+  } catch(e) {
+    console.error('[API POST /listings]', e.message)
+    return NextResponse.json({ error: e.message }, { status: 500 })
+  }
 }
