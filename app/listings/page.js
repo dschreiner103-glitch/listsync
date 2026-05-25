@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
@@ -19,6 +20,7 @@ const ICONS = {
 }
 
 export default function Listings() {
+  const router = useRouter()
   const [listings, setListings]         = useState([])
   const [loading, setLoading]           = useState(true)
   const [filter, setFilter]             = useState('alle')
@@ -112,6 +114,8 @@ export default function Listings() {
     }
   }
 
+  const [sortBy, setSortBy] = useState('newest')
+
   const relistAlerts = listings.filter(needsRelist)
   const tabs = [
     { id: 'alle',     label: 'Alle',     count: listings.length },
@@ -119,10 +123,18 @@ export default function Listings() {
     { id: 'verkauft', label: 'Verkauft', count: listings.filter(l => l.status === 'verkauft').length },
     { id: 'inaktiv',  label: 'Inaktiv',  count: listings.filter(l => l.status === 'inaktiv').length },
   ]
-  const visible = listings.filter(l =>
+  const filtered = listings.filter(l =>
     (filter === 'alle' || l.status === filter) &&
     (!search || l.title.toLowerCase().includes(search.toLowerCase()))
   )
+  const visible = [...filtered].sort((a, b) => {
+    if (sortBy === 'newest')    return new Date(b.createdAt) - new Date(a.createdAt)
+    if (sortBy === 'oldest')    return new Date(a.createdAt) - new Date(b.createdAt)
+    if (sortBy === 'price_hi')  return b.price - a.price
+    if (sortBy === 'price_lo')  return a.price - b.price
+    if (sortBy === 'az')        return (a.title || '').localeCompare(b.title || '', 'de')
+    return 0
+  })
   const modalListing = modal ? listings.find(l => l.id === modal.id) : null
 
   // ── Inline card styles ────────────────────────────────────────────────────
@@ -227,26 +239,51 @@ export default function Listings() {
         <div style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
 
           {/* ── Header ── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <h1 style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Meine Listings</h1>
-              <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>{visible.length} Artikel</p>
+              <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Meine Listings</h1>
+              <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>{filtered.length} Artikel</p>
             </div>
-            {/* Extension status indicator */}
-            {extStatus === true && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}/>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#16a34a' }}>Extension aktiv</span>
-              </div>
-            )}
-            {extStatus === false && (
-              <a href="https://chrome.google.com/webstore" target="_blank" rel="noreferrer"
-                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 20, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.22)', textDecoration: 'none' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}/>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#d97706' }} className="hidden md:inline">Extension installieren</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: '#d97706' }} className="md:hidden">Kein Extension</span>
-              </a>
-            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              {/* Extension status */}
+              {extStatus === true && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', display: 'inline-block' }}/>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: '#16a34a' }} className="hidden sm:inline">Extension aktiv</span>
+                </div>
+              )}
+              {extStatus === false && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '5px 10px', borderRadius: 20, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.22)' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }}/>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: '#d97706' }} className="hidden sm:inline">Kein Extension</span>
+                </div>
+              )}
+              {/* Sort */}
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)}
+                style={{
+                  padding: '8px 32px 8px 12px', borderRadius: 12, border: '1px solid var(--border)',
+                  background: 'var(--surface)', color: 'var(--text-2)',
+                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+                }}>
+                <option value="newest">Neueste</option>
+                <option value="oldest">Älteste</option>
+                <option value="price_hi">Preis ↓</option>
+                <option value="price_lo">Preis ↑</option>
+                <option value="az">A → Z</option>
+              </select>
+              {/* New listing button (desktop only) */}
+              <button onClick={() => router.push('/new')}
+                className="hidden md:flex"
+                style={{
+                  alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 12,
+                  background: '#22c55e', color: '#111827', border: 'none',
+                  fontWeight: 700, fontSize: 13.5, cursor: 'pointer', fontFamily: 'inherit',
+                  boxShadow: '0 2px 8px rgba(34,197,94,0.3)',
+                }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                Neu
+              </button>
+            </div>
           </div>
 
           {/* ── Relist Alerts ── */}
