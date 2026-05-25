@@ -71,7 +71,7 @@ export async function POST(req) {
     })
     // Set material via raw SQL (bypasses stale Prisma client validation)
     const material = data.material || ''
-    await prisma.$executeRaw`UPDATE Listing SET material = ${material} WHERE id = ${listing.id}`
+    await prisma.$executeRaw`UPDATE "Listing" SET material = ${material} WHERE id = ${listing.id}`
     return NextResponse.json({ ...parseListing(listing), material }, { status: 201 })
   } catch(e) {
     console.error('[API POST /listings]', e.message)

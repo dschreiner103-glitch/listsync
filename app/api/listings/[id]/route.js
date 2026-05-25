@@ -63,7 +63,7 @@ export async function PATCH(req, { params }) {
 
   // Update material via raw SQL (bypasses stale Prisma client validation)
   if (data.material !== undefined) {
-    await prisma.$executeRaw`UPDATE Listing SET material = ${data.material} WHERE id = ${Number(params.id)}`
+    await prisma.$executeRaw`UPDATE "Listing" SET material = ${data.material} WHERE id = ${Number(params.id)}`
   }
 
   return NextResponse.json({
