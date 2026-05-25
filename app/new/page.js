@@ -74,7 +74,14 @@ export default function NewListing() {
           shipSize: form.shipSize,
         })
       })
-      if(res.ok) router.push('/listings')
+      if(res.ok) {
+        router.push('/listings')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        alert('Fehler beim Speichern: ' + (err.error || res.status))
+      }
+    } catch(e) {
+      alert('Netzwerkfehler: ' + e.message)
     } finally { setLoading(false) }
   }
 
