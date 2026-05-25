@@ -297,6 +297,69 @@ async function uploadImages(imageData) {
   }
 }
 
+// ── Prelist/Suggest Seite abhandeln ──────────────────────────────────────────
+// URL: https://www.ebay.de/sl/prelist/suggest
+// eBay zeigt zuerst eine Suchmaske, um die Kategorie vorzuschlagen.
+// Wir füllen den Titel ein und klicken "Weiter" / "Überspringen".
+
+async function handlePrelist() {
+  const listing = await getListing()
+  if (!listing) return
+
+  showBanner(listing)
+  updateStatus('Prelist-Seite – Titel wird eingegeben…')
+  await wait(2500)
+
+  // Suchfeld finden und Titel eintragen
+  const searchInput = await waitForAny([
+    'input[id*="prelist"]',
+    'input[aria-label*="Was verkaufst"]',
+    'input[aria-label*="verkauf"]',
+    'input[aria-label*="Suche"]',
+    'input[aria-label*="Artikel"]',
+    'input[placeholder*="Was möchtest"]',
+    'input[placeholder*="Suche"]',
+    'input[placeholder*="Was verkauf"]',
+    'input[type="text"]',
+    'input[type="search"]',
+  ], 12000).catch(() => null)
+
+  if (searchInput) {
+    setNativeValue(searchInput, listing.title)
+    console.log('[ListSync eBay] ✓ Prelist-Titel eingegeben')
+    await wait(800)
+
+    // Enter drücken oder Submit-Button suchen
+    searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
+    searchInput.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', keyCode: 13, bubbles: true }))
+    await wait(1000)
+  }
+
+  // "Weiter"-Button oder "Überspringen" suchen
+  const nextBtn = document.querySelector([
+    'button[data-testid*="next"]',
+    'button[data-testid*="submit"]',
+    'button[data-testid*="prelist"]',
+    'button[type="submit"]',
+    'a[href*="/sl/list"]',
+    'button[aria-label*="Weiter"]',
+    'button[aria-label*="weiter"]',
+  ].join(','))
+
+  if (nextBtn) {
+    nextBtn.click()
+    console.log('[ListSync eBay] ✓ Prelist Weiter-Button geklickt')
+    updateStatus('Kategorie-Auswahl – kurz warten…')
+  } else {
+    // Fallback: direkt zur Listing-Seite navigieren
+    console.log('[ListSync eBay] Weiter-Button nicht gefunden – navigiere direkt')
+    const catId = getCategoryId(listing.category)
+    window.location.href = catId
+      ? `https://www.ebay.de/sl/list?category=${catId}`
+      : 'https://www.ebay.de/sl/list'
+  }
+}
+
 // ── Hauptfunktion ─────────────────────────────────────────────────────────────
 
 async function fill() {
@@ -304,7 +367,6 @@ async function fill() {
   if (!listing) return
   showBanner(listing)
 
-  // eBay SPA braucht mehr Zeit zum Laden
   await wait(3000)
 
   updateStatus('Titel wird ausgefüllt…')
@@ -332,8 +394,19 @@ async function fill() {
   console.log('[ListSync eBay] ✅ Alles ausgefüllt')
 }
 
+// ── Entry point: Prelist-Seite oder Listing-Seite? ────────────────────────────
+
+function init() {
+  const path = window.location.pathname
+  if (path.includes('/prelist/') || path.includes('/prelist')) {
+    setTimeout(handlePrelist, 2000)
+  } else {
+    setTimeout(fill, 3000)
+  }
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(fill, 3000))
+  document.addEventListener('DOMContentLoaded', init)
 } else {
-  setTimeout(fill, 3000)
+  init()
 }

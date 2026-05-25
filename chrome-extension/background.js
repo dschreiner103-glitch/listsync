@@ -115,12 +115,9 @@ async function openKleinanzeigenNewListing() {
 }
 
 async function openEbayNewListing(listing) {
-  const categoryId = listing ? getEbayCategoryIdFromListing(listing) : null
-  const url = categoryId
-    ? `https://www.ebay.de/sl/list?category=${categoryId}`
-    : 'https://www.ebay.de/sl/list'
-  await chrome.tabs.create({ url })
-  console.log('[ListSync BG] ✓ eBay-Tab geöffnet, Kategorie-ID:', categoryId || '(keine)')
+  // eBay startet jetzt mit /sl/prelist/suggest als erstem Schritt
+  await chrome.tabs.create({ url: 'https://www.ebay.de/sl/prelist/suggest' })
+  console.log('[ListSync BG] ✓ eBay-Tab geöffnet (prelist/suggest)')
 }
 
 async function openVintedNewListing() {
