@@ -97,6 +97,7 @@ export default function NewListing() {
             return
           }
         }
+        sessionStorage.setItem('ls_just_created', created?.title || 'Listing erstellt')
         router.push('/listings')
       } else {
         const err = await res.json().catch(() => ({}))

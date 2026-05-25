@@ -134,6 +134,7 @@ export default function RootLayout({ children }) {
           html.dark .text-gray-500, html.dark .text-gray-400 { color: var(--text-3) !important; }
           html.dark .border-gray-100 { border-color: var(--border) !important; }
           html.dark .border-gray-200 { border-color: #30363d !important; }
+          html.dark .border-gray-300 { border-color: #484f58 !important; }
           html.dark .divide-gray-100 > * + * { border-color: var(--border) !important; }
           html.dark .hover\:bg-gray-50:hover { background: #1c2128 !important; }
           html.dark .hover\:bg-gray-100:hover { background: #21262d !important; }

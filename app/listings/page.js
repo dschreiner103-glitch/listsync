@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
@@ -31,8 +31,14 @@ export default function Listings() {
   const [extStatus, setExtStatus]       = useState(null)  // null | true | false
 
   useEffect(() => {
-    fetch('/api/listings').then(r => r.json()).then(d => { setListings(d); setLoading(false) })
+    fetch('/api/listings').then(r => r.json()).then(d => { setListings(Array.isArray(d) ? d : []); setLoading(false) })
     fetch('/api/settings').then(r => r.json()).then(s => { if (s.relistDays) setRelistDays(s.relistDays) })
+    // Show success toast if redirected from /new
+    const justCreated = sessionStorage.getItem('ls_just_created')
+    if (justCreated) {
+      sessionStorage.removeItem('ls_just_created')
+      setTimeout(() => showToast(`✅ "${justCreated}" erstellt!`), 400)
+    }
     // Check extension after a short delay (bridge fires LISTSYNC_EXTENSION_READY)
     const check = () => setExtStatus(!!window.__LISTSYNC_EXTENSION__)
     if (typeof window !== 'undefined') {

@@ -443,7 +443,7 @@ export default function Dashboard() {
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     {Array.isArray(l.images) && l.images[0]
                       ? <img src={l.images[0]} alt="" style={{ width: 42, height: 42, borderRadius: 11, objectFit: 'cover', flexShrink: 0 }}/>
-                      : <div style={{ width: 42, height: 42, borderRadius: 11, flexShrink: 0, background: CARD_COLORS[l.id % 5], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 17, color: '#475569' }}>{l.title.charAt(0)}</div>
+                      : <div style={{ width: 42, height: 42, borderRadius: 11, flexShrink: 0, background: CARD_COLORS[l.id % 5], display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 17, color: 'var(--text-1)' }}>{l.title.charAt(0)}</div>
                     }
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{l.title}</p>
