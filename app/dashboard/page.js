@@ -236,6 +236,7 @@ function STitle({ children, action }) {
 export default function Dashboard() {
   const [listings, setListings]     = useState([])
   const [goals, setGoals]           = useState({ day: 0, month: 0 })
+  const [relistDays, setRelistDays] = useState(5)
   const [loading, setLoading]       = useState(true)
   const router = useRouter()
 
@@ -246,12 +247,19 @@ export default function Dashboard() {
     ]).then(([ld, settings]) => {
       setListings(Array.isArray(ld) ? ld : [])
       if (settings.dayGoal !== undefined) setGoals({ day: settings.dayGoal, month: settings.monthGoal })
+      if (settings.relistDays !== undefined) setRelistDays(settings.relistDays)
       setLoading(false)
     })
   }, [])
 
   const sold    = listings.filter(l => l.status === 'verkauft')
   const active  = listings.filter(l => l.status === 'aktiv')
+
+  // Relist alerts: active listings older than relistDays
+  const needsRelist = active.filter(l => {
+    const d = new Date(l.relistedAt || l.createdAt)
+    return Math.floor((Date.now() - d.getTime()) / (1000*60*60*24)) >= relistDays
+  })
 
   const chartData = buildMonthlyData(listings, 6)
 
@@ -289,6 +297,27 @@ export default function Dashboard() {
               </div>
             )}
           </div>
+
+          {/* ── Relist alert ── */}
+          {!loading && needsRelist.length > 0 && (
+            <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-border)', borderRadius: 16, padding: '14px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 18 }}>⏰</span>
+                <div>
+                  <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--warn-title)', margin: 0 }}>
+                    {needsRelist.length} {needsRelist.length === 1 ? 'Artikel wartet' : 'Artikel warten'} auf Relisting
+                  </p>
+                  <p style={{ fontSize: 12, color: 'var(--warn-text)', margin: '2px 0 0' }}>
+                    {needsRelist.slice(0, 2).map(l => l.title).join(', ')}{needsRelist.length > 2 ? ` + ${needsRelist.length - 2} weitere` : ''}
+                  </p>
+                </div>
+              </div>
+              <button onClick={() => router.push('/listings')}
+                style={{ padding: '8px 16px', borderRadius: 10, background: '#f59e0b', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, boxShadow: '0 2px 8px rgba(245,158,11,0.3)' }}>
+                Ansehen
+              </button>
+            </div>
+          )}
 
           {/* ── Skeleton loader ── */}
           {loading && (
