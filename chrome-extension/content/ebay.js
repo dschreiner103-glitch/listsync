@@ -506,14 +506,33 @@ async function fillLstng() {
                  || (el.placeholder || '').toLowerCase().includes('eigene'))
       if (!searchInput) { console.warn('[ListSync] Suchfeld nicht gefunden nach Klick auf:', labelText); return false }
 
+      // Zeichen für Zeichen tippen — React braucht echte Keyboard-Events
       searchInput.focus()
+      searchInput.click()
       await wait(200)
-      setNativeValue(searchInput, value)
-      await wait(700)
+      // Feld leeren
+      const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      nativeSetter?.call(searchInput, '')
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }))
+      await wait(100)
+      // Jeden Buchstaben einzeln tippen
+      for (const char of value) {
+        nativeSetter?.call(searchInput, searchInput.value + char)
+        searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }))
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }))
+        searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }))
+        await wait(40)
+      }
+      await wait(800) // Warten bis Dropdown-Liste sich aktualisiert
 
-      // Sichtbare Optionen durchsuchen
-      const opts = Array.from(document.querySelectorAll('[role="option"], li, [class*="option"], [class*="item"]'))
-        .filter(el => el.offsetParent !== null)
+      // Optionen suchen — können div/span/li sein
+      const findOpts = () => Array.from(document.querySelectorAll(
+        '[role="option"], li, [class*="option"], [class*="item"], [class*="suggest"]'
+      )).filter(el => el.offsetParent !== null && el.textContent.trim().length > 0)
+
+      let opts = findOpts()
+      if (!opts.length) { await wait(500); opts = findOpts() } // nochmal warten
+
       const match = opts.find(el => el.textContent.trim().toLowerCase() === value.toLowerCase())
                || opts.find(el => el.textContent.trim().toLowerCase().includes(value.toLowerCase()))
 
