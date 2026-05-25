@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
-import { PlatformBadge, StatusBadge, PLATFORMS, fmt, profit, CARD_COLORS } from '@/components/Badge'
+import { PlatformBadge, StatusBadge, PLATFORMS, CONDITIONS, fmt, profit, CARD_COLORS } from '@/components/Badge'
 
 // ── Icon helper ───────────────────────────────────────────────────────────────
 function Ic({ children, size = 16, sw = 2 }) {
@@ -17,6 +17,8 @@ const ICONS = {
   crosspost:<Ic size={14}><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></Ic>,
   check:    <Ic size={14}><polyline points="20 6 9 17 4 12"/></Ic>,
   close:    <Ic size={15} sw={2.5}><path d="M18 6L6 18M6 6l12 12"/></Ic>,
+  edit:     <Ic size={13} sw={2}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></Ic>,
+  trash:    <Ic size={13} sw={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></Ic>,
 }
 
 export default function Listings() {
@@ -31,6 +33,9 @@ export default function Listings() {
   const [relistDays, setRelistDays]     = useState(5)
   const [mobileHelper, setMobileHelper] = useState(null) // { listing, platforms }
   const [extStatus, setExtStatus]       = useState(null)  // null | true | false
+  const [editForm, setEditForm]         = useState(null)  // { id, title, price, buyPrice, condition, description, status }
+  const [editSaving, setEditSaving]     = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // listing id
 
   useEffect(() => {
     fetch('/api/listings').then(r => r.json()).then(d => { setListings(Array.isArray(d) ? d : []); setLoading(false) })
@@ -96,6 +101,30 @@ export default function Listings() {
     setModal(null)
   }
 
+  const openEdit = (l) => {
+    setEditForm({ id: l.id, title: l.title, price: String(l.price||''), buyPrice: String(l.buyPrice||''), condition: l.condition||'', description: l.description||'', status: l.status })
+  }
+
+  const saveEdit = async () => {
+    if (!editForm) return
+    setEditSaving(true)
+    const { id, ...rest } = editForm
+    const body = { ...rest, price: Number(rest.price)||0, buyPrice: Number(rest.buyPrice)||0 }
+    const res  = await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const updated = await res.json()
+    setListings(ls => ls.map(l => l.id === id ? { ...l, ...updated, platforms: Array.isArray(updated.platforms)?updated.platforms:JSON.parse(updated.platforms||'[]'), images: Array.isArray(updated.images)?updated.images:JSON.parse(updated.images||'[]') } : l))
+    setEditSaving(false)
+    setEditForm(null)
+    showToast('✅ Listing aktualisiert')
+  }
+
+  const deleteListing = async (id) => {
+    await fetch(`/api/listings/${id}`, { method: 'DELETE' })
+    setListings(ls => ls.filter(l => l.id !== id))
+    setDeleteConfirm(null)
+    showToast('Listing gelöscht')
+  }
+
   const doPost = async (id) => {
     const listing = listings.find(l => l.id === id)
     await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platforms: selPlatforms }) })
@@ -159,14 +188,14 @@ export default function Listings() {
 
   // ── Modal helpers ─────────────────────────────────────────────────────────
 
-  const ModalWrap = ({ children }) => (
+  const ModalWrap = ({ children, onClose }) => (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 50,
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
       padding: '16px', background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)',
     }}
       className="md:items-center"
-      onClick={e => { if (e.target === e.currentTarget) setModal(null) }}>
+      onClick={e => { if (e.target === e.currentTarget) { onClose ? onClose() : setModal(null) } }}>
       <div style={{
         background: 'var(--surface)', borderRadius: 24, width: '100%', maxWidth: 480,
         padding: '24px', boxShadow: '0 24px 64px rgba(0,0,0,0.4)',
@@ -176,10 +205,10 @@ export default function Listings() {
     </div>
   )
 
-  const ModalHeader = ({ title }) => (
+  const ModalHeader = ({ title, onClose }) => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
       <h2 style={{ fontWeight: 800, fontSize: 17, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.02em' }}>{title}</h2>
-      <button onClick={() => setModal(null)}
+      <button onClick={() => onClose ? onClose() : setModal(null)}
         style={{
           width: 32, height: 32, borderRadius: 10, background: 'var(--modal-close)',
           border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -381,7 +410,14 @@ export default function Listings() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                           <p style={{ fontWeight: 700, color: 'var(--text-1)', fontSize: 14, margin: 0, lineHeight: 1.3 }}>{l.title}</p>
-                          <p style={{ fontWeight: 800, color: 'var(--text-1)', fontSize: 15, flexShrink: 0, margin: 0 }}>{fmt(l.price)}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            <p style={{ fontWeight: 800, color: 'var(--text-1)', fontSize: 15, margin: 0 }}>{fmt(l.price)}</p>
+                            <button onClick={() => openEdit(l)}
+                              style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--modal-close)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0 }}
+                              title="Bearbeiten">
+                              {ICONS.edit}
+                            </button>
+                          </div>
                         </div>
                         <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '4px 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.description}</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
@@ -412,14 +448,22 @@ export default function Listings() {
                           style={actionBtn('rgba(16,185,129,0.07)', '#059669', 'rgba(16,185,129,0.15)')}>
                           {ICONS.check} Verkauft
                         </button>
+                        <button onClick={() => setDeleteConfirm(l.id)}
+                          style={{ ...actionBtn('rgba(239,68,68,0.06)', '#ef4444', 'rgba(239,68,68,0.12)'), flex: 'none', padding: '10px 12px' }}>
+                          {ICONS.trash}
+                        </button>
                       </div>
                     )}
 
                     {l.status === 'inaktiv' && (
-                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)' }}>
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)', display: 'flex', gap: 8 }}>
                         <button onClick={() => openRelistModal(l.id)}
-                          style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 'unset', width: '100%' }}>
+                          style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 1 }}>
                           {ICONS.relist} Relisten
+                        </button>
+                        <button onClick={() => setDeleteConfirm(l.id)}
+                          style={{ ...actionBtn('rgba(239,68,68,0.06)', '#ef4444', 'rgba(239,68,68,0.12)'), flex: 'none', padding: '10px 12px' }}>
+                          {ICONS.trash}
                         </button>
                       </div>
                     )}
@@ -430,10 +474,16 @@ export default function Listings() {
                           <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0 }}>Einkauf: {fmt(l.buyPrice)}</p>
                           <p style={{ fontSize: 12.5, color: '#10b981', fontWeight: 700, margin: 0 }}>Gewinn: +{fmt(profit(l))}</p>
                         </div>
-                        <button onClick={() => openRelistModal(l.id)}
-                          style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 'unset', width: '100%' }}>
-                          {ICONS.relist} Erneut verkaufen
-                        </button>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button onClick={() => openRelistModal(l.id)}
+                            style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 1 }}>
+                            {ICONS.relist} Erneut verkaufen
+                          </button>
+                          <button onClick={() => setDeleteConfirm(l.id)}
+                            style={{ ...actionBtn('rgba(239,68,68,0.06)', '#ef4444', 'rgba(239,68,68,0.12)'), flex: 'none', padding: '10px 12px' }}>
+                            {ICONS.trash}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -560,6 +610,92 @@ export default function Listings() {
           className="md:bottom-8">
           {toast.msg}
         </div>
+      )}
+
+      {/* ── Edit Modal ── */}
+      {editForm && (
+        <ModalWrap onClose={() => setEditForm(null)}>
+          <ModalHeader title="Listing bearbeiten" onClose={() => setEditForm(null)} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Title */}
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Titel</label>
+              <input type="text" value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+            </div>
+            {/* Price row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Preis (€)</label>
+                <input type="number" min="0" step="0.01" value={editForm.price} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))}
+                  style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>EK (€)</label>
+                <input type="number" min="0" step="0.01" value={editForm.buyPrice} onChange={e => setEditForm(f => ({ ...f, buyPrice: e.target.value }))}
+                  style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              </div>
+            </div>
+            {/* Condition + Status */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Zustand</label>
+                <select value={editForm.condition} onChange={e => setEditForm(f => ({ ...f, condition: e.target.value }))}
+                  style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box' }}>
+                  {(CONDITIONS||['Neu','Sehr gut','Gut','Befriedigend']).map(c => <option key={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Status</label>
+                <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
+                  style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box' }}>
+                  <option value="aktiv">Aktiv</option>
+                  <option value="inaktiv">Inaktiv</option>
+                  <option value="verkauft">Verkauft</option>
+                </select>
+              </div>
+            </div>
+            {/* Description */}
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Beschreibung</label>
+              <textarea rows={3} value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <button onClick={() => setEditForm(null)}
+              style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Abbrechen
+            </button>
+            <button onClick={saveEdit} disabled={editSaving}
+              className="ls-btn-primary"
+              style={{ flex: 1, padding: '12px', borderRadius: 13, fontSize: 14, opacity: editSaving ? 0.7 : 1 }}>
+              {editSaving ? 'Speichert…' : 'Speichern'}
+            </button>
+          </div>
+        </ModalWrap>
+      )}
+
+      {/* ── Delete Confirm Modal ── */}
+      {deleteConfirm && (
+        <ModalWrap onClose={() => setDeleteConfirm(null)}>
+          <ModalHeader title="Listing löschen?" onClose={() => setDeleteConfirm(null)} />
+          <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
+            <p style={{ fontSize: 13, color: '#ef4444', margin: 0, fontWeight: 600 }}>
+              „{listings.find(l => l.id === deleteConfirm)?.title}" wird unwiderruflich gelöscht.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button onClick={() => setDeleteConfirm(null)}
+              style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Abbrechen
+            </button>
+            <button onClick={() => deleteListing(deleteConfirm)}
+              style={{ flex: 1, padding: '12px', borderRadius: 13, background: 'linear-gradient(135deg,#ef4444,#dc2626)', color: '#fff', border: 'none', fontWeight: 800, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(239,68,68,0.3)' }}>
+              Löschen
+            </button>
+          </div>
+        </ModalWrap>
       )}
 
       {/* ── Mobile Post Helper (no extension) ── */}
