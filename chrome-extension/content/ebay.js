@@ -310,41 +310,31 @@ async function handlePrelist() {
   updateStatus('Prelist-Seite – Titel wird eingegeben…')
   await wait(2500)
 
-  // Suchfeld finden und Titel eintragen
+  // Titelfeld finden (Label "Titel", hint "0/80")
   const searchInput = await waitForAny([
-    'input[id*="prelist"]',
-    'input[aria-label*="Was verkaufst"]',
-    'input[aria-label*="verkauf"]',
-    'input[aria-label*="Suche"]',
-    'input[aria-label*="Artikel"]',
-    'input[placeholder*="Was möchtest"]',
-    'input[placeholder*="Suche"]',
-    'input[placeholder*="Was verkauf"]',
     'input[type="text"]',
-    'input[type="search"]',
+    'input[id*="title"]',
+    'input[name*="title"]',
+    'input[aria-label*="Titel"]',
+    'input[placeholder*="Angebotstitel"]',
   ], 12000).catch(() => null)
 
   if (searchInput) {
+    searchInput.focus()
+    await wait(200)
     setNativeValue(searchInput, listing.title)
-    console.log('[ListSync eBay] ✓ Prelist-Titel eingegeben')
+    console.log('[ListSync eBay] ✓ Prelist-Titel eingegeben:', listing.title)
     await wait(800)
-
-    // Enter drücken oder Submit-Button suchen
-    searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
-    searchInput.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', keyCode: 13, bubbles: true }))
-    await wait(1000)
   }
 
-  // "Weiter"-Button oder "Überspringen" suchen
-  const nextBtn = document.querySelector([
-    'button[data-testid*="next"]',
-    'button[data-testid*="submit"]',
-    'button[data-testid*="prelist"]',
-    'button[type="submit"]',
-    'a[href*="/sl/list"]',
-    'button[aria-label*="Weiter"]',
-    'button[aria-label*="weiter"]',
-  ].join(','))
+  // "Weiter"-Button – unten auf der Seite, wird nach Titeleingabe aktiv
+  const findNextBtn = () => {
+    // Suche nach Button mit Text "Weiter"
+    const allBtns = Array.from(document.querySelectorAll('button'))
+    return allBtns.find(b => b.textContent.trim() === 'Weiter' || b.textContent.trim() === 'Fortfahren')
+      || document.querySelector('button[type="submit"], button[data-testid*="next"], button[data-testid*="submit"]')
+  }
+  const nextBtn = findNextBtn()
 
   if (nextBtn) {
     nextBtn.click()
