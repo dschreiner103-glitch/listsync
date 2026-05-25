@@ -42,11 +42,11 @@ export async function PATCH(req, { params }) {
   if (data.brand      !== undefined) update.brand      = data.brand
   if (data.size       !== undefined) update.size       = data.size
   if (data.color      !== undefined) update.color      = data.color
-  if (data.material   !== undefined) update.material   = data.material
   if (data.condition  !== undefined) update.condition  = data.condition
   if (data.description!== undefined) update.description= data.description
   if (data.shipping   !== undefined) update.shipping   = JSON.stringify(data.shipping)
   if (data.shipSize   !== undefined) update.shipSize   = data.shipSize
+  // Note: material is intentionally excluded here and handled via raw SQL below
 
   // addPlatform: fügt eine Platform zum bestehenden platforms-Array hinzu (von Extension gesendet)
   if (data.addPlatform !== undefined) {
@@ -60,11 +60,18 @@ export async function PATCH(req, { params }) {
     where: { id: Number(params.id) },
     data: update,
   })
+
+  // Update material via raw SQL (bypasses stale Prisma client validation)
+  if (data.material !== undefined) {
+    await prisma.$executeRaw`UPDATE Listing SET material = ${data.material} WHERE id = ${Number(params.id)}`
+  }
+
   return NextResponse.json({
     ...listing,
     platforms: JSON.parse(listing.platforms),
     images:    JSON.parse(listing.images || '[]'),
     shipping:  JSON.parse(listing.shipping || '[]'),
+    material:  data.material !== undefined ? data.material : (existing.material || ''),
   })
 }
 

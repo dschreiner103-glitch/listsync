@@ -49,6 +49,8 @@ export async function POST(req) {
 
   const data = await req.json()
   try {
+    // Create without material – the Prisma client may have a stale schema
+    // that doesn't know about material yet. We set it via raw SQL afterwards.
     const listing = await prisma.listing.create({
       data: {
         title:       data.title,
@@ -60,7 +62,6 @@ export async function POST(req) {
         brand:       data.brand      || '',
         size:        data.size       || '',
         color:       data.color      || '',
-        material:    data.material   || '',
         shipping:    JSON.stringify(data.shipping || []),
         shipSize:    data.shipSize || '',
         platforms:   JSON.stringify(data.platforms || []),
@@ -68,7 +69,10 @@ export async function POST(req) {
         userId:      Number(session.user.id),
       }
     })
-    return NextResponse.json(parseListing(listing), { status: 201 })
+    // Set material via raw SQL (bypasses stale Prisma client validation)
+    const material = data.material || ''
+    await prisma.$executeRaw`UPDATE Listing SET material = ${material} WHERE id = ${listing.id}`
+    return NextResponse.json({ ...parseListing(listing), material }, { status: 201 })
   } catch(e) {
     console.error('[API POST /listings]', e.message)
     return NextResponse.json({ error: e.message }, { status: 500 })
