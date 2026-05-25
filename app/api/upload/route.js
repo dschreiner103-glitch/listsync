@@ -27,12 +27,7 @@ async function uploadFile(file) {
 
 export async function POST(req) {
   const formData = await req.formData()
-  const files    = formData.getAll('files')
-  const urls     = []
-  for (const file of files) {
-    if (!file || typeof file === 'string') continue
-    const url = await uploadFile(file)
-    urls.push(url)
-  }
+  const files    = formData.getAll('files').filter(f => f && typeof f !== 'string')
+  const urls     = await Promise.all(files.map(file => uploadFile(file)))
   return NextResponse.json({ urls })
 }
