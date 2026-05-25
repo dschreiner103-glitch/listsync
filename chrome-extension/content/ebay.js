@@ -473,61 +473,62 @@ async function fillLstng() {
 
   await wait(500)
 
-  // 3b. ARTIKELMERKMALE — Marke & Farbe befüllen
+  // 3b. ARTIKELMERKMALE — Marke & Farbe
+  // Dropdown-Struktur: Button (chevron) → Klick → Panel mit Suchfeld + Optionsliste
   async function fillAspect(labelText, value) {
     if (!value) return false
     try {
-      // Label-Element suchen
-      const allLabels = Array.from(document.querySelectorAll('label, span, div, a'))
-      const label = allLabels.find(el =>
-        el.children.length === 0 && el.textContent.trim() === labelText
+      // Label finden (leaf-node mit exaktem Text)
+      const label = Array.from(document.querySelectorAll('span, div, label, a'))
+        .find(el => el.children.length === 0 && el.textContent.trim() === labelText)
+      if (!label) { console.warn('[ListSync] Label nicht gefunden:', labelText); return false }
+
+      // Dropdown-Button im selben Container klicken
+      const container = label.closest('li, tr, [class*="row"], [class*="field"], [class*="aspect"]')
+        || label.parentElement?.parentElement?.parentElement
+      const dropBtn = container?.querySelector('button, [role="button"], [role="combobox"]')
+      if (!dropBtn) { console.warn('[ListSync] Dropdown-Button nicht gefunden für:', labelText); return false }
+
+      dropBtn.click()
+      await wait(500)
+
+      // Suchfeld hat placeholder "Suchen oder eigene Angaben machen"
+      const searchInput = Array.from(document.querySelectorAll('input'))
+        .find(el => el.placeholder?.includes('Suchen') || el.placeholder?.includes('eigene Angaben'))
+      if (!searchInput) { console.warn('[ListSync] Suchfeld nicht gefunden für:', labelText); return false }
+
+      searchInput.focus()
+      setNativeValue(searchInput, value)
+      await wait(500)
+
+      // Passende Option in der Liste klicken
+      // Optionen sind einfache Text-Items (span/div/li ohne viele Kinder)
+      const options = Array.from(document.querySelectorAll(
+        '[role="option"], [role="listitem"], li, [class*="option"], [class*="item"]'
+      ))
+      const match = options.find(el =>
+        el.textContent.trim().toLowerCase() === value.toLowerCase()
+      ) || options.find(el =>
+        el.textContent.trim().toLowerCase().startsWith(value.toLowerCase().substring(0, 4))
       )
-      if (!label) return false
 
-      // Container des Feldes
-      const container = label.closest('[class*="aspect"], [class*="Aspect"]')
-        || label.closest('li, tr, [class*="row"], [class*="field"]')
-        || label.parentElement?.parentElement
-
-      if (!container) return false
-
-      // Input/Combobox im Container
-      const input = container.querySelector('input[type="text"], input:not([type])')
-      const btn   = container.querySelector('button[aria-haspopup], button[aria-expanded], [role="combobox"]')
-
-      if (input) {
-        input.focus()
-        setNativeValue(input, value)
-        await wait(400)
-        // Dropdown-Option suchen und klicken
-        const option = [...document.querySelectorAll('[role="option"], [role="listitem"], li')]
-          .find(el => el.textContent.trim().toLowerCase() === value.toLowerCase()
-                   || el.textContent.trim().toLowerCase().startsWith(value.toLowerCase()))
-        if (option) { option.click(); return true }
-        // Enter drücken als Fallback
-        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
+      if (match) {
+        match.click()
+        console.log('[ListSync eBay lstng] ✓', labelText, '→', value)
+        await wait(300)
         return true
-      } else if (btn) {
-        btn.click()
-        await wait(400)
-        const option = [...document.querySelectorAll('[role="option"], li, button')]
-          .find(el => el.textContent.trim().toLowerCase().includes(value.toLowerCase()))
-        if (option) { option.click(); return true }
       }
-      return false
-    } catch { return false }
+
+      // Kein Treffer → "Eigene Angaben machen" via Enter bestätigen
+      searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
+      console.log('[ListSync eBay lstng] ✓', labelText, '→ eigene Angabe:', value)
+      await wait(300)
+      return true
+    } catch(e) { console.warn('[ListSync] fillAspect Fehler:', e.message); return false }
   }
 
-  if (listing.brand) {
-    const ok = await fillAspect('Marke', listing.brand)
-    if (ok) console.log('[ListSync eBay lstng] ✓ Marke:', listing.brand)
-    await wait(300)
-  }
-  if (listing.color) {
-    const ok = await fillAspect('Farbe', listing.color)
-    if (ok) console.log('[ListSync eBay lstng] ✓ Farbe:', listing.color)
-    await wait(300)
-  }
+  if (listing.brand) { await fillAspect('Marke', listing.brand) }
+  if (listing.color) { await fillAspect('Farbe', listing.color) }
 
   await wait(300)
 
