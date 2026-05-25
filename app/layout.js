@@ -88,6 +88,22 @@ export default function RootLayout({ children }) {
           .ls-btn-primary:active { transform: scale(.98); }
           .ls-btn-primary:disabled { background: #e2e8f0; color: #94a3b8; box-shadow: none; }
 
+          /* ── Tailwind dark overrides (for pages using utility classes) ── */
+          html.dark .bg-white { background: var(--surface) !important; }
+          html.dark .bg-gray-50 { background: #1c2128 !important; }
+          html.dark .bg-gray-100 { background: #21262d !important; }
+          html.dark .bg-gray-200 { background: #30363d !important; }
+          html.dark .text-gray-900, html.dark .text-gray-800 { color: var(--text-1) !important; }
+          html.dark .text-gray-700 { color: #c9d1d9 !important; }
+          html.dark .text-gray-600 { color: var(--text-2) !important; }
+          html.dark .text-gray-500, html.dark .text-gray-400 { color: var(--text-3) !important; }
+          html.dark .border-gray-100 { border-color: var(--border) !important; }
+          html.dark .border-gray-200 { border-color: #30363d !important; }
+          html.dark .divide-gray-100 > * + * { border-color: var(--border) !important; }
+          html.dark .hover\:bg-gray-50:hover { background: #1c2128 !important; }
+          html.dark .hover\:bg-gray-100:hover { background: #21262d !important; }
+          html.dark .hover\:bg-gray-200:hover { background: #30363d !important; }
+
           ::-webkit-scrollbar { width: 5px; height: 5px; }
           ::-webkit-scrollbar-track { background: transparent; }
           ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
