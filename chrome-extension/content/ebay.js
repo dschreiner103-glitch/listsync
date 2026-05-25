@@ -477,11 +477,10 @@ async function fillLstng() {
   async function fillAspect(labelText, value) {
     if (!value) return false
     try {
-      // Label finden — sichtbares Element mit exakt diesem Text
-      const label = Array.from(document.querySelectorAll('a, span, label, div, td, th, p'))
-        .filter(el => el.offsetParent !== null) // nur sichtbare
+      // Label finden — kein Visibility-Check (Sektion wird vorher gescrollt)
+      const label = Array.from(document.querySelectorAll('a, span, label, div, td, th, p, li'))
         .filter(el => el.textContent.trim() === labelText)
-        .sort((a, b) => a.textContent.length - b.textContent.length)[0] // kürzestes = genauestes
+        .sort((a, b) => a.textContent.length - b.textContent.length)[0]
       if (!label) { console.warn('[ListSync] Label nicht gefunden:', labelText); return false }
 
       // Dropdown-Button suchen: gehe schrittweise nach oben bis Button gefunden
@@ -549,6 +548,17 @@ async function fillLstng() {
       await wait(300)
       return true
     } catch(e) { console.warn('[ListSync] fillAspect Fehler:', e.message); return false }
+  }
+
+  // Artikelmerkmale-Sektion in den Viewport scrollen damit sie gerendert wird
+  const merkmalSection = Array.from(document.querySelectorAll('h2, h3, h4, div, section'))
+    .find(el => el.textContent.trim() === 'ARTIKELMERKMALE' || el.textContent.trim() === 'Artikelmerkmale')
+  if (merkmalSection) {
+    merkmalSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    await wait(800)
+  } else {
+    window.scrollBy(0, 1200)
+    await wait(800)
   }
 
   if (listing.brand) { await fillAspect('Marke', listing.brand) }
