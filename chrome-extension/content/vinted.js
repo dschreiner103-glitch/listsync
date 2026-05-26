@@ -344,10 +344,11 @@ function getCatalogContainer() {
 }
 
 // Gibt das tatsächlich klickbare Element zurück – bei Vinted haben <li>-Items
-// oft einen inneren <div role="button"> als echten Klick-Target.
+// oft einen inneren <div role="button"|"checkbox"|"radio"> als echten Klick-Target.
 function getClickTarget(el) {
-  if (['BUTTON', 'A'].includes(el.tagName) || el.getAttribute('role') === 'button') return el
-  const inner = el.querySelector('[role="button"], button, a[href]')
+  const role = el.getAttribute('role')
+  if (['BUTTON', 'A'].includes(el.tagName) || ['button', 'checkbox', 'radio', 'option'].includes(role)) return el
+  const inner = el.querySelector('[role="button"], [role="checkbox"], [role="radio"], [role="option"], button, a[href]')
   if (inner) return inner
   return el
 }
@@ -1165,6 +1166,7 @@ async function waitForThumbnails(timeout = 25000) {
 // Findet den Submit/Veröffentlichen-Button auf Vinted
 function findSubmitButton() {
   const sels = [
+    '[data-testid="upload-form-save-button"]',   // confirmed live: text "Hochladen"
     '[data-testid="submit-button"]',
     '[data-testid="upload-form-submit-button"]',
     '[data-testid*="submit"]',

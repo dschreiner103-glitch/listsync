@@ -110,8 +110,9 @@ async function handlePost(listing, platforms) {
 }
 
 async function openKleinanzeigenNewListing() {
-  await chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/anzeige-aufgeben' })
-  console.log('[ListSync BG] ✓ Kleinanzeigen-Tab geöffnet')
+  // Step 1 = category picker → navigates automatically to schritt2 after category click
+  await chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/p-anzeige-aufgeben.html' })
+  console.log('[ListSync BG] ✓ Kleinanzeigen-Tab geöffnet (schritt1)')
 }
 
 async function openEbayNewListing(listing) {
@@ -300,12 +301,19 @@ function injectImages(imageData) {
   // ── Strategie 1 (Primär): File-Input → Dateien setzen → React onChange ───────
   // Dies ist der korrekte Weg: löst Vinted's internen Upload-Handler aus.
   // Echte Vinted-testids (live bestätigt): add-photos-input, media-upload, plus, dropzone
+  // KA-testids: ad-image-upload, photo-upload, image-upload-input, ...
   var fi = null
   var inputSels = [
     '[data-testid="add-photos-input"]',
+    '[data-testid="ad-image-upload"]',
+    '[data-testid="photo-upload-input"]',
+    '[data-testid="image-upload-input"]',
     '[data-testid="media-upload"] input[type="file"]',
     '[data-testid="plus"] input[type="file"]',
     '[data-testid="dropzone"] input[type="file"]',
+    '#ad-images-upload',
+    'input[name="ad-images"]',
+    'input[name="images"]',
     'input[type="file"][accept*="image"]',
     'input[type="file"][multiple]',
     'input[type="file"]',
@@ -329,6 +337,15 @@ function injectImages(imageData) {
     // Native fallback wenn Fiber nicht gefunden oder onChange fehlgeschlagen
     fi.dispatchEvent(new Event('change', { bubbles: true }))
     fi.dispatchEvent(new Event('input',  { bubbles: true }))
+    // Angular 1.x: $apply() damit ngModel/ngChange Binding reagiert
+    try {
+      if (window.angular) {
+        var $el = window.angular.element(fi)
+        var scope = $el.scope && $el.scope()
+        if (scope && !scope.$$phase) scope.$apply()
+        console.warn('[ListSync MAIN] ✓ Angular $apply getriggert')
+      }
+    } catch(ae) {}
     console.warn('[ListSync MAIN] ✓ Native change/input Events (Fallback)')
     return
   }

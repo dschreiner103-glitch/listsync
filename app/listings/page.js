@@ -102,7 +102,7 @@ export default function Listings() {
   }
 
   const openEdit = (l) => {
-    setEditForm({ id: l.id, title: l.title, price: String(l.price||''), buyPrice: String(l.buyPrice||''), condition: l.condition||'', description: l.description||'', status: l.status })
+    setEditForm({ id: l.id, title: l.title, price: String(l.price||''), buyPrice: String(l.buyPrice||''), condition: l.condition||'', description: l.description||'', status: l.status, stil: l.stil||'', beinform: l.beinform||'', taillenumfang: l.taillenumfang||'' })
   }
 
   const saveEdit = async () => {
@@ -139,7 +139,10 @@ export default function Listings() {
         brand:       original.brand || '',
         size:        original.size || '',
         color:       original.color || '',
-        material:    original.material || '',
+        material:    original.material    || '',
+        stil:        original.stil        || '',
+        beinform:    original.beinform    || '',
+        taillenumfang: original.taillenumfang || '',
         shipping:    original.shipping || [],
         shipSize:    original.shipSize || '',
         images:      original.images || [],
@@ -710,6 +713,32 @@ export default function Listings() {
                   <option value="inaktiv">Inaktiv</option>
                   <option value="verkauft">Verkauft</option>
                 </select>
+              </div>
+            </div>
+            {/* eBay-Merkmale */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }}/>
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>eBay-Merkmale</span>
+              <div style={{ flex: 1, height: 1, background: 'var(--border)' }}/>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Stil</label>
+                <input value={editForm.stil||''} onChange={e => setEditForm(f => ({ ...f, stil: e.target.value }))}
+                  placeholder="z.B. Casual"
+                  style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Beinform</label>
+                <input value={editForm.beinform||''} onChange={e => setEditForm(f => ({ ...f, beinform: e.target.value }))}
+                  placeholder="z.B. Slim Fit"
+                  style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Taillenumfang</label>
+                <input value={editForm.taillenumfang||''} onChange={e => setEditForm(f => ({ ...f, taillenumfang: e.target.value }))}
+                  placeholder="z.B. M / 38"
+                  style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }} />
               </div>
             </div>
             {/* Description */}

@@ -19,8 +19,9 @@ export default function NewListing() {
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
     condition:'Sehr gut', category:'',
-    brand:'', size:'', color:'', material:'', shipping:[], shipSize:'',
-    platforms:[]
+    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', shipping:[], shipSize:'',
+    platforms:['vinted','kleinanzeigen','ebay'],
+    address:''
   })
 
   const set = (k,v) => setForm(f=>({...f,[k]:v}))
@@ -146,121 +147,179 @@ export default function NewListing() {
 
           {/* ── Step 1 ── */}
           {step===1 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-              <div>
-                <label style={lbl}>Titel *</label>
-                <input value={form.title} onChange={e=>set('title',e.target.value)} placeholder="z.B. Nike Air Force 1 Weiß Gr. 43" style={errors.title?inpErr:inp}/>
-                {errors.title && <p style={{ color:'#ef4444', fontSize:12, margin:'4px 0 0' }}>{errors.title}</p>}
-                <p style={{ fontSize:12, color:'var(--text-3)', margin:'4px 0 0' }}>{form.title.length}/80 Zeichen</p>
-              </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
 
-              <div>
-                <label style={lbl}>Beschreibung</label>
-                <textarea value={form.description} onChange={e=>set('description',e.target.value)} rows={4}
-                  placeholder="Beschreibe deinen Artikel…" style={{ ...inp, resize:'vertical' }}/>
-              </div>
+              {/* ─ Essential ─ */}
+              <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+                <div>
+                  <label style={lbl}>Titel *</label>
+                  <input value={form.title} onChange={e=>set('title',e.target.value)}
+                    placeholder="z.B. Nike Air Force 1 Weiß Gr. 43" style={errors.title?inpErr:inp} maxLength={80}/>
+                  {errors.title
+                    ? <p style={{ color:'#ef4444', fontSize:12, margin:'4px 0 0' }}>{errors.title}</p>
+                    : <p style={{ fontSize:12, color: form.title.length>65?'#f59e0b':'var(--text-3)', margin:'4px 0 0', fontWeight: form.title.length>65?700:400 }}>{form.title.length}/80 Zeichen</p>
+                  }
+                </div>
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div>
-                  <label style={lbl}>Verkaufspreis * (€)</label>
-                  <input type="number" min="0" value={form.price} onChange={e=>set('price',e.target.value)} style={errors.price?inpErr:inp}/>
-                  {errors.price && <p style={{ color:'#ef4444', fontSize:12, margin:'4px 0 0' }}>{errors.price}</p>}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <div>
+                    <label style={lbl}>Verkaufspreis * (€)</label>
+                    <input type="number" min="0" step="0.5" value={form.price} onChange={e=>set('price',e.target.value)} style={errors.price?inpErr:inp}/>
+                    {errors.price && <p style={{ color:'#ef4444', fontSize:12, margin:'4px 0 0' }}>{errors.price}</p>}
+                  </div>
+                  <div>
+                    <label style={lbl}>Einkaufspreis (€)</label>
+                    <input type="number" min="0" step="0.5" value={form.buyPrice} onChange={e=>set('buyPrice',e.target.value)} style={inp}/>
+                  </div>
                 </div>
-                <div>
-                  <label style={lbl}>Einkaufspreis (€)</label>
-                  <input type="number" min="0" value={form.buyPrice} onChange={e=>set('buyPrice',e.target.value)} style={inp}/>
-                </div>
-              </div>
 
-              {form.price && form.buyPrice && Number(form.price)>Number(form.buyPrice) && (
-                <div style={{ background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:14, padding:'12px 16px', fontSize:13.5, color:'#10b981', fontWeight:700 }}>
-                  💰 Erwarteter Gewinn: +{fmt(Number(form.price)-Number(form.buyPrice))}
-                </div>
-              )}
+                {form.price && form.buyPrice && Number(form.price)>Number(form.buyPrice) && (
+                  <div style={{ background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:14, padding:'10px 14px', fontSize:13, color:'#10b981', fontWeight:700 }}>
+                    💰 Erwarteter Gewinn: +{fmt(Number(form.price)-Number(form.buyPrice))}
+                    <span style={{ fontWeight:400, opacity:.75, marginLeft:8 }}>({Math.round((Number(form.price)-Number(form.buyPrice))/Number(form.buyPrice)*100)}% ROI)</span>
+                  </div>
+                )}
 
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div>
-                  <label style={lbl}>Zustand</label>
-                  <select value={form.condition} onChange={e=>set('condition',e.target.value)} style={inp}>
-                    {CONDITIONS.map(c=><option key={c}>{c}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={lbl}>Kategorie</label>
-                  <CategoryPicker value={form.category} onChange={v=>{ set('category',v); set('size','') }}/>
-                </div>
-              </div>
-
-              <p style={{ fontSize:11.5, fontWeight:700, color:'#818cf8', textTransform:'uppercase', letterSpacing:'0.05em', margin:'4px 0 0' }}>🏷️ Vinted-Details</p>
-
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <div>
-                  <label style={lbl}>Marke</label>
-                  <select value={form.brand} onChange={e=>set('brand',e.target.value)} style={inp}>
-                    <option value="">– keine Angabe –</option>
-                    {BRANDS.map(b=><option key={b}>{b}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label style={lbl}>Farbe</label>
-                  <select value={form.color} onChange={e=>set('color',e.target.value)} style={inp}>
-                    <option value="">– keine Angabe –</option>
-                    {COLORS.map(c=><option key={c}>{c}</option>)}
-                  </select>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <div>
+                    <label style={lbl}>Zustand</label>
+                    <select value={form.condition} onChange={e=>set('condition',e.target.value)} style={inp}>
+                      {CONDITIONS.map(c=><option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>Kategorie</label>
+                    <CategoryPicker value={form.category} onChange={v=>{ set('category',v); set('size','') }}/>
+                  </div>
                 </div>
               </div>
 
-              {getSizes(form.category).length>0 && (
-                <div>
-                  <label style={lbl}>Größe</label>
-                  <select value={form.size} onChange={e=>set('size',e.target.value)} style={inp}>
-                    <option value="">– keine Angabe –</option>
-                    {getSizes(form.category).map(s=><option key={s}>{s}</option>)}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label style={lbl}>Material</label>
-                <select value={form.material} onChange={e=>set('material',e.target.value)} style={inp}>
-                  <option value="">– keine Angabe –</option>
-                  {MATERIALS.map(m=><option key={m}>{m}</option>)}
-                </select>
+              {/* ─ Divider ─ */}
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ flex:1, height:1, background:'var(--border)' }}/>
+                <span style={{ fontSize:11, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.06em', whiteSpace:'nowrap' }}>Details (optional)</span>
+                <div style={{ flex:1, height:1, background:'var(--border)' }}/>
               </div>
 
-              <div>
-                <label style={{ ...lbl, marginBottom:10 }}>Versandoptionen</label>
-                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                  {SHIPPING_OPTIONS.map(opt => {
-                    const sel = form.shipping.includes(opt.id)
-                    return (
-                      <div key={opt.id} onClick={()=>toggleShip(opt.id)}
-                        style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.07)':'var(--surface)', transition:'all .15s' }}>
-                        <CheckBox checked={sel}/>
-                        <div>
-                          <p style={{ fontSize:13.5, fontWeight:600, color:'var(--text-1)', margin:0 }}>{opt.label}</p>
-                          <p style={{ fontSize:12, color:'var(--text-3)', margin:'2px 0 0' }}>{opt.desc}</p>
+              {/* ─ Details Grid ─ */}
+              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <div>
+                    <label style={lbl}>Marke</label>
+                    <select value={form.brand} onChange={e=>set('brand',e.target.value)} style={inp}>
+                      <option value="">– keine –</option>
+                      {BRANDS.map(b=><option key={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={lbl}>Farbe</label>
+                    <select value={form.color} onChange={e=>set('color',e.target.value)} style={inp}>
+                      <option value="">– keine –</option>
+                      {COLORS.map(c=><option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns: getSizes(form.category).length>0 ? '1fr 1fr' : '1fr', gap:12 }}>
+                  {getSizes(form.category).length>0 && (
+                    <div>
+                      <label style={lbl}>Größe</label>
+                      <select value={form.size} onChange={e=>set('size',e.target.value)} style={inp}>
+                        <option value="">– keine –</option>
+                        {getSizes(form.category).map(s=><option key={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label style={lbl}>Material</label>
+                    <select value={form.material} onChange={e=>set('material',e.target.value)} style={inp}>
+                      <option value="">– keines –</option>
+                      {MATERIALS.map(m=><option key={m}>{m}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* ─ eBay-Merkmale ─ */}
+                <div style={{ display:'flex', alignItems:'center', gap:10, margin:'4px 0' }}>
+                  <div style={{ flex:1, height:1, background:'var(--border)' }}/>
+                  <span style={{ fontSize:11, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.06em', whiteSpace:'nowrap' }}>eBay-Merkmale (optional)</span>
+                  <div style={{ flex:1, height:1, background:'var(--border)' }}/>
+                </div>
+
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12 }}>
+                  <div>
+                    <label style={lbl}>Stil</label>
+                    <input value={form.stil} onChange={e=>set('stil',e.target.value)}
+                      placeholder="z.B. Casual" style={inp}/>
+                  </div>
+                  <div>
+                    <label style={lbl}>Beinform</label>
+                    <input value={form.beinform} onChange={e=>set('beinform',e.target.value)}
+                      placeholder="z.B. Slim Fit" style={inp}/>
+                  </div>
+                  <div>
+                    <label style={lbl}>Taillenumfang</label>
+                    <input value={form.taillenumfang} onChange={e=>set('taillenumfang',e.target.value)}
+                      placeholder="z.B. M / 38" style={inp}/>
+                  </div>
+                </div>
+
+                <div>
+                  <label style={lbl}>Beschreibung</label>
+                  <textarea value={form.description} onChange={e=>set('description',e.target.value)} rows={3}
+                    placeholder="Beschreibe den Artikel, Besonderheiten, Maße…" style={{ ...inp, resize:'vertical' }}/>
+                </div>
+              </div>
+
+              {/* ─ Divider ─ */}
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <div style={{ flex:1, height:1, background:'var(--border)' }}/>
+                <span style={{ fontSize:11, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.06em', whiteSpace:'nowrap' }}>Versand</span>
+                <div style={{ flex:1, height:1, background:'var(--border)' }}/>
+              </div>
+
+              {/* ─ Shipping ─ */}
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                <div>
+                  <label style={{ ...lbl, marginBottom:8 }}>Versandoptionen</label>
+                  <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                    {SHIPPING_OPTIONS.map(opt => {
+                      const sel = form.shipping.includes(opt.id)
+                      return (
+                        <div key={opt.id} onClick={()=>toggleShip(opt.id)}
+                          style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.07)':'var(--surface)', transition:'all .15s' }}>
+                          <CheckBox checked={sel}/>
+                          <div>
+                            <p style={{ fontSize:13, fontWeight:600, color:'var(--text-1)', margin:0 }}>{opt.label}</p>
+                            <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'1px 0 0' }}>{opt.desc}</p>
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
+                      )
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label style={{ ...lbl, marginBottom:10 }}>Versandgröße</label>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
-                  {SHIP_SIZES.map(sz => {
-                    const sel = form.shipSize===sz.id
-                    return (
-                      <div key={sz.id} onClick={()=>set('shipSize',sel?'':sz.id)}
-                        style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'12px 8px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.07)':'var(--surface)', textAlign:'center', transition:'all .15s' }}>
-                        <span style={{ fontSize:22 }}>{sz.id==='S'?'📦':sz.id==='M'?'🗃️':'🏗️'}</span>
-                        <p style={{ fontSize:13, fontWeight:700, color:sel?'#6366f1':'var(--text-1)', margin:0 }}>{sz.label}</p>
-                        <p style={{ fontSize:11, color:'var(--text-3)', margin:0, lineHeight:1.3 }}>{sz.desc}</p>
-                      </div>
-                    )
-                  })}
+                <div>
+                  <label style={lbl}>Adresse <span style={{ fontWeight:400, color:'var(--text-3)' }}>(optional · nur für Kleinanzeigen)</span></label>
+                  <input value={form.address} onChange={e=>set('address',e.target.value)}
+                    placeholder="z.B. 80331 München" style={inp}/>
+                </div>
+
+                <div>
+                  <label style={{ ...lbl, marginBottom:8 }}>Paketgröße</label>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                    {SHIP_SIZES.map(sz => {
+                      const sel = form.shipSize===sz.id
+                      return (
+                        <div key={sz.id} onClick={()=>set('shipSize',sel?'':sz.id)}
+                          style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'11px 8px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.07)':'var(--surface)', textAlign:'center', transition:'all .15s' }}>
+                          <span style={{ fontSize:20 }}>{sz.id==='S'?'📦':sz.id==='M'?'🗃️':'🏗️'}</span>
+                          <p style={{ fontSize:12.5, fontWeight:700, color:sel?'#6366f1':'var(--text-1)', margin:0 }}>{sz.label}</p>
+                          <p style={{ fontSize:10.5, color:'var(--text-3)', margin:0, lineHeight:1.3 }}>{sz.desc}</p>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -304,6 +363,13 @@ export default function NewListing() {
           {step===3 && (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
               {errors.platforms && <p style={{ color:'#ef4444', fontSize:13, fontWeight:600 }}>{errors.platforms}</p>}
+              <div style={{ display:'flex', justifyContent:'flex-end' }}>
+                <button
+                  onClick={() => set('platforms', form.platforms.length === Object.keys(PLATFORMS).length ? [] : Object.keys(PLATFORMS))}
+                  style={{ padding:'6px 14px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-2)', fontWeight:600, fontSize:12.5, cursor:'pointer', fontFamily:'inherit', transition:'all .15s' }}>
+                  {form.platforms.length === Object.keys(PLATFORMS).length ? 'Keine' : 'Alle'}
+                </button>
+              </div>
               {Object.entries(PLATFORMS).map(([id,p]) => {
                 const sel = form.platforms.includes(id)
                 return (

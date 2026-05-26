@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ListSync",
-  "version": "2.6",
+  "version": "3.2",
   "description": "Automatisch auf Vinted, Kleinanzeigen & eBay posten + Vinted-Historie synchronisieren",
   "permissions": ["tabs", "scripting", "storage", "activeTab"],
   "host_permissions": [
@@ -44,7 +44,8 @@
       "matches": [
         "https://www.kleinanzeigen.de/anzeige-aufgeben*",
         "https://www.kleinanzeigen.de/p-anzeige-aufgeben*",
-        "https://www.kleinanzeigen.de/anzeige/aufgeben*"
+        "https://www.kleinanzeigen.de/anzeige/aufgeben*",
+        "https://www.kleinanzeigen.de/m-anzeige-aufgeben*"
       ],
       "js": ["content/kleinanzeigen.js"],
       "run_at": "document_idle"

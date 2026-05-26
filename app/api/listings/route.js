@@ -64,15 +64,19 @@ export async function POST(req) {
         color:       data.color      || '',
         shipping:    JSON.stringify(data.shipping || []),
         shipSize:    data.shipSize || '',
+        address:     data.address  || '',
         platforms:   JSON.stringify(data.platforms || []),
         images:      JSON.stringify(data.images    || []),
         userId:      Number(session.user.id),
       }
     })
-    // Set material via raw SQL (bypasses stale Prisma client validation)
-    const material = data.material || ''
-    await prisma.$executeRaw`UPDATE "Listing" SET material = ${material} WHERE id = ${listing.id}`
-    return NextResponse.json({ ...parseListing(listing), material }, { status: 201 })
+    // Set new fields via raw SQL (bypasses stale Prisma client validation)
+    const material      = data.material      || ''
+    const stil          = data.stil          || ''
+    const beinform      = data.beinform      || ''
+    const taillenumfang = data.taillenumfang || ''
+    await prisma.$executeRaw`UPDATE "Listing" SET material = ${material}, stil = ${stil}, beinform = ${beinform}, taillenumfang = ${taillenumfang} WHERE id = ${listing.id}`
+    return NextResponse.json({ ...parseListing(listing), material, stil, beinform, taillenumfang }, { status: 201 })
   } catch(e) {
     console.error('[API POST /listings]', e.message)
     return NextResponse.json({ error: e.message }, { status: 500 })

@@ -1,132 +1,163 @@
 'use strict'
 
-// ── Kleinanzeigen Kategorie-Mapping (ListSync → Kleinanzeigen) ────────────────
-// Format: [Hauptkategorie-Text, Unterkategorie-Text (optional)]
-const CATEGORY_MAP = {
-  // Damen
-  'Damen': ['Mode & Beauty', 'Damenmode'],
-  'Damen – Kleidung': ['Mode & Beauty', 'Damenmode'],
-  'Damen – Schuhe': ['Mode & Beauty', 'Damenschuhe'],
-  'Damen – Taschen': ['Mode & Beauty', 'Taschen & Accessoires'],
-  'Damen – Accessoires': ['Mode & Beauty', 'Taschen & Accessoires'],
-  'Damen – Beauty': ['Mode & Beauty', 'Kosmetik & Wellness'],
-  // Herren
-  'Herren': ['Mode & Beauty', 'Herrenmode'],
-  'Herren – Kleidung': ['Mode & Beauty', 'Herrenmode'],
-  'Herren – Schuhe': ['Mode & Beauty', 'Herrenschuhe'],
-  'Herren – Accessoires': ['Mode & Beauty', 'Taschen & Accessoires'],
+// ── Keyword → KA-Kategorie-Mapping ───────────────────────────────────────────
+const KEYWORD_CATEGORIES = [
+  // Damen – Kleidung (153/154)
+  { kw:['weste','westen','gilet','bodywarmer','steppweste','fleeceweste'],                     path:'153/154', leaf:'Jacken & Mäntel' },
+  { kw:['jacke','jacken','mantel','mäntel','parka','anorak','blazer','trenchcoat',
+         'bomberjacke','lederjacke','winterjacke','übergangsjacke','regenjacke',
+         'softshell','windjacke','daunenjacke','steppjacke'],                                  path:'153/154', leaf:'Jacken & Mäntel' },
+  { kw:['jeans','denim'],                                                                       path:'153/154', leaf:'Jeans' },
+  { kw:['pullover','strickjacke','strick','sweater','hoodie','sweatshirt','cardigan',
+         'pulli','strickpullover','feinstrick','grobstrick'],                                   path:'153/154', leaf:'Pullover' },
+  { kw:['hose','hosen','leggings','jeggings','jogginghose','sporthose','stoffhose',
+         'leinenhose','culotte','palazzo'],                                                     path:'153/154', leaf:'Hosen' },
+  { kw:['kleid','kleider','minikleid','abendkleid','midikleid','maxikleid','sommerkleid',
+         'cocktailkleid','etuikleid','strandkleid'],                                            path:'153/154', leaf:'Röcke & Kleider' },
+  { kw:['rock','röcke','minirock','midirock','maxirock','tellerrock','faltenrock',
+         'wickelrock','bleistiftrock'],                                                         path:'153/154', leaf:'Röcke & Kleider' },
+  { kw:['shirt','top','bluse','blusen','t-shirt','tshirt','tank','longsleeve',
+         'tunika','hemdbluse','blusenshirt'],                                                   path:'153/154', leaf:'Shirts & Tops' },
+  { kw:['unterwäsche','bh','slip','unterhose','dessous','nachtwäsche','pyjama',
+         'schlafanzug','negligé','babydoll','homewear'],                                        path:'153/154', leaf:'Weitere Damenbekleidung' },
+  { kw:['badeanzug','bikini','bademode','tankini','monokini'],                                  path:'153/154', leaf:'Bademode' },
+  { kw:['overall','jumpsuit','playsuit','romper'],                                              path:'153/154', leaf:'Weitere Damenbekleidung' },
+  { kw:['shorts','bermuda'],                                                                    path:'153/154', leaf:'Shorts' },
+  { kw:['sportbekleidung','sportjacke','sport-bh','sporttop','running'],                       path:'153/154', leaf:'Sportbekleidung' },
+  // Damen – Schuhe (153/159)
+  { kw:['sneaker','turnschuh','sportschuh','laufschuh','canvas schuh','low top','high top'],    path:'153/159', leaf:'Sneaker' },
+  { kw:['stiefel','stiefelette','chelsea boot','ankle boot','cowboystiefel'],                   path:'153/159', leaf:'Stiefel & Stiefeletten' },
+  { kw:['ballerina','ballerinas','flats'],                                                      path:'153/159', leaf:'Ballerinas' },
+  { kw:['pumps','high heel','stiletto'],                                                        path:'153/159', leaf:'Pumps' },
+  { kw:['sandalen','sandalette','flip flop','flipflop','espadrille'],                           path:'153/159', leaf:'Sandalen & Flip-Flops' },
+  // Damen – Taschen (153/156)
+  { kw:['tasche','handtasche','umhängetasche','schultertasche','clutch','tote','shopper'],      path:'153/156', leaf:'Handtaschen' },
+  { kw:['rucksack','backpack'],                                                                 path:'153/156', leaf:'Rucksäcke' },
+  { kw:['geldbörse','portemonnaie','geldbeutel','brieftasche','wallet'],                        path:'153/156', leaf:'Geldbörsen' },
+  // Herren – Kleidung (153/160)
+  { kw:['poloshirt','polo','hemd','herrenhemd','freizeithemd','businesshemd'],                  path:'153/160', leaf:'Shirts & Hemden' },
+  { kw:['herrenpullover','herrensweater','herrencardigan','herren pullover'],                    path:'153/160', leaf:'Pullover & Strickjacken' },
+  { kw:['herrenhose','herren hose','chino','chinos','cargohose'],                               path:'153/160', leaf:'Hosen & Chinos' },
+  { kw:['herrenjeans','herren jeans'],                                                          path:'153/160', leaf:'Jeans' },
+  { kw:['herrenjacke','herren jacke','herrenparka','herrenmantel','herrenblazer'],              path:'153/160', leaf:'Jacken & Mäntel' },
+  { kw:['anzug','sakko','businessanzug'],                                                       path:'153/160', leaf:'Anzüge & Sakkos' },
+  // Herren – Schuhe (153/158)
+  { kw:['herrensneaker','herren sneaker'],                                                      path:'153/158', leaf:'Sneaker' },
+  { kw:['herrenstiefel','herren stiefel'],                                                      path:'153/158', leaf:'Stiefel' },
   // Kinder
-  'Kinder': ['Familie, Kind & Baby', 'Kinderkleidung & -accessoires'],
-  'Kinder – Baby': ['Familie, Kind & Baby', 'Kinderkleidung & -accessoires'],
-  'Kinder – Mädchen': ['Familie, Kind & Baby', 'Kinderkleidung & -accessoires'],
-  'Kinder – Jungs': ['Familie, Kind & Baby', 'Kinderkleidung & -accessoires'],
-  'Kinder – Spielzeug & Freizeit': ['Familie, Kind & Baby', 'Spielzeug'],
-  // Sonstiges
-  'Sonstiges – Elektronik': ['Elektronik', ''],
-  'Sonstiges – Home & Living': ['Haushaltsgeräte & Möbel', ''],
-  'Sonstiges – Sport & Outdoor': ['Sport & Camping', ''],
-  'Sonstiges – Unterhaltung': ['Musik, Filme & Bücher', ''],
-  'Elektronik': ['Elektronik', ''],
-  'Home & Living': ['Haus & Garten', ''],
-  'Sport & Outdoor': ['Sport & Camping', ''],
-  'Unterhaltung': ['Musik, Filme & Bücher', ''],
-  // Beauty
-  'Beauty': ['Mode & Beauty', 'Kosmetik & Wellness'],
-  'Beauty – Make-up': ['Mode & Beauty', 'Kosmetik & Wellness'],
-  'Beauty – Hautpflege': ['Mode & Beauty', 'Kosmetik & Wellness'],
-  'Beauty – Haarpflege': ['Mode & Beauty', 'Kosmetik & Wellness'],
-  'Beauty – Parfüm & Düfte': ['Mode & Beauty', 'Kosmetik & Wellness'],
-  'Beauty – Beauty-Tools & -Geräte': ['Mode & Beauty', 'Kosmetik & Wellness'],
-  'Damen – Beauty': ['Mode & Beauty', 'Kosmetik & Wellness'],
-  // Haustiere
-  'Haustiere': ['Tiere', ''],
-  'Haustiere – Hunde': ['Tiere', 'Hunde'],
-  'Haustiere – Katzen': ['Tiere', 'Katzen'],
-  'Haustiere – Kleintiere': ['Tiere', 'Kleintiere'],
-  'Haustiere – Vögel': ['Tiere', 'Vögel'],
-  'Sonstiges': ['Sonstige', ''],
+  { kw:['strampler','babykleidung','baby kleidung','babyschuh'],                                path:'17/22',   leaf:'Babykleidung & -schuhe' },
+  { kw:['kinderjacke','kinder jacke','kinderkleidung','kinderpullover'],                        path:'17/22',   leaf:'Kinderkleidung' },
+  { kw:['kinderschuh','kinder schuhe','kindersneaker'],                                         path:'17/22',   leaf:'Kinderschuhe' },
+  { kw:['spielzeug','lego','puppe','teddybär','brettspiel','puzzle'],                           path:'17/23',   leaf:'Spielzeug' },
+  // Beauty (153/224)
+  { kw:['parfüm','parfum','eau de toilette','eau de parfum','duftwasser'],                      path:'153/224', leaf:'Parfüm & Düfte' },
+  { kw:['make-up','makeup','foundation','lippenstift','mascara','rouge'],                       path:'153/224', leaf:'Make-up' },
+  { kw:['hautpflege','gesichtscreme','serum','tagescreme','nachtcreme'],                        path:'153/224', leaf:'Hautpflege' },
+  { kw:['haarpflege','shampoo','haarmaske','conditioner','haaröl'],                             path:'153/224', leaf:'Haarpflege' },
+  { kw:['nagellack','nail art','gel nägel'],                                                    path:'153/224', leaf:'Nagelpflege' },
+]
+
+const CATEGORY_PATH = {
+  'Damen':               '153/154',
+  'Damen – Kleidung':    '153/154',
+  'Damen – Schuhe':      '153/159',
+  'Damen – Taschen':     '153/156',
+  'Damen – Accessoires': '153/156',
+  'Herren':              '153/160',
+  'Herren – Kleidung':   '153/160',
+  'Herren – Schuhe':     '153/158',
+  'Beauty':              '153/224',
+  'Kinder':              '17/22',
+  'Haustiere':           '130/135',
+  'Elektronik':          '161',
+  'Home & Living':       '80',
+  'Sport & Outdoor':     '185',
+  'Unterhaltung':        '73',
+  'Sonstiges':           '228',
 }
 
-function getCategoryForListing(category) {
-  if (!category) return null
-  // Exakter Match
-  if (CATEGORY_MAP[category]) return CATEGORY_MAP[category]
-  // Prefix-Match (längster zuerst)
-  const keys = Object.keys(CATEGORY_MAP).sort((a, b) => b.length - a.length)
-  for (const key of keys) {
-    if (category.startsWith(key)) return CATEGORY_MAP[key]
+function detectCategory(listing) {
+  const text = ((listing.title || '') + ' ' + (listing.description || '')).toLowerCase()
+  for (const entry of KEYWORD_CATEGORIES) {
+    for (const kw of entry.kw) {
+      if (text.includes(kw)) {
+        console.log(`[ListSync KA] Keyword-Match: "${kw}" → ${entry.path} / ${entry.leaf}`)
+        return entry
+      }
+    }
   }
-  // Damen/Herren/Kinder Fallback aus erstem Segment
-  const first = category.split(' – ')[0]
-  if (CATEGORY_MAP[first]) return CATEGORY_MAP[first]
+  const cat = listing.category || ''
+  const keys = Object.keys(CATEGORY_PATH).sort((a, b) => b.length - a.length)
+  for (const key of keys) {
+    if (cat.startsWith(key)) return { path: CATEGORY_PATH[key], leaf: null }
+  }
   return null
 }
 
-// ── Zustand-Mapping (Vinted → Kleinanzeigen) ──────────────────────────────────
-function mapCondition(condition) {
-  if (!condition) return null
-  const c = condition.toLowerCase()
-  if (c.includes('neu') || c.includes('new') || c.includes('ohne etikett') || c.includes('nie getragen')) return 'Neu'
-  if (c.includes('sehr gut') || c.includes('very good')) return 'Sehr gut'
-  if (c.includes('gut') || c.includes('good')) return 'Gut'
-  if (c.includes('befriedigend') || c.includes('satisfactory') || c.includes('akzeptabel')) return 'Akzeptabel'
+// ── Zustand → KA radio value ──────────────────────────────────────────────────
+// Confirmed values: new_with_tag | new | like_new | ok | alright
+function mapConditionValue(condition) {
+  const c = (condition || '').toLowerCase()
+  if (c.includes('neu mit etikett'))                                  return 'new_with_tag'
+  if (c.includes('neu ohne etikett') || c.includes('nie getragen'))  return 'new'
+  if (c.includes('sehr gut'))                                         return 'like_new'
+  if (c.includes('befriedigend') || c.includes('akzeptabel') || c.includes('in ordnung')) return 'alright'
+  if (c.includes('gut'))                                              return 'ok'
   return null
 }
 
-// ── Hilfsfunktionen ───────────────────────────────────────────────────────────
+// ── Utilities ─────────────────────────────────────────────────────────────────
 async function getListing() {
-  return new Promise(resolve => {
-    chrome.storage.local.get('pendingListing', r => resolve(r.pendingListing || null))
-  })
+  return new Promise(r => chrome.storage.local.get('pendingListing', d => r(d.pendingListing || null)))
 }
 
-function wait(ms) { return new Promise(r => setTimeout(r, ms)) }
+const wait = ms => new Promise(r => setTimeout(r, ms))
 
-function waitFor(selector, timeout = 15000) {
+function isVisible(el) {
+  if (!el) return false
+  const r = el.getBoundingClientRect()
+  return r.width > 0 && r.height > 0
+}
+
+function waitForAny(selectors, timeout = 12000) {
   return new Promise((resolve, reject) => {
-    const el = document.querySelector(selector)
+    const find = () => {
+      for (const s of selectors) {
+        try { const el = document.querySelector(s); if (el && isVisible(el)) return el } catch {}
+      }
+      return null
+    }
+    const el = find()
     if (el) return resolve(el)
     const ob = new MutationObserver(() => {
-      const found = document.querySelector(selector)
+      const found = find()
       if (found) { ob.disconnect(); clearTimeout(tid); resolve(found) }
     })
     ob.observe(document.body, { childList: true, subtree: true })
-    const tid = setTimeout(() => { ob.disconnect(); reject(new Error('Timeout: ' + selector)) }, timeout)
+    const tid = setTimeout(() => { ob.disconnect(); reject(new Error('Timeout: ' + selectors[0])) }, timeout)
   })
 }
 
-function waitForAny(selectors, timeout = 10000) {
-  return new Promise((resolve, reject) => {
-    for (const sel of selectors) {
-      const el = document.querySelector(sel)
-      if (el) return resolve(el)
-    }
-    const ob = new MutationObserver(() => {
-      for (const sel of selectors) {
-        const el = document.querySelector(sel)
-        if (el) { ob.disconnect(); clearTimeout(tid); return resolve(el) }
-      }
-    })
-    ob.observe(document.body, { childList: true, subtree: true })
-    const tid = setTimeout(() => { ob.disconnect(); reject(new Error('Timeout')) }, timeout)
-  })
-}
-
+// React-freundliches Input-Befüllen
 function fillInput(el, value) {
   if (!el || value === undefined || value === null) return
+  const v = String(value)
   el.focus()
-  // Versuche execCommand (für ältere React-Versionen)
-  document.execCommand('selectAll', false)
-  document.execCommand('delete', false)
-  document.execCommand('insertText', false, String(value))
-  // Fallback: native setter
-  if (el.value !== String(value)) {
-    const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
-    const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
-    if (setter) setter.call(el, String(value))
+  const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+  const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
+  if (setter) {
+    setter.call(el, v)
     el.dispatchEvent(new Event('input',  { bubbles: true }))
     el.dispatchEvent(new Event('change', { bubbles: true }))
     el.dispatchEvent(new Event('blur',   { bubbles: true }))
+  }
+  if (el.value !== v) {
+    document.execCommand('selectAll', false)
+    document.execCommand('delete',    false)
+    document.execCommand('insertText', false, v)
+    if (el.value !== v) el.value = v
+    el.dispatchEvent(new Event('input',  { bubbles: true }))
+    el.dispatchEvent(new Event('change', { bubbles: true }))
   }
 }
 
@@ -142,8 +173,8 @@ function showBanner(listing) {
   d.innerHTML = `
     <span style="font-size:20px">🔗</span>
     <div style="flex:1;min-width:0">
-      <div style="font-weight:700;font-size:13px">ListSync – wird ausgefüllt…</div>
-      <div style="font-size:11px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${listing.title} · ${listing.price} €</div>
+      <div style="font-weight:700;font-size:13px">ListSync → Kleinanzeigen</div>
+      <div id="ls-ka-status" style="font-size:11px;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${listing.title} · ${listing.price} €</div>
     </div>
     <div style="display:flex;gap:4px">${imgs}</div>
     <button onclick="document.getElementById('ls-banner').remove();document.body.style.paddingTop=''"
@@ -153,488 +184,439 @@ function showBanner(listing) {
   document.body.style.paddingTop = '54px'
 }
 
-function updateBanner(text) {
-  const b = document.getElementById('ls-banner')
-  if (!b) return
-  const label = b.querySelector('div > div:first-child')
-  if (label) label.textContent = text
+function updateStatus(text, done = false) {
+  const el = document.getElementById('ls-ka-status')
+  if (el) el.textContent = text
+  if (done) {
+    const b = document.getElementById('ls-banner')
+    if (b) b.style.background = '#16a34a'
+  }
+  console.log('[ListSync KA]', text)
+}
+
+// ── Generic Combobox helper ───────────────────────────────────────────────────
+// Opens a button[role="combobox"] and clicks the matching option by text.
+async function fillCombobox(btn, targetText) {
+  if (!btn || !targetText) return false
+  btn.click()
+  await wait(450)
+  const listbox = document.querySelector('[role="listbox"]')
+  if (!listbox) { document.body.click(); return false }
+  const opts = [...listbox.querySelectorAll('[role="option"]')]
+  const tgt = targetText.toLowerCase().trim()
+  const opt = opts.find(o => o.textContent.trim().toLowerCase() === tgt)
+    || opts.find(o => o.textContent.trim().toLowerCase().startsWith(tgt + ' '))
+    || opts.find(o => o.textContent.trim().toLowerCase().startsWith(tgt))
+    || opts.find(o => tgt.split(' ').filter(w => w.length > 3).some(w => o.textContent.trim().toLowerCase().includes(w)))
+  if (opt) { opt.click(); await wait(300); return true }
+  document.body.click()
+  return false
+}
+
+// Finds a size option like "XS (34)" from listing.size = "XS" or "34"
+function findSizeOption(opts, size) {
+  if (!size) return null
+  const s = size.toString().trim()
+  return opts.find(o => o.textContent.trim().toLowerCase().startsWith(s.toLowerCase() + ' '))
+    || opts.find(o => /^\d+$/.test(s) && o.textContent.includes(`(${s})`))
+    || opts.find(o => o.textContent.trim().toLowerCase() === s.toLowerCase())
+}
+
+// ── Zustand auswählen ─────────────────────────────────────────────────────────
+// Opens the Zustand dialog (button[aria-haspopup="dialog"]), selects radio by value, confirms.
+async function fillZustand(conditionValue) {
+  if (!conditionValue) return
+  const zustandBtn = [...document.querySelectorAll('button')].find(b =>
+    b.getAttribute('aria-haspopup') === 'dialog' && isVisible(b)
+  )
+  if (!zustandBtn) { console.warn('[ListSync KA] Zustand-Button nicht gefunden'); return }
+  zustandBtn.click()
+  await wait(800)
+  // Select radio by confirmed value (new_with_tag | new | like_new | ok | alright)
+  const radio = document.querySelector(`input[value="${conditionValue}"]`)
+  if (radio) {
+    radio.click()
+    console.log('[ListSync KA] ✓ Zustand:', conditionValue)
+    await wait(200)
+  } else {
+    console.warn('[ListSync KA] Zustand-Radio nicht gefunden für:', conditionValue)
+  }
+  await wait(200)
+  const confirmBtn = [...document.querySelectorAll('button')].find(b =>
+    isVisible(b) && b.textContent.trim() === 'Bestätigen'
+  )
+  if (confirmBtn) { confirmBtn.click(); await wait(400) }
+}
+
+// ── Preistyp auf VB setzen ────────────────────────────────────────────────────
+// Confirmed: #ad-price-type[role=combobox] → #ad-price-type-menu-option-1 = "VB"
+async function setPriceTypeVB() {
+  // Trigger: #ad-price-type oder button mit "Festpreis"/"Preistyp"-Text
+  let btn = document.getElementById('ad-price-type')
+  if (!btn) {
+    btn = [...document.querySelectorAll('button')].find(b =>
+      isVisible(b) && (b.textContent.includes('Festpreis') || b.id?.includes('price-type'))
+    )
+  }
+  if (!btn) { console.warn('[ListSync KA] Preistyp-Button nicht gefunden'); return }
+  btn.click()
+  await wait(600)
+  // Methode 1: direkte ID
+  let vbOpt = document.getElementById('ad-price-type-menu-option-1')
+  if (vbOpt) { vbOpt.click(); await wait(300); console.log('[ListSync KA] ✓ Preistyp VB'); return }
+  // Methode 2: Text-Match in sichtbaren Optionen
+  const allOpts = [...document.querySelectorAll('[role="option"], [role="menuitem"], li')]
+    .filter(o => o.offsetParent !== null)
+  const vb = allOpts.find(o =>
+    o.textContent.trim().toUpperCase() === 'VB' ||
+    o.textContent.toLowerCase().includes('verhandelbar')
+  )
+  if (vb) { vb.click(); await wait(300); console.log('[ListSync KA] ✓ Preistyp VB (text-match)'); return }
+  document.body.click()
+  console.warn('[ListSync KA] VB-Option nicht gefunden')
 }
 
 // ── Bilder hochladen ──────────────────────────────────────────────────────────
 function base64ToFiles(imageData) {
   return (imageData || []).map((img, i) => {
-    const [, data] = img.base64.split(',')
-    const mime = img.type || 'image/jpeg'
-    const ext  = mime.split('/')[1] || 'jpg'
-    const binary = atob(data)
-    const arr = new Uint8Array(binary.length)
-    for (let j = 0; j < binary.length; j++) arr[j] = binary.charCodeAt(j)
-    return new File([arr], `listsync_${i+1}.${ext}`, { type: mime })
-  })
+    try {
+      const [, data] = img.base64.split(',')
+      const mime = img.type || 'image/jpeg'
+      const ext  = mime.split('/')[1] || 'jpg'
+      const binary = atob(data)
+      const arr = new Uint8Array(binary.length)
+      for (let j = 0; j < binary.length; j++) arr[j] = binary.charCodeAt(j)
+      return new File([arr], `listsync_${i + 1}.${ext}`, { type: mime })
+    } catch { return null }
+  }).filter(Boolean)
 }
 
 async function uploadImages(imageData) {
   if (!imageData?.length) return
+  const files = base64ToFiles(imageData)
+  if (!files.length) return
 
-  // Strategy 1: MAIN world injection via background (handles React Fiber)
+  // Foto-Bereich in Sicht scrollen damit der file-input im DOM aktiv ist
+  const photoArea = document.querySelector(
+    '[data-testid*="photo"], [data-testid*="image"], [class*="photo-upload"], [class*="image-upload"], [id*="photo"]'
+  )
+  if (photoArea) photoArea.scrollIntoView({ block: 'center' })
+  await wait(400)
+
+  // ── Strategy 1 (primär): MAIN-World via background ───────────────────────────
+  // Läuft im Seiten-Kontext → Object.defineProperty sichtbar für KA-JS,
+  // React-Fiber-onChange wird direkt aufgerufen (kein isTrusted-Problem).
   try {
     const res = await chrome.runtime.sendMessage({ type: 'INJECT_MAIN_IMAGES', imageData })
     if (res?.ok) {
-      console.log('[ListSync KA] ✓ Bilder via MAIN-World:', imageData.length)
+      console.log('[ListSync KA] ✓ Bilder via MAIN-World gesendet:', imageData.length)
+      await wait(1200)
       return
     }
-  } catch {}
+  } catch(e) { console.warn('[ListSync KA] MAIN-World-Fehler:', e?.message) }
 
-  // Strategy 2: Direct DataTransfer (works on traditional forms)
-  const files = base64ToFiles(imageData)
-  if (!files.length) return
-  const dt = new DataTransfer()
-  files.forEach(f => dt.items.add(f))
-
-  const fileSelectors = [
-    'input[type="file"][accept*="image"]',
-    'input[type="file"][multiple]',
-    '#ui-id-10',
-    'input[type="file"]',
-  ]
-
-  let fi = null
-  for (const sel of fileSelectors) {
-    fi = document.querySelector(sel)
-    if (fi) break
-  }
-  if (!fi) {
-    try { fi = await waitFor('input[type="file"]', 6000) } catch {}
-  }
-  if (!fi) {
-    // Strategy 3: drop zone
-    const dropZone = document.querySelector(
-      '[class*="photo"], [class*="upload"], [class*="dropzone"], [data-testid*="photo"], [data-testid*="upload"]'
-    )
-    if (dropZone) {
-      dropZone.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }))
-      dropZone.dispatchEvent(new DragEvent('dragover',  { bubbles: true, cancelable: true, dataTransfer: dt }))
-      dropZone.dispatchEvent(new DragEvent('drop',      { bubbles: true, cancelable: true, dataTransfer: dt }))
-      console.log('[ListSync KA] ✓ Bilder via Drop-Zone')
+  // ── Strategy 2: DataTransfer direkt (Isolated-World-Fallback) ────────────────
+  const fi = document.querySelector('input[type="file"]')
+  if (fi) {
+    const dt = new DataTransfer()
+    files.forEach(f => dt.items.add(f))
+    try {
+      Object.defineProperty(fi, 'files', { value: dt.files, writable: true, configurable: true })
+      fi.dispatchEvent(new Event('change', { bubbles: true }))
+      fi.dispatchEvent(new Event('input',  { bubbles: true }))
+      console.log('[ListSync KA] ✓ Bilder via DataTransfer:', files.length)
+      await wait(800)
       return
-    }
-    console.warn('[ListSync KA] Kein Upload-Element gefunden')
-    return
+    } catch(e) { console.warn('[ListSync KA] DataTransfer-Fehler:', e.message) }
   }
-  Object.defineProperty(fi, 'files', { value: dt.files, configurable: true, writable: true })
-  fi.dispatchEvent(new Event('change', { bubbles: true }))
-  fi.dispatchEvent(new Event('input',  { bubbles: true }))
-  console.log('[ListSync KA] ✓ Bilder via DataTransfer:', files.length)
-}
 
-// ── Kategorie auswählen ───────────────────────────────────────────────────────
-// Kleinanzeigen hat 3 bekannte UI-Muster:
-//   A) Link/Button der ein Modal öffnet (modernes Design)
-//   B) Direkte Klick-Liste im Seitenbereich (älteres Design)
-//   C) Breadcrumb mit "Kategorie ändern"-Link
-async function selectCategory(listing) {
-  const catInfo = getCategoryForListing(listing.category)
-  if (!catInfo) {
-    console.warn('[ListSync KA] Kein Kategorie-Mapping für:', listing.category)
+  // ── Strategy 3: Drop-Zone ────────────────────────────────────────────────────
+  const dt2 = new DataTransfer()
+  files.forEach(f => dt2.items.add(f))
+  const dropZone = document.querySelector(
+    '[class*="photo"], [class*="upload"], [data-testid*="photo"], [data-testid*="upload"]'
+  ) || [...document.querySelectorAll('button')].find(b =>
+    b.textContent.includes('Foto') || b.textContent.includes('Hochladen')
+  )
+  if (dropZone) {
+    dropZone.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt2 }))
+    dropZone.dispatchEvent(new DragEvent('dragover',  { bubbles: true, cancelable: true, dataTransfer: dt2 }))
+    dropZone.dispatchEvent(new DragEvent('drop',      { bubbles: true, cancelable: true, dataTransfer: dt2 }))
+    console.log('[ListSync KA] ✓ Bilder via Drop-Zone')
     return
   }
 
-  const [hauptkat, unterkat] = catInfo
-  if (!hauptkat) return
+  updateStatus('⚠️ Fotos konnten nicht hochgeladen werden – bitte manuell hinzufügen')
+}
 
-  console.log('[ListSync KA] Setze Kategorie:', hauptkat, '→', unterkat)
-
-  try {
-    // ── Schritt 1: Kategorie-Trigger finden und klicken ──────────────────────
-    const triggerSels = [
-      // Modernes KA-Design (2024)
-      '[data-testid="posting-category-select"]',
-      '[data-testid="category-select"]',
-      '[data-testid="category-button"]',
-      // Älteres Design
-      '#postad-category-path-selector',
-      '#category-selector',
-      '.categorybox',
-      // Generische Fallbacks
-      'a[href*="kategorie"], button[class*="category"], [class*="CategorySelector"]',
-      // Breadcrumb-Link
-      'a[class*="category"], span[class*="category"] a',
-    ]
-
-    let trigger = null
-    for (const sel of triggerSels) {
-      try {
-        const el = document.querySelector(sel)
-        if (el && el.offsetParent !== null) { trigger = el; break }
-      } catch {}
-    }
-
-    // Fallback: Text-Suche nach "Kategorie wählen" / "Kategorie ändern"
-    if (!trigger) {
-      for (const el of document.querySelectorAll('a, button, [role="button"], span[tabindex]')) {
-        const t = (el.textContent || '').trim().toLowerCase()
-        if (t.includes('kategorie') && el.offsetParent !== null) {
-          trigger = el; break
+// ── SCHRITT 1: Kategorie navigieren ──────────────────────────────────────────
+async function clickItemByText(targetText, timeout = 6000) {
+  const target = targetText.toLowerCase().trim()
+  // Schlüsselwörter aus leaf (> 3 Zeichen) für Partial-Match
+  const keywords = target.split(/[\s&,/]+/).filter(w => w.length > 3)
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    for (const sel of ['a', 'button', '[role="option"]', '[role="menuitem"]', 'li', 'span', 'label']) {
+      for (const el of document.querySelectorAll(sel)) {
+        if (!isVisible(el)) continue
+        const txt = el.textContent.trim().toLowerCase()
+        // Pass 1: Exakter Match
+        if (txt === target || txt.startsWith(target + ' ') || txt.startsWith(target + ' ›')) {
+          el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+          el.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }))
+          await wait(300)
+          return true
+        }
+        // Pass 2: Alle Keywords enthalten (z.B. "Hosen" matcht "Hosen & Shorts")
+        if (keywords.length && keywords.every(kw => txt.includes(kw))) {
+          el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+          el.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }))
+          await wait(300)
+          return true
         }
       }
     }
-
-    if (!trigger) {
-      console.warn('[ListSync KA] Kategorie-Trigger nicht gefunden – Selektoren versucht:', triggerSels.join(', '))
-      return
-    }
-
-    console.log('[ListSync KA] Kategorie-Trigger:', trigger.tagName, trigger.id || trigger.className?.substring(0,30))
-    trigger.click()
-    await wait(1200)
-
-    // ── Schritt 2: Auf Modal / Kategorie-Overlay warten ─────────────────────
-    const modalSels = [
-      '[data-testid="category-dialog"]',
-      '[data-testid="category-modal"]',
-      '[role="dialog"]',
-      '[class*="CategoryModal"]',
-      '[class*="category-modal"]',
-      '[class*="overlay"]',
-      '[class*="Overlay"]',
-    ]
-    let modal = null
-    for (let i = 0; i < 15; i++) {
-      for (const sel of modalSels) {
-        const el = document.querySelector(sel)
-        if (el && el.offsetParent !== null) { modal = el; break }
-      }
-      if (modal) break
-      await wait(300)
-    }
-
-    const searchRoot = modal || document.body
-    console.log('[ListSync KA] Such-Root:', modal ? modal.tagName + (modal.getAttribute('role') || '') : 'document.body')
-
-    // ── Schritt 3: Hauptkategorie klicken ────────────────────────────────────
-    const hauptFound = await clickKACategory(hauptkat, searchRoot)
-    if (!hauptFound) {
-      console.warn('[ListSync KA] Hauptkategorie nicht gefunden:', hauptkat)
-      return
-    }
-    await wait(800)
-
-    // ── Schritt 4: Unterkategorie klicken (falls vorhanden) ──────────────────
-    if (unterkat) {
-      // Nach Klick auf Hauptkat erscheinen Unterkategorien – warten
-      await wait(600)
-      const unterFound = await clickKACategory(unterkat, modal || document.body)
-      if (!unterFound) {
-        console.warn('[ListSync KA] Unterkategorie nicht gefunden:', unterkat, '(Hauptkategorie wurde gesetzt)')
-      } else {
-        await wait(600)
-      }
-    }
-
-    console.log('[ListSync KA] ✓ Kategorie gesetzt:', hauptkat, unterkat || '')
-  } catch(e) {
-    console.warn('[ListSync KA] Kategorie-Fehler:', e.message)
-  }
-}
-
-// Sucht und klickt ein Kategorie-Element per Text innerhalb von root
-async function clickKACategory(text, root) {
-  const target = text.toLowerCase().trim()
-
-  const sels = [
-    'li', 'a', 'button', '[role="option"]', '[role="menuitem"]',
-    '[role="listitem"]', 'label', 'span[tabindex]', 'div[tabindex]',
-    '[class*="item"]', '[class*="category"]', '[class*="Category"]',
-  ]
-
-  const candidates = []
-  for (const sel of sels) {
-    for (const el of (root || document).querySelectorAll(sel)) {
-      if (el.offsetParent === null) continue
-      const raw = (el.innerText || el.textContent || '').trim()
-      const firstLine = raw.split('\n')[0].trim()
-      const lower = firstLine.toLowerCase()
-      if (lower === target) { candidates.push({ el, score: 1 }); break }
-      if (lower.startsWith(target)) candidates.push({ el, score: 2 })
-      else if (lower.includes(target) && firstLine.length < text.length + 40) candidates.push({ el, score: 3 })
-    }
-  }
-
-  if (!candidates.length) {
-    // Debug: zeige was sichtbar ist
-    const visible = []
-    for (const el of (root || document).querySelectorAll('li, a, button, [role="option"]')) {
-      if (el.offsetParent !== null) {
-        const t = (el.innerText || el.textContent || '').trim().split('\n')[0].substring(0, 40)
-        if (t) visible.push(t)
-      }
-    }
-    console.log('[ListSync KA] Kein Treffer für "' + text + '". Sichtbare Elemente:', visible.slice(0, 20).join(' | '))
-    return false
-  }
-
-  candidates.sort((a, b) => a.score - b.score)
-  const { el } = candidates[0]
-  console.log('[ListSync KA] Klicke:', el.tagName, '"' + (el.innerText || '').trim().substring(0, 30) + '"')
-  el.click()
-  return true
-}
-
-// ── Zustand auswählen ─────────────────────────────────────────────────────────
-async function selectCondition(listing) {
-  const condition = mapCondition(listing.condition)
-  if (!condition) return
-
-  try {
-    // Zustand-Dropdown oder Radio-Buttons
-    const conditionSelectors = [
-      'select[name*="condition"]',
-      'select[id*="condition"]',
-      'select[name*="zustand"]',
-      '#postad-condition',
-      '[data-testid*="condition"]',
-    ]
-    for (const sel of conditionSelectors) {
-      const el = document.querySelector(sel)
-      if (el && el.tagName === 'SELECT') {
-        const options = [...el.options]
-        const match = options.find(o =>
-          o.text.toLowerCase().includes(condition.toLowerCase()) ||
-          o.value.toLowerCase().includes(condition.toLowerCase())
-        )
-        if (match) {
-          el.value = match.value
-          el.dispatchEvent(new Event('change', { bubbles: true }))
-          console.log('[ListSync KA] ✓ Zustand:', condition)
-          return
-        }
-      }
-    }
-
-    // Radio-Buttons / Checkboxen für Zustand
-    const allLabels = [...document.querySelectorAll('label')]
-    const condLabel = allLabels.find(l => l.textContent.trim().toLowerCase().includes(condition.toLowerCase()))
-    if (condLabel) {
-      const input = condLabel.querySelector('input') || document.getElementById(condLabel.htmlFor)
-      if (input) {
-        input.click()
-        console.log('[ListSync KA] ✓ Zustand (radio):', condition)
-      }
-    }
-  } catch(e) {
-    console.warn('[ListSync KA] Zustand-Fehler:', e.message)
-  }
-}
-
-// ── VB (Verhandelbar) Checkbox setzen ────────────────────────────────────────
-async function setNegotiable() {
-  try {
-    const vbSelectors = [
-      'input[id*="negotiable"]',
-      'input[name*="negotiable"]',
-      'input[id*="priceType"]',
-      '#postad-priceType-negotiable',
-    ]
-    for (const sel of vbSelectors) {
-      const cb = document.querySelector(sel)
-      if (cb && !cb.checked) {
-        cb.click()
-        await wait(200)
-        break
-      }
-    }
-  } catch {}
-}
-
-// ── Versand-Optionen setzen ───────────────────────────────────────────────────
-async function setShipping(listing) {
-  if (!listing.shipping?.length) return
-  try {
-    // DHL / Hermes Checkboxen
-    const shippingMap = {
-      'dhl': ['dhl', 'paket'],
-      'hermes': ['hermes'],
-      'dpd': ['dpd'],
-    }
-    const checkboxes = [...document.querySelectorAll('input[type="checkbox"]')]
-    for (const cb of checkboxes) {
-      const label = document.querySelector(`label[for="${cb.id}"]`)
-      const text = (label?.textContent || '').toLowerCase()
-      for (const ship of listing.shipping) {
-        const keywords = shippingMap[ship.toLowerCase()] || [ship.toLowerCase()]
-        if (keywords.some(k => text.includes(k)) && !cb.checked) {
-          cb.click()
-          await wait(200)
-        }
-      }
-    }
-  } catch {}
-}
-
-// Wartet bis Upload-Thumbnails bei Kleinanzeigen sichtbar sind
-async function waitForKAThumbnails(timeout = 15000) {
-  const sels = [
-    '[data-testid*="photo-thumb"]',
-    '[class*="photo-preview"] img',
-    '[class*="upload-preview"] img',
-    '[class*="thumbnail"] img',
-    'figure img',
-    '[class*="ImagePreview"] img',
-  ]
-  return new Promise(resolve => {
-    const check = () => sels.some(s => {
-      const el = document.querySelector(s)
-      return el && el.getBoundingClientRect().width > 0
-    })
-    if (check()) return resolve(true)
-    const ob = new MutationObserver(() => { if (check()) { ob.disconnect(); resolve(true) } })
-    ob.observe(document.body, { childList: true, subtree: true, attributes: true })
-    setTimeout(() => { ob.disconnect(); resolve(false) }, timeout)
-  })
-}
-
-// Findet und klickt den Submit-Button
-async function submitKAForm() {
-  const sels = [
-    '[data-testid="submit-button"]',
-    '[data-testid="posting-submit-button"]',
-    'button[type="submit"]',
-  ]
-  for (const s of sels) {
-    const el = document.querySelector(s)
-    if (el && el.offsetParent !== null && !el.disabled) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      await wait(500)
-      el.click()
-      return true
-    }
-  }
-  // Fallback: Button mit passendem Text
-  for (const btn of document.querySelectorAll('button')) {
-    if (btn.disabled || btn.offsetParent === null) continue
-    const t = (btn.innerText || btn.textContent || '').trim().toLowerCase()
-    if (t.includes('aufgeben') || t.includes('veröffentlichen') || t.includes('anzeige') || t.includes('weiter')) {
-      btn.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      await wait(500)
-      btn.click()
-      return true
-    }
+    await wait(300)
   }
   return false
 }
 
-// ── Hauptfunktion ─────────────────────────────────────────────────────────────
-async function fill() {
-  const listing = await getListing()
-  if (!listing) return
+// Findet und klickt den "Weiter"-Button (submit oder Text-Match)
+async function clickWeiter() {
+  const candidates = [
+    document.querySelector('button[type="submit"]'),
+    ...[...document.querySelectorAll('button')].filter(b =>
+      isVisible(b) && /weiter|nächste|bestätigen|auswählen/i.test(b.textContent.trim())
+    ),
+  ].filter(Boolean)
+  for (const btn of candidates) {
+    if (isVisible(btn)) { btn.click(); await wait(400); return true }
+  }
+  return false
+}
+
+async function fillStep1(listing) {
   showBanner(listing)
+  const cat = detectCategory(listing)
+  if (!cat) {
+    updateStatus('⚠️ Kein Kategorie-Mapping – bitte manuell wählen')
+    return
+  }
+  console.log('[ListSync KA] Schritt 1 – Path:', cat.path, '| Leaf:', cat.leaf || '(kein)')
 
-  await wait(1500)
+  // Hash-Navigation → KA SPA rendert die Unterkategorie-Liste
+  window.location.hash = `#?path=${cat.path}&isParent=true`
+  await wait(2500) // Länger warten (SPA-Render)
 
-  // Titel (max 70 Zeichen bei Kleinanzeigen)
-  try {
-    const el = await waitForAny([
-      '#postad-title',
-      'input[name="title"]',
-      'input[data-testid*="title"]',
-      'input[data-testid="postAd-title"]',
-      'input[aria-label*="Titel"]',
-      'input[placeholder*="Titel"]',
-      'input[placeholder*="Artikelbezeichnung"]',
-    ])
-    await wait(300)
-    const title = listing.title.substring(0, 70) + (listing.price ? ' (VHB)' : '')
-    fillInput(el, title.substring(0, 70))
-    console.log('[ListSync KA] ✓ Titel:', title)
-  } catch(e) { console.warn('[ListSync KA] Titel-Fehler:', e.message) }
+  // Manchmal springt KA direkt weiter wenn Pfad eindeutig ist
+  if (await clickWeiter()) return
+
+  // Leaf-Kategorie automatisch klicken
+  if (cat.leaf) {
+    updateStatus(`Wähle: ${cat.leaf}…`)
+    const clicked = await clickItemByText(cat.leaf, 6000)
+    if (clicked) {
+      await wait(1200)
+      if (await clickWeiter()) return
+      // Kurz nochmal warten und retry (KA rendert den Weiter-Button nach Auswahl)
+      await wait(1500)
+      if (await clickWeiter()) return
+    }
+  }
+
+  // Letzter Versuch: Weiter-Button nochmals suchen
+  await wait(1000)
+  if (await clickWeiter()) return
+
+  updateStatus(cat.leaf ? `⚠️ Kategorie nicht gefunden – bitte „${cat.leaf}" manuell wählen` : '⚠️ Bitte Kategorie wählen → Weiter')
+}
+
+// ── SCHRITT 2: Formular ausfüllen ─────────────────────────────────────────────
+// Findet ein Element ohne Sichtbarkeits-Check (nur DOM-Existenz)
+async function pollFor(selector, timeout = 8000) {
+  const el = document.querySelector(selector)
+  if (el) return el
+  const deadline = Date.now() + timeout
+  while (Date.now() < deadline) {
+    await wait(250)
+    const el = document.querySelector(selector)
+    if (el) return el
+  }
+  return null
+}
+
+async function fillStep2(listing) {
+  showBanner(listing)
+  updateStatus('Formular wird ausgefüllt…')
+  await wait(2000)
+
+  // ① Titel
+  const titleEl = await pollFor('#ad-title')
+  if (titleEl) { fillInput(titleEl, listing.title.substring(0, 70)); console.log('[ListSync KA] ✓ Titel') }
+  else console.warn('[ListSync KA] Titel nicht gefunden')
+
+  await wait(300)
+
+  // ② Beschreibung — pollFor ohne isVisible-Check (textarea kann initial height=0 haben)
+  if (listing.description) {
+    const descEl = await pollFor('#ad-description')
+    if (descEl) {
+      fillInput(descEl, listing.description)
+      // Sicherstellen dass React/KA den Wert erkennt
+      descEl.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }))
+      descEl.dispatchEvent(new KeyboardEvent('keyup',   { bubbles: true }))
+      console.log('[ListSync KA] ✓ Beschreibung')
+    } else console.warn('[ListSync KA] Beschreibung nicht gefunden')
+  }
+
+  await wait(300)
+
+  // ③ Marke — pollFor (async rendered), dann Autocomplete-Suggestion klicken
+  if (listing.brand) {
+    const brandInp = await pollFor('input[id$=".brand"]', 5000)
+    if (brandInp) {
+      brandInp.focus()
+      fillInput(brandInp, listing.brand)
+      await wait(900)
+      // Erste sichtbare Autocomplete-Suggestion klicken (falls vorhanden)
+      const sug = [...document.querySelectorAll(
+        '[role="option"], [role="listbox"] li, [class*="suggestion"] li, [class*="autocomplete"] li'
+      )].find(el => isVisible(el))
+      if (sug) { sug.click(); await wait(300) }
+      console.log('[ListSync KA] ✓ Marke:', listing.brand)
+    } else console.warn('[ListSync KA] Marke-Input nicht gefunden')
+  }
+
+  await wait(300)
+
+  // ④ Art-Dropdown
+  const cat = detectCategory(listing)
+  if (cat?.leaf) {
+    const artBtn = document.querySelector('button[id$=".art"]')
+    if (artBtn) {
+      const ok = await fillCombobox(artBtn, cat.leaf)
+      console.log('[ListSync KA]', ok ? '✓' : '⚠️', 'Art:', cat.leaf)
+    }
+  }
+
+  // ⑤ Größe — warte bis KA den Button nach Art-Auswahl async rendert
+  if (listing.size) {
+    let groesseBtn = null
+    try { groesseBtn = await waitForAny(['button[id$=".groesse"]'], 4000) } catch {}
+    if (!groesseBtn) groesseBtn = await pollFor('button[id$=".groesse"]', 2000)
+    if (groesseBtn) {
+      groesseBtn.click()
+      await wait(500)
+      const listbox = document.querySelector('[role="listbox"]')
+      if (listbox) {
+        const opts = [...listbox.querySelectorAll('[role="option"]')]
+        const opt = findSizeOption(opts, listing.size)
+        if (opt) { opt.click(); await wait(300); console.log('[ListSync KA] ✓ Größe:', listing.size) }
+        else { document.body.click(); console.warn('[ListSync KA] Größe nicht gefunden:', listing.size) }
+      }
+    } else console.warn('[ListSync KA] Größe-Button nicht gefunden')
+  }
+
+  await wait(200)
+
+  // ⑥ Farbe
+  if (listing.color) {
+    let colorBtn = null
+    try { colorBtn = await waitForAny(['button[id$=".color"]'], 4000) } catch {}
+    if (!colorBtn) colorBtn = await pollFor('button[id$=".color"]', 2000)
+    if (colorBtn) {
+      const ok = await fillCombobox(colorBtn, listing.color)
+      console.log('[ListSync KA]', ok ? '✓' : '⚠️', 'Farbe:', listing.color)
+    } else console.warn('[ListSync KA] Farbe-Button nicht gefunden')
+  }
+
+  await wait(300)
+
+  // ⑦ Zustand
+  const conditionValue = mapConditionValue(listing.condition)
+  await fillZustand(conditionValue)
+
+  await wait(300)
+
+  // ⑧ Versand aktivieren
+  if (listing.shipping?.length) {
+    const yesRadio = document.querySelector('#ad-shipping-enabled-yes')
+    if (yesRadio && !yesRadio.checked) { yesRadio.click(); await wait(200) }
+    console.log('[ListSync KA] ✓ Versand aktiviert')
+  }
+
+  await wait(300)
+
+  // ⑨ Preis — pollFor damit auch nicht-sichtbare Inputs gefunden werden
+  const priceEl = await pollFor('#ad-price-amount')
+  if (priceEl) {
+    fillInput(priceEl, String(Math.round(listing.price)))
+    console.log('[ListSync KA] ✓ Preis:', listing.price)
+  } else console.warn('[ListSync KA] Preis nicht gefunden')
+
+  await wait(300)
+
+  // ⑩ Preistyp → VB
+  await setPriceTypeVB()
 
   await wait(400)
 
-  // Beschreibung
-  try {
-    const el = await waitForAny([
-      '#postad-description',
-      'textarea[name="description"]',
-      'textarea[data-testid*="description"]',
-      'textarea[aria-label*="Beschreibung"]',
-      'textarea[placeholder*="Beschreibung"]',
-    ])
-    await wait(200)
-    let desc = listing.description || ''
-    const extras = []
-    if (listing.brand)     extras.push(`Marke: ${listing.brand}`)
-    if (listing.condition) extras.push(`Zustand: ${listing.condition}`)
-    if (listing.size)      extras.push(`Größe: ${listing.size}`)
-    if (listing.color)     extras.push(`Farbe: ${listing.color}`)
-    if (extras.length) desc = desc + (desc ? '\n\n' : '') + extras.join('\n')
-    fillInput(el, desc)
-    console.log('[ListSync KA] ✓ Beschreibung')
-  } catch(e) { console.warn('[ListSync KA] Beschreibung-Fehler:', e.message) }
-
-  await wait(300)
-
-  // Preis
-  try {
-    const el = await waitForAny([
-      '#postad-price',
-      'input[name="price"]',
-      'input[data-testid*="price"]',
-      'input[aria-label*="Preis"]',
-      'input[placeholder*="Preis"]',
-      'input[type="number"]',
-    ])
-    await wait(200)
-    fillInput(el, String(Math.round(listing.price)))
-    console.log('[ListSync KA] ✓ Preis:', listing.price)
-  } catch(e) { console.warn('[ListSync KA] Preis-Fehler:', e.message) }
-
-  // VB aktivieren
-  await wait(300)
-  await setNegotiable()
-
-  // Kategorie
-  updateBanner('ListSync – Kategorie wird gesetzt…')
-  await wait(500)
-  await selectCategory(listing)
-
-  // Zustand
-  updateBanner('ListSync – Zustand wird gesetzt…')
-  await wait(500)
-  await selectCondition(listing)
-
-  // Versand
-  await wait(300)
-  await setShipping(listing)
-
-  // Bilder
-  updateBanner('ListSync – Bilder werden hochgeladen…')
-  await wait(500)
-  await uploadImages(listing.imageData || [])
-
-  // Warte auf Upload-Thumbnails (max 20s), dann Auto-Submit
-  updateBanner('ListSync – Warte auf Bild-Upload…')
-  const thumbsReady = await waitForKAThumbnails(20000)
-  if (thumbsReady) await wait(1000)
-
-  updateBanner('ListSync – Anzeige wird aufgegeben…')
-  const submitted = await submitKAForm()
-  if (submitted) {
-    updateBanner('ListSync ✅ Anzeige aufgegeben!')
-    if (listing?.id) {
-      chrome.runtime.sendMessage({ type: 'LISTING_POSTED', listingId: listing.id, platform: 'kleinanzeigen' })
-        .catch(() => {})
+  // ⑪ Adresse (nur wenn im Listing gesetzt)
+  if (listing.address) {
+    // KA hat ein Adress-Autocomplete: input[id*="address"], input[placeholder*="PLZ"]
+    const addrEl = await pollFor('#ad-address, input[id*="address"], input[placeholder*="PLZ"], input[placeholder*="Ort"]', 3000)
+    if (addrEl) {
+      fillInput(addrEl, listing.address)
+      await wait(600)
+      // Erstes Autocomplete-Ergebnis klicken
+      const suggestion = document.querySelector('[role="option"], [class*="suggestion"], [class*="autocomplete"] li')
+      if (suggestion && isVisible(suggestion)) { suggestion.click(); await wait(300) }
+      console.log('[ListSync KA] ✓ Adresse:', listing.address)
     }
-  } else {
-    updateBanner('ListSync ✅ Fertig – bitte prüfen & absenden')
-    console.warn('[ListSync KA] Submit-Button nicht gefunden – bitte manuell absenden')
   }
 
+  await wait(400)
+
+  // ⑫ Bilder – warte auf imageData vom Background-Loader
+  updateStatus('Bilder werden hochgeladen…')
+  let imgData = listing.imageData || []
+  if (!imgData.length) {
+    for (let i = 0; i < 25; i++) {
+      await wait(800)
+      const fresh = await getListing()
+      if (fresh?.imageData?.length) { imgData = fresh.imageData; break }
+    }
+  }
+  if (imgData.length) {
+    await uploadImages(imgData)
+    await wait(1500)
+  } else {
+    console.warn('[ListSync KA] Keine Bilder – imageData leer nach 20s')
+  }
+
+  updateStatus('✅ Fertig – bitte prüfen & Anzeige aufgeben', true)
   await chrome.storage.local.remove('pendingListing')
-  console.log('[ListSync KA] ✅ Alles ausgefüllt')
+  if (listing?.id) {
+    chrome.runtime.sendMessage({ type: 'LISTING_POSTED', listingId: listing.id, platform: 'kleinanzeigen' })
+      .catch(() => {})
+  }
+}
+
+// ── Entry Point ───────────────────────────────────────────────────────────────
+async function init() {
+  const listing = await getListing()
+  if (!listing) return
+
+  const href = window.location.href
+  if (href.includes('schritt2') || href.includes('step2') || href.includes('-schritt2')) {
+    setTimeout(() => fillStep2(listing), 1500)
+  } else {
+    setTimeout(() => fillStep1(listing), 1500)
+  }
 }
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => setTimeout(fill, 1500))
+  document.addEventListener('DOMContentLoaded', init)
 } else {
-  setTimeout(fill, 1500)
+  init()
 }

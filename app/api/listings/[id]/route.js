@@ -46,7 +46,7 @@ export async function PATCH(req, { params }) {
   if (data.description!== undefined) update.description= data.description
   if (data.shipping   !== undefined) update.shipping   = JSON.stringify(data.shipping)
   if (data.shipSize   !== undefined) update.shipSize   = data.shipSize
-  // Note: material is intentionally excluded here and handled via raw SQL below
+  // Note: material/stil/beinform/taillenumfang are excluded here and handled via raw SQL below
 
   // addPlatform: fügt eine Platform zum bestehenden platforms-Array hinzu (von Extension gesendet)
   if (data.addPlatform !== undefined) {
@@ -61,17 +61,31 @@ export async function PATCH(req, { params }) {
     data: update,
   })
 
-  // Update material via raw SQL (bypasses stale Prisma client validation)
-  if (data.material !== undefined) {
-    await prisma.$executeRaw`UPDATE "Listing" SET material = ${data.material} WHERE id = ${Number(params.id)}`
+  // Update new fields via raw SQL (bypasses stale Prisma client validation)
+  const rawUpdates = []
+  const rawArgs    = []
+  if (data.material      !== undefined) { rawUpdates.push('material');      rawArgs.push(data.material) }
+  if (data.stil          !== undefined) { rawUpdates.push('stil');          rawArgs.push(data.stil) }
+  if (data.beinform      !== undefined) { rawUpdates.push('beinform');      rawArgs.push(data.beinform) }
+  if (data.taillenumfang !== undefined) { rawUpdates.push('taillenumfang'); rawArgs.push(data.taillenumfang) }
+
+  if (rawUpdates.length) {
+    const setParts = rawUpdates.map(f => `${f} = ?`).join(', ')
+    await prisma.$executeRawUnsafe(
+      `UPDATE "Listing" SET ${setParts} WHERE id = ?`,
+      ...rawArgs, Number(params.id)
+    )
   }
 
   return NextResponse.json({
     ...listing,
-    platforms: JSON.parse(listing.platforms),
-    images:    JSON.parse(listing.images || '[]'),
-    shipping:  JSON.parse(listing.shipping || '[]'),
-    material:  data.material !== undefined ? data.material : (existing.material || ''),
+    platforms:     JSON.parse(listing.platforms),
+    images:        JSON.parse(listing.images || '[]'),
+    shipping:      JSON.parse(listing.shipping || '[]'),
+    material:      data.material      !== undefined ? data.material      : (existing.material      || ''),
+    stil:          data.stil          !== undefined ? data.stil          : (existing.stil          || ''),
+    beinform:      data.beinform      !== undefined ? data.beinform      : (existing.beinform      || ''),
+    taillenumfang: data.taillenumfang !== undefined ? data.taillenumfang : (existing.taillenumfang || ''),
   })
 }
 

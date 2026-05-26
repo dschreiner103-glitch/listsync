@@ -38,15 +38,16 @@ function getCategoryId(category) {
 }
 
 // Zustand-Mapping → eBay conditionId
+// Confirmed live: 1000=Neu mit Etikett, 1500=Neu ohne Etikett, 1750=Neu mit Mängeln,
+//                 2990=Gebraucht - Hervorragend, 3000=Gebraucht - Gut, 3010=Gebraucht - Akzeptabel
 function getConditionId(condition) {
   if (!condition) return null
   const c = condition.toLowerCase()
-  if (c.includes('neu mit etikett'))    return '1000'  // Neu mit Etikett
-  if (c.includes('neu ohne etikett'))   return '1500'  // Neu ohne Etikett
-  if (c.includes('nie getragen'))       return '1500'
-  if (c.includes('sehr gut'))           return '2750'  // Sehr gut
-  if (c.includes('gut'))                return '3000'  // Gut
-  if (c.includes('akzeptabel'))         return '5000'  // Akzeptabel
+  if (c.includes('neu mit etikett'))                               return '1000'
+  if (c.includes('neu ohne etikett') || c.includes('nie getragen')) return '1500'
+  if (c.includes('sehr gut') || c.includes('hervorragend'))        return '2990'
+  if (c.includes('befriedigend') || c.includes('akzeptabel'))      return '3010'
+  if (c.includes('gut'))                                            return '3000'
   return null
 }
 
@@ -389,22 +390,32 @@ async function fillLstng() {
 
   await wait(400)
 
-  // 2. ZUSTAND — Buttons "Neu" / "Gebraucht"
+  // 2. ZUSTAND — "..." öffnet Zustand-Dialog mit Radios nach value
+  // Confirmed: click "..." → input[value=condId] → click "Fertig"
   try {
-    const cond = (listing.condition || '').toLowerCase()
-    const isNew = cond.includes('neu') || cond.includes('etikett')
-    const targetText = isNew ? 'Neu' : 'Gebraucht'
-
-    // Suche Button mit exaktem Text
-    const allBtns = Array.from(document.querySelectorAll('button, [role="button"], [role="radio"]'))
-    const condBtn = allBtns.find(b => b.textContent.trim() === targetText)
-    if (condBtn) {
-      condBtn.click()
-      console.log('[ListSync eBay lstng] ✓ Zustand:', targetText)
-    } else {
-      // Fallback: "Gebraucht" als sicherer Standard
-      const gebraucht = allBtns.find(b => b.textContent.trim() === 'Gebraucht')
-      if (gebraucht) gebraucht.click()
+    const condId = getConditionId(listing.condition)
+    if (condId) {
+      // Try direct quick-select first (Neu mit Etikett=1000, Gebraucht - Gut=3000)
+      const directLabel = condId === '1000' ? 'Neu mit Etikett' : condId === '3000' ? 'Gebraucht - Gut' : null
+      const allBtns = Array.from(document.querySelectorAll('button'))
+      let condSet = false
+      if (directLabel) {
+        const directBtn = allBtns.find(b => b.offsetParent && b.textContent.trim() === directLabel)
+        if (directBtn) { directBtn.click(); condSet = true; console.log('[ListSync eBay] ✓ Zustand (direkt):', directLabel) }
+      }
+      if (!condSet) {
+        // Open "..." dialog
+        const moreBtn = allBtns.find(b => b.offsetParent && b.textContent.trim() === '...')
+        if (moreBtn) {
+          moreBtn.click()
+          await wait(600)
+          const radio = document.querySelector(`input[value="${condId}"]`)
+          if (radio) { radio.click(); await wait(200) }
+          const fertig = Array.from(document.querySelectorAll('button')).find(b => b.offsetParent && b.textContent.trim() === 'Fertig')
+          if (fertig) { fertig.click(); await wait(400) }
+          console.log('[ListSync eBay] ✓ Zustand (dialog):', condId)
+        }
+      }
     }
   } catch(e) { console.warn('[ListSync eBay lstng] Zustand-Fehler:', e.message) }
 
@@ -477,21 +488,42 @@ async function fillLstng() {
   async function fillAspect(labelText, value) {
     if (!value) return false
     try {
-      // Label finden — kein Visibility-Check (Sektion wird vorher gescrollt)
-      const label = Array.from(document.querySelectorAll('a, span, label, div, td, th, p, li'))
-        .filter(el => el.textContent.trim() === labelText)
-        .sort((a, b) => a.textContent.length - b.textContent.length)[0]
-      if (!label) { console.warn('[ListSync] Label nicht gefunden:', labelText); return false }
-
-      // Dropdown-Button suchen: gehe schrittweise nach oben bis Button gefunden
+      // eBay /lstng Struktur:
+      //   div[class*="attributes--field"]
+      //     ├─ div[class*="attributes--label"]  ← enthält Label-Text (+ Tooltip)
+      //     └─ div[class*="attributes--value"]
+      //          └─ button[class*="fake-menu-button"]  ← Dropdown-Trigger
+      // WICHTIG: Der Button ist im SIBLING, nicht im Ancestor-Pfad!
       let dropBtn = null
-      let node = label.parentElement
-      for (let i = 0; i < 8 && node; i++) {
-        const btns = node.querySelectorAll('button, [role="button"], [role="combobox"], [tabindex="0"]')
-        const candidates = Array.from(btns).filter(b => b !== label && b.offsetParent !== null)
-        if (candidates.length) { dropBtn = candidates[candidates.length - 1]; break }
-        node = node.parentElement
+
+      // Strategie 1 (primär): Row per CSS-Klasse finden → Button im Sibling
+      // Kein label-Variable nötig — direkt über Row-Struktur!
+      const allRows = Array.from(document.querySelectorAll('[class*="attributes--field"]'))
+      const attrRow = allRows.find(r => {
+        const lbl = r.querySelector('[class*="attributes--label"]')
+        return lbl && lbl.textContent.trim().startsWith(labelText)
+      })
+      if (attrRow) {
+        dropBtn = attrRow.querySelector('button[class*="fake-menu-button"], button[class*="expand-button"], button[class*="se-expand"]')
+                  || attrRow.querySelector('button')
       }
+
+      // Strategie 2 (Fallback): positionsbasiert — Element rechts neben dem Label
+      if (!dropBtn) {
+        const labelEl = Array.from(document.querySelectorAll('a, span, label, div, td, th, p, li, button'))
+          .find(el => el.textContent.trim() === labelText)
+        if (labelEl) {
+          const labelRect = labelEl.getBoundingClientRect()
+          dropBtn = Array.from(document.querySelectorAll('button, [role="button"], [role="combobox"]'))
+            .find(el => {
+              if (el === labelEl) return false
+              const r = el.getBoundingClientRect()
+              return r.width > 80 && r.left > labelRect.right - 20
+                     && Math.abs((r.top + r.height / 2) - (labelRect.top + labelRect.height / 2)) < 30
+            })
+        }
+      }
+
       if (!dropBtn) { console.warn('[ListSync] Button nicht gefunden für:', labelText); return false }
 
       console.log('[ListSync] Klicke Dropdown für:', labelText)
@@ -524,21 +556,24 @@ async function fillLstng() {
       }
       await wait(800) // Warten bis Dropdown-Liste sich aktualisiert
 
-      // Optionen suchen — können div/span/li sein
+      // Optionen suchen — eBay nutzt role="menuitemradio" in div.menu__item
       const findOpts = () => Array.from(document.querySelectorAll(
-        '[role="option"], li, [class*="option"], [class*="item"], [class*="suggest"]'
+        '[role="menuitemradio"], [role="option"], .menu__item, [class*="menu__item"], li, [class*="option"], [class*="suggest"]'
       )).filter(el => el.offsetParent !== null && el.textContent.trim().length > 0)
 
       let opts = findOpts()
-      if (!opts.length) { await wait(500); opts = findOpts() } // nochmal warten
+      if (!opts.length) { await wait(600); opts = findOpts() } // nochmal warten
 
       const match = opts.find(el => el.textContent.trim().toLowerCase() === value.toLowerCase())
                || opts.find(el => el.textContent.trim().toLowerCase().includes(value.toLowerCase()))
 
       if (match) {
+        // eBay benötigt mousedown + mouseup + click für die Auswahl
+        match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
+        match.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }))
         match.click()
         console.log('[ListSync eBay lstng] ✓', labelText, '→', match.textContent.trim())
-        await wait(400)
+        await wait(500)
         return true
       }
 
@@ -561,8 +596,12 @@ async function fillLstng() {
     await wait(800)
   }
 
-  if (listing.brand) { await fillAspect('Marke', listing.brand) }
-  if (listing.color) { await fillAspect('Farbe', listing.color) }
+  if (listing.brand)         { await fillAspect('Marke',         listing.brand) }
+  if (listing.size)          { await fillAspect('Größe',         listing.size) }
+  if (listing.color)         { await fillAspect('Farbe',         listing.color) }
+  if (listing.stil)          { await fillAspect('Stil',          listing.stil) }
+  if (listing.beinform)      { await fillAspect('Beinform',      listing.beinform) }
+  if (listing.taillenumfang) { await fillAspect('Taillenumfang', listing.taillenumfang) }
 
   await wait(300)
 
