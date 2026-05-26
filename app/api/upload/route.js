@@ -10,7 +10,7 @@ export async function POST(req) {
 
     // Token-Request vom @vercel/blob Client SDK (JSON body)
     if (contentType.includes('application/json')) {
-      const { handleUpload } = await import('@vercel/blob/next')
+      const { handleUpload } = await import('@vercel/blob/client')
       const body = await req.json()
       try {
         const jsonResponse = await handleUpload({
