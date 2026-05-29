@@ -27,6 +27,12 @@ window.addEventListener('message', (event) => {
   if (event.source !== window) return
   if (!event.data) return
 
+  // Ping: Seite fragt ob Extension aktiv ist → sofort mit PONG antworten
+  if (event.data.type === 'LISTSYNC_PING') {
+    window.postMessage({ type: 'LISTSYNC_PONG' }, '*')
+    return
+  }
+
   // Crosspost-Befehl
   if (event.data.type === 'LISTSYNC_POST') {
     console.log('[ListSync Bridge] Sende an Background:', event.data.listing?.title)

@@ -46,18 +46,47 @@ export default function Listings() {
       sessionStorage.removeItem('ls_just_created')
       setTimeout(() => showToast(`✅ "${justCreated}" erstellt!`), 400)
     }
-    // Check extension via DOM attribute (set by content script in isolated world)
+    // Extension-Erkennung: DOM-Attribut (sofort) + Ping/Pong (zuverlässig)
     if (typeof window !== 'undefined') {
-      const detect = () => setExtStatus(document.documentElement.getAttribute('data-listsync-extension') === '1')
-      window.addEventListener('LISTSYNC_EXTENSION_READY', detect, { once: true })
-      setTimeout(detect, 1500)
+      // Sofort prüfen – Attribut wird beim Tab-Load gesetzt
+      if (document.documentElement.getAttribute('data-listsync-extension') === '1') {
+        setExtStatus(true)
+      }
+      // Event-Listener für späten Bridge-Start
+      window.addEventListener('LISTSYNC_EXTENSION_READY', () => setExtStatus(true), { once: true })
+      // Ping/Pong-Fallback: funktioniert auch wenn Event bereits gefeuert hat
+      const pongHandler = (e) => {
+        if (e.source === window && e.data?.type === 'LISTSYNC_PONG') {
+          setExtStatus(true)
+          window.removeEventListener('message', pongHandler)
+        }
+      }
+      window.addEventListener('message', pongHandler)
+      window.postMessage({ type: 'LISTSYNC_PING' }, '*')
+      // Nach 2s ohne Antwort → Extension nicht aktiv
+      setTimeout(() => {
+        window.removeEventListener('message', pongHandler)
+        setExtStatus(prev => prev === null ? false : prev)
+      }, 2000)
     }
   }, [])
 
-  const hasExtension = () => {
-    if (typeof window === 'undefined') return false
-    return document.documentElement.getAttribute('data-listsync-extension') === '1'
-  }
+  // Async Extension-Check beim Klick (Ping/Pong, wartet max 600ms)
+  const checkExtension = () => new Promise(resolve => {
+    if (typeof window === 'undefined') return resolve(false)
+    // Sofort true wenn Attribut oder Status gesetzt
+    if (document.documentElement.getAttribute('data-listsync-extension') === '1') return resolve(true)
+    let done = false
+    const handler = (e) => {
+      if (e.source !== window || e.data?.type !== 'LISTSYNC_PONG') return
+      if (!done) { done = true; window.removeEventListener('message', handler); resolve(true) }
+    }
+    window.addEventListener('message', handler)
+    window.postMessage({ type: 'LISTSYNC_PING' }, '*')
+    setTimeout(() => {
+      if (!done) { done = true; window.removeEventListener('message', handler); resolve(false) }
+    }, 600)
+  })
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
@@ -82,7 +111,7 @@ export default function Listings() {
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
     setModal(null)
     if (extPlatforms.length > 0 && listing) {
-      if (hasExtension()) {
+      if (await checkExtension()) {
         window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
         showToast(`Relisten auf ${extPlatforms.join(' & ')}…`)
       } else {
@@ -165,7 +194,7 @@ export default function Listings() {
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
     setModal(null)
     if (extPlatforms.length > 0 && listing) {
-      if (hasExtension()) {
+      if (await checkExtension()) {
         window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
         showToast(`Öffne ${extPlatforms.join(' & ')}…`)
       } else {

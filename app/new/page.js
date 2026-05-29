@@ -77,10 +77,20 @@ export default function NewListing() {
       if(res.ok) {
         const created = await res.json().catch(() => null)
         const extPlatforms = form.platforms.filter(p => ['vinted','kleinanzeigen','ebay'].includes(p))
-        // DOM-Attribut prüfen (von Content Script gesetzt, CSP-sicher)
-        const hasExtension = document.documentElement.getAttribute('data-listsync-extension') === '1'
         if (extPlatforms.length > 0 && created) {
-          if (hasExtension) {
+          // Ping/Pong: Extension wirklich aktiv? (zuverlässiger als DOM-Attribut)
+          const extAvail = await new Promise(resolve => {
+            if (document.documentElement.getAttribute('data-listsync-extension') === '1') return resolve(true)
+            let done = false
+            const handler = (e) => {
+              if (e.source !== window || e.data?.type !== 'LISTSYNC_PONG') return
+              if (!done) { done = true; window.removeEventListener('message', handler); resolve(true) }
+            }
+            window.addEventListener('message', handler)
+            window.postMessage({ type: 'LISTSYNC_PING' }, '*')
+            setTimeout(() => { if (!done) { done = true; window.removeEventListener('message', handler); resolve(false) } }, 600)
+          })
+          if (extAvail) {
             window.postMessage({ type: 'LISTSYNC_POST', listing: { ...created, images: imgs.map(i=>i.url) }, platforms: extPlatforms }, '*')
           } else {
             setMobileHelper({ listing: { ...created, images: imgs.map(i=>i.url) }, platforms: extPlatforms })

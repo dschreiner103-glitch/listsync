@@ -76,8 +76,60 @@ const CATEGORY_PATH = {
   'Sonstiges':           '228',
 }
 
+// ── App-Kategorie-String → KA-Leaf-Name ──────────────────────────────────────
+// Wenn Keyword-Matching fehlschlägt, wird der letzte Teil des Kategorie-Strings
+// direkt auf den KA-Leaf-Namen gemappt (z.B. "Pullover & Strickpullover" → "Pullover")
+const CAT_TO_KA_LEAF = {
+  // Damen Kleidung
+  'Hosen':                        'Hosen',
+  'Hosen & Jeans':                'Hosen',
+  'Jeans':                        'Jeans',
+  'Pullover':                     'Pullover',
+  'Pullover & Strickpullover':    'Pullover',
+  'Pullover & Sweater':           'Pullover',
+  'Pullover & Strickjacken':      'Pullover',
+  'Jacken & Mäntel':              'Jacken & Mäntel',
+  'Kleider':                      'Röcke & Kleider',
+  'Röcke':                        'Röcke & Kleider',
+  'Röcke & Kleider':              'Röcke & Kleider',
+  'Shirts & Tops':                'Shirts & Tops',
+  'Tops & T-Shirts':              'Shirts & Tops',
+  'Tops':                         'Shirts & Tops',
+  'Shorts':                       'Shorts',
+  'Sportbekleidung':              'Sportbekleidung',
+  'Sportkleidung':                'Sportbekleidung',
+  'Bademode':                     'Bademode',
+  'Unterwäsche & Socken':         'Weitere Damenbekleidung',
+  'Unterwäsche':                  'Weitere Damenbekleidung',
+  'Blazer & Anzüge':              'Weitere Damenbekleidung',
+  'Overall':                      'Weitere Damenbekleidung',
+  // Damen Schuhe
+  'Sneaker':                      'Sneaker',
+  'Stiefel & Stiefeletten':       'Stiefel & Stiefeletten',
+  'Stiefel':                      'Stiefel & Stiefeletten',
+  'Ballerinas':                   'Ballerinas',
+  'Pumps':                        'Pumps',
+  'Sandalen & Flip-Flops':        'Sandalen & Flip-Flops',
+  'Sandalen':                     'Sandalen & Flip-Flops',
+  // Damen Taschen
+  'Handtaschen':                  'Handtaschen',
+  'Rucksäcke':                    'Rucksäcke',
+  'Geldbörsen':                   'Geldbörsen',
+  // Herren Kleidung
+  'Shirts & Hemden':              'Shirts & Hemden',
+  'Hemden':                       'Shirts & Hemden',
+  'Hosen & Chinos':               'Hosen & Chinos',
+  'Chinos':                       'Hosen & Chinos',
+  'Anzüge & Sakkos':              'Anzüge & Sakkos',
+  'Anzüge & Blazer':              'Anzüge & Sakkos',
+  'Sakkos':                       'Anzüge & Sakkos',
+  // Herren Schuhe
+  'Stiefel (Herren)':             'Stiefel',
+}
+
 function detectCategory(listing) {
   const text = ((listing.title || '') + ' ' + (listing.description || '')).toLowerCase()
+  // 1. Keyword-Matching aus Titel/Beschreibung
   for (const entry of KEYWORD_CATEGORIES) {
     for (const kw of entry.kw) {
       if (text.includes(kw)) {
@@ -86,10 +138,27 @@ function detectCategory(listing) {
       }
     }
   }
+  // 2. Kategorie-String direkt mappen
   const cat = listing.category || ''
-  const keys = Object.keys(CATEGORY_PATH).sort((a, b) => b.length - a.length)
-  for (const key of keys) {
-    if (cat.startsWith(key)) return { path: CATEGORY_PATH[key], leaf: null }
+  const pathKeys = Object.keys(CATEGORY_PATH).sort((a, b) => b.length - a.length)
+  for (const key of pathKeys) {
+    if (!cat.startsWith(key)) continue
+    const path = CATEGORY_PATH[key]
+    // Leaf aus dem Teil nach dem gematchten Key extrahieren
+    const rest = cat.slice(key.length).replace(/^\s*–\s*/, '').trim()
+    if (rest) {
+      // Direktes Mapping (z.B. "Pullover & Strickpullover" → "Pullover")
+      const mapped = CAT_TO_KA_LEAF[rest]
+      if (mapped) {
+        console.log(`[ListSync KA] Kategorie-Map: "${rest}" → "${mapped}"`)
+        return { path, leaf: mapped }
+      }
+      // Fallback: Rest-String direkt als Leaf versuchen (clickItemByText hat Partial-Match)
+      const leafPart = rest.split(' – ').pop().trim()
+      console.log(`[ListSync KA] Kategorie-Fallback-Leaf: "${leafPart}"`)
+      return { path, leaf: leafPart || null }
+    }
+    return { path, leaf: null }
   }
   return null
 }
