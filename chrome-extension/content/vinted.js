@@ -1412,7 +1412,7 @@ async function fill() {
 // ── Bilder injizieren ─────────────────────────────────────────────────────────
 async function injectImages() {
   const { pendingListing } = await new Promise(r => chrome.storage.local.get('pendingListing', r))
-  const imageData = pendingListing?.imageData
+  let imageData = pendingListing?.imageData
 
   // Polling: Background lädt Bilder async – warten bis sie da sind (max 20s)
   if (!imageData?.length) {
