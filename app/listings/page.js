@@ -46,18 +46,17 @@ export default function Listings() {
       sessionStorage.removeItem('ls_just_created')
       setTimeout(() => showToast(`✅ "${justCreated}" erstellt!`), 400)
     }
-    // Check extension after a short delay (bridge fires LISTSYNC_EXTENSION_READY)
-    const check = () => setExtStatus(!!window.__LISTSYNC_EXTENSION__)
+    // Check extension via DOM attribute (set by content script in isolated world)
     if (typeof window !== 'undefined') {
-      window.addEventListener('LISTSYNC_EXTENSION_READY', () => setExtStatus(true), { once: true })
-      setTimeout(() => setExtStatus(!!window.__LISTSYNC_EXTENSION__), 2500)
+      const detect = () => setExtStatus(document.documentElement.getAttribute('data-listsync-extension') === '1')
+      window.addEventListener('LISTSYNC_EXTENSION_READY', detect, { once: true })
+      setTimeout(detect, 1500)
     }
   }, [])
 
-  // Extension detection: bridge sets window.__LISTSYNC_EXTENSION__ = true
   const hasExtension = () => {
     if (typeof window === 'undefined') return false
-    return !!window.__LISTSYNC_EXTENSION__
+    return document.documentElement.getAttribute('data-listsync-extension') === '1'
   }
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
