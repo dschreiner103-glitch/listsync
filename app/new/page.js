@@ -77,7 +77,13 @@ export default function NewListing() {
       if(res.ok) {
         const created = await res.json().catch(() => null)
         const extPlatforms = form.platforms.filter(p => ['vinted','kleinanzeigen','ebay'].includes(p))
-        const hasExtension = typeof window !== 'undefined' && !!window.__LISTSYNC_EXTENSION__
+        // Warte kurz auf Extension-Flag (Content Script setzt es async via Script-Tag)
+        const hasExtension = await new Promise(resolve => {
+          if (window.__LISTSYNC_EXTENSION__) return resolve(true)
+          const onReady = () => { clearTimeout(t); resolve(true) }
+          window.addEventListener('LISTSYNC_EXTENSION_READY', onReady, { once: true })
+          const t = setTimeout(() => { window.removeEventListener('LISTSYNC_EXTENSION_READY', onReady); resolve(false) }, 800)
+        })
         if (extPlatforms.length > 0 && created) {
           if (hasExtension) {
             window.postMessage({ type: 'LISTSYNC_POST', listing: { ...created, images: imgs.map(i=>i.url) }, platforms: extPlatforms }, '*')

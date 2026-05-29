@@ -1,9 +1,16 @@
 // Läuft auf localhost:3000 / Vercel – verbindet ListSync mit der Extension
 
-window.__LISTSYNC_EXTENSION__ = true
-window.dispatchEvent(new CustomEvent('LISTSYNC_EXTENSION_READY'))
-setTimeout(() => window.dispatchEvent(new CustomEvent('LISTSYNC_EXTENSION_READY')), 600)
-setTimeout(() => window.dispatchEvent(new CustomEvent('LISTSYNC_EXTENSION_READY')), 2000)
+// Content Scripts laufen in ISOLATED world – die React-App (MAIN world) sieht
+// window-Variablen aus der isolated world NICHT. Deshalb per Script-Tag injizieren:
+;(function injectMainWorldFlag() {
+  const s = document.createElement('script')
+  s.textContent = [
+    'window.__LISTSYNC_EXTENSION__ = true;',
+    'window.dispatchEvent(new CustomEvent("LISTSYNC_EXTENSION_READY"));',
+  ].join('\n')
+  ;(document.head || document.documentElement).appendChild(s)
+  s.remove()
+})()
 
 // Service Worker aufwecken (MV3 schläft nach Inaktivität)
 function wakeAndSend(msg, retries = 3) {
