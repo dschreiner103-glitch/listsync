@@ -408,27 +408,25 @@ async function fillStep1(listing) {
   window.location.hash = `#?path=${cat.path}&isParent=true`
   await wait(2500) // Länger warten (SPA-Render)
 
-  // Manchmal springt KA direkt weiter wenn Pfad eindeutig ist
-  if (await clickWeiter()) return
-
-  // Leaf-Kategorie automatisch klicken
+  // Leaf-Kategorie automatisch klicken (ERST dann Weiter – niemals vorher!)
   if (cat.leaf) {
     updateStatus(`Wähle: ${cat.leaf}…`)
     const clicked = await clickItemByText(cat.leaf, 6000)
     if (clicked) {
       await wait(1200)
       if (await clickWeiter()) return
-      // Kurz nochmal warten und retry (KA rendert den Weiter-Button nach Auswahl)
       await wait(1500)
       if (await clickWeiter()) return
+    } else {
+      updateStatus(`⚠️ Kategorie „${cat.leaf}" nicht gefunden – bitte manuell wählen`)
+      return
     }
+  } else {
+    // Kein Leaf → Hash-Pfad reichte, direkt Weiter klicken
+    await wait(500)
+    if (await clickWeiter()) return
+    updateStatus('⚠️ Bitte Kategorie wählen → Weiter')
   }
-
-  // Letzter Versuch: Weiter-Button nochmals suchen
-  await wait(1000)
-  if (await clickWeiter()) return
-
-  updateStatus(cat.leaf ? `⚠️ Kategorie nicht gefunden – bitte „${cat.leaf}" manuell wählen` : '⚠️ Bitte Kategorie wählen → Weiter')
 }
 
 // ── SCHRITT 2: Formular ausfüllen ─────────────────────────────────────────────

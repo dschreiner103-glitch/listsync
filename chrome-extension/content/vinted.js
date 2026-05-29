@@ -1323,10 +1323,28 @@ async function fill() {
     await wait(600)
   }
 
-  // Marke – data-testid: brand-select-dropdown-input (öffnet Autocomplete-Panel)
+  // Marke – mehrere testid-Varianten (Vinted ändert sie gelegentlich)
   if (listing.brand) {
     setStatus('Marke wird gesetzt…')
-    await clickVintedField('brand-select-dropdown-input', listing.brand, 'Marke', { autocomplete: true })
+    const brandTestids = [
+      'brand-select-dropdown-input',
+      'item-brand-dropdown-input',
+      'brand-dropdown-input',
+      'brand-input',
+      'catalog-brand-input',
+    ]
+    let brandOk = false
+    for (const tid of brandTestids) {
+      const el = document.querySelector(`[data-testid="${tid}"]`)
+      if (el && el.offsetParent !== null) {
+        brandOk = await clickVintedField(tid, listing.brand, 'Marke', { autocomplete: true })
+        if (brandOk) break
+      }
+    }
+    if (!brandOk) {
+      // Fallback: readonly input in der Nähe eines "Marke"-Labels
+      await clickVintedFieldByLabel(['Marke', 'Brand', 'Marke wählen'], listing.brand, 'Marke')
+    }
     await wait(700)
   }
 
@@ -1396,7 +1414,15 @@ async function injectImages() {
   const { pendingListing } = await new Promise(r => chrome.storage.local.get('pendingListing', r))
   const imageData = pendingListing?.imageData
 
-  // ── DIAGNOSE (console.warn damit immer sichtbar) ──────────────────────────
+  // Polling: Background lädt Bilder async – warten bis sie da sind (max 20s)
+  if (!imageData?.length) {
+    console.warn('[ListSync] imageData leer – warte auf Background-Loader…')
+    for (let i = 0; i < 25; i++) {
+      await wait(800)
+      const fresh = await new Promise(r => chrome.storage.local.get('pendingListing', d => r(d.pendingListing || null)))
+      if (fresh?.imageData?.length) { imageData = fresh.imageData; break }
+    }
+  }
   console.warn('[ListSync] injectImages – imageData:', imageData?.length ?? 'LEER/NULL', 'Bilder')
   if (!imageData?.length) {
     console.warn('[ListSync] ❌ imageData leer – Bilder wurden nicht geladen (background.js)')
