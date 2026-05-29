@@ -133,7 +133,8 @@ function waitForAny(selectors, timeout = 12000) {
       const found = find()
       if (found) { ob.disconnect(); clearTimeout(tid); resolve(found) }
     })
-    ob.observe(document.body, { childList: true, subtree: true })
+    // attributes:true fängt CSS-Klassen-/Style-Änderungen die z.B. "display:none" → sichtbar machen
+    ob.observe(document.body, { childList: true, subtree: true, attributes: true })
     const tid = setTimeout(() => { ob.disconnect(); reject(new Error('Timeout: ' + selectors[0])) }, timeout)
   })
 }
@@ -355,24 +356,33 @@ async function clickItemByText(targetText, timeout = 6000) {
   // Schlüsselwörter aus leaf (> 3 Zeichen) für Partial-Match
   const keywords = target.split(/[\s&,/]+/).filter(w => w.length > 3)
   const deadline = Date.now() + timeout
+
+  const tryClick = async (el) => {
+    // In Sicht scrollen (wichtig falls Element off-screen → 0-Dimensionen)
+    el.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    await wait(150)
+    // Vollständige Maus-Event-Sequenz für React/SPA-Frameworks
+    el.dispatchEvent(new MouseEvent('mouseover',  { bubbles: true }))
+    el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }))
+    el.dispatchEvent(new MouseEvent('mousedown',  { bubbles: true, cancelable: true }))
+    el.dispatchEvent(new MouseEvent('mouseup',    { bubbles: true, cancelable: true }))
+    el.dispatchEvent(new MouseEvent('click',      { bubbles: true, cancelable: true }))
+    await wait(300)
+    return true
+  }
+
   while (Date.now() < deadline) {
     for (const sel of ['a', 'button', '[role="option"]', '[role="menuitem"]', 'li', 'span', 'label']) {
       for (const el of document.querySelectorAll(sel)) {
         if (!isVisible(el)) continue
         const txt = el.textContent.trim().toLowerCase()
-        // Pass 1: Exakter Match
+        // Pass 1: Exakter Match oder starts-with
         if (txt === target || txt.startsWith(target + ' ') || txt.startsWith(target + ' ›')) {
-          el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
-          el.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }))
-          await wait(300)
-          return true
+          return await tryClick(el)
         }
         // Pass 2: Alle Keywords enthalten (z.B. "Hosen" matcht "Hosen & Shorts")
         if (keywords.length && keywords.every(kw => txt.includes(kw))) {
-          el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
-          el.dispatchEvent(new MouseEvent('click',     { bubbles: true, cancelable: true }))
-          await wait(300)
-          return true
+          return await tryClick(el)
         }
       }
     }
@@ -384,13 +394,21 @@ async function clickItemByText(targetText, timeout = 6000) {
 // Findet und klickt den "Weiter"-Button (submit oder Text-Match)
 async function clickWeiter() {
   const candidates = [
-    document.querySelector('button[type="submit"]'),
-    ...[...document.querySelectorAll('button')].filter(b =>
-      isVisible(b) && /weiter|nächste|bestätigen|auswählen/i.test(b.textContent.trim())
+    // Alle submit-Buttons (nicht nur den ersten)
+    ...document.querySelectorAll('button[type="submit"]'),
+    ...document.querySelectorAll('input[type="submit"]'),
+    // Text-basiert: Weiter, Fortfahren, etc.
+    ...[...document.querySelectorAll('button, a[role="button"]')].filter(b =>
+      /weiter|nächste|bestätigen|auswählen|fortfahren/i.test(b.textContent.trim())
     ),
   ].filter(Boolean)
   for (const btn of candidates) {
-    if (isVisible(btn)) { btn.click(); await wait(400); return true }
+    if (isVisible(btn)) {
+      btn.scrollIntoView({ block: 'nearest' })
+      btn.click()
+      await wait(400)
+      return true
+    }
   }
   return false
 }
@@ -406,17 +424,27 @@ async function fillStep1(listing) {
 
   // Hash-Navigation → KA SPA rendert die Unterkategorie-Liste
   window.location.hash = `#?path=${cat.path}&isParent=true`
-  await wait(2500) // Länger warten (SPA-Render)
+  // Warte länger auf SPA-Render (API-Calls können dauern)
+  await wait(4000)
 
   // Leaf-Kategorie automatisch klicken (ERST dann Weiter – niemals vorher!)
   if (cat.leaf) {
     updateStatus(`Wähle: ${cat.leaf}…`)
-    const clicked = await clickItemByText(cat.leaf, 6000)
+    // 10s Timeout: SPA lädt Kategorie-Items manchmal langsam
+    const clicked = await clickItemByText(cat.leaf, 10000)
     if (clicked) {
-      await wait(1200)
+      updateStatus('Kategorie gewählt – warte auf Weiter…')
+      // MutationObserver (mit attributes:true) erkennt wenn KA den Submit-Button einblendet
+      try {
+        await waitForAny(['button[type="submit"]', 'input[type="submit"]'], 6000)
+      } catch {
+        console.warn('[ListSync KA] Submit-Button nach 6s noch nicht sichtbar – versuche trotzdem')
+      }
+      await wait(500)
       if (await clickWeiter()) return
-      await wait(1500)
+      await wait(2500)
       if (await clickWeiter()) return
+      updateStatus('⚠️ Bitte „Weiter" manuell klicken')
     } else {
       updateStatus(`⚠️ Kategorie „${cat.leaf}" nicht gefunden – bitte manuell wählen`)
       return
