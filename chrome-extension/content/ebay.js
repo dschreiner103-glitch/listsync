@@ -604,11 +604,14 @@ async function fillLstng() {
   await wait(500)
   await uploadImages(listing.imageData || [])
 
-  // ── Auto-Submit: "Einstellen" Button klicken ─────────────────────────────
+  // ── Auto-Submit ───────────────────────────────────────────────────────────
   await wait(1000)
-  updateStatus('Angebot wird eingestellt…')
+  const isDraft = listing.status === 'entwurf'
+  updateStatus(isDraft ? 'Entwurf wird gespeichert…' : 'Angebot wird eingestellt…')
   try {
-    const submitTexts = ['Einstellen', 'Angebot einstellen', 'Veröffentlichen', 'In den Verkauf einstellen']
+    const submitTexts = isDraft
+      ? ['Entwurf speichern', 'Als Entwurf speichern', 'Speichern']
+      : ['Einstellen', 'Angebot einstellen', 'Veröffentlichen', 'In den Verkauf einstellen']
     let submitBtn = null
     for (const txt of submitTexts) {
       submitBtn = Array.from(document.querySelectorAll('button'))
@@ -619,14 +622,14 @@ async function fillLstng() {
       submitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
       await wait(700)
       submitBtn.click()
-      updateStatus('✅ Angebot eingestellt!', true)
-      console.log('[eBay lstng] ✓ Auto-Submit: Angebot eingestellt')
+      updateStatus(isDraft ? '✅ Entwurf gespeichert!' : '✅ Angebot eingestellt!', true)
+      console.log('[eBay lstng] ✓ Auto-Submit:', isDraft ? 'Entwurf' : 'Einstellen')
     } else {
-      updateStatus('✅ Fertig – bitte "Einstellen" klicken', true)
+      updateStatus(isDraft ? '✅ Fertig – bitte "Entwurf speichern" klicken' : '✅ Fertig – bitte "Einstellen" klicken', true)
       console.warn('[eBay lstng] Submit-Button nicht gefunden')
     }
   } catch(e) {
-    updateStatus('✅ Fertig – bitte "Einstellen" klicken', true)
+    updateStatus('✅ Fertig – bitte manuell bestätigen', true)
     console.warn('[eBay lstng] Auto-Submit Fehler:', e.message)
   }
 

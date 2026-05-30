@@ -1164,7 +1164,16 @@ async function waitForThumbnails(timeout = 25000) {
 }
 
 // Findet den Submit/Veröffentlichen-Button auf Vinted
-function findSubmitButton() {
+function findSubmitButton(draft = false) {
+  if (draft) {
+    // Entwurf-Button suchen
+    for (const btn of document.querySelectorAll('button')) {
+      if (btn.disabled || btn.offsetParent === null) continue
+      const t = (btn.innerText || btn.textContent || '').trim().toLowerCase()
+      if (t.includes('entwurf')) return btn
+    }
+  }
+  // Publish-Button (Standard)
   const sels = [
     '[data-testid="upload-form-save-button"]',   // confirmed live: text "Hochladen"
     '[data-testid="submit-button"]',
@@ -1177,11 +1186,11 @@ function findSubmitButton() {
     const el = document.querySelector(s)
     if (el && el.offsetParent !== null && !el.disabled) return el
   }
-  // Fallback: Button mit "Veröffentlichen" / "Hochladen" / "Speichern" Text
+  // Fallback: Button mit "Hochladen" Text (aber NICHT "Entwurf speichern")
   for (const btn of document.querySelectorAll('button')) {
     if (btn.disabled || btn.offsetParent === null) continue
     const t = (btn.innerText || btn.textContent || '').trim().toLowerCase()
-    if (t.includes('veröffentlichen') || t.includes('hochladen') || t.includes('speichern') || t.includes('weiter')) {
+    if (!t.includes('entwurf') && (t.includes('veröffentlichen') || t.includes('hochladen') || t.includes('weiter'))) {
       return btn
     }
   }
@@ -1385,20 +1394,20 @@ async function fill() {
 
   if (thumbsOk) {
     await wait(1200)
-    setStatus('Artikel wird veröffentlicht…')
-    const submitBtn = findSubmitButton()
+    const isDraft = listing.status === 'entwurf'
+    setStatus(isDraft ? 'Entwurf wird gespeichert…' : 'Artikel wird veröffentlicht…')
+    const submitBtn = findSubmitButton(isDraft)
     if (submitBtn) {
       submitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
       await wait(600)
       fullClick(submitBtn)
-      setStatus('✅ Veröffentlicht!', true)
-      // Feedback an ListSync-App: Platform-Badge setzen
+      setStatus(isDraft ? '✅ Entwurf gespeichert!' : '✅ Veröffentlicht!', true)
       if (listing?.id) {
         chrome.runtime.sendMessage({ type: 'LISTING_POSTED', listingId: listing.id, platform: 'vinted' })
           .catch(() => {})
       }
     } else {
-      setStatus('✅ Fertig! Bitte prüfen und absenden.', true)
+      setStatus(isDraft ? '✅ Fertig! Bitte "Entwurf speichern" klicken.' : '✅ Fertig! Bitte "Hochladen" klicken.', true)
       console.warn('[ListSync] Submit-Button nicht gefunden – bitte manuell absenden')
     }
   } else {

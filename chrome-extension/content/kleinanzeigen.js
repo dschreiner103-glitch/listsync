@@ -699,20 +699,22 @@ async function fillStep2(listing) {
     console.warn('[ListSync KA] Keine Bilder – imageData leer nach 20s')
   }
 
-  // ── Auto-Submit: "Anzeige aufgeben" klicken ──────────────────────────────
+  // ── Auto-Submit ───────────────────────────────────────────────────────────
   await wait(800)
-  updateStatus('Anzeige wird aufgegeben…')
+  const isDraft = listing.status === 'entwurf'
+  updateStatus(isDraft ? 'Entwurf wird gespeichert…' : 'Anzeige wird aufgegeben…')
   try {
-    // Mögliche Submit-Button-Texte auf KA Schritt 2
-    const submitTexts = ['Anzeige aufgeben', 'Veröffentlichen', 'Absenden', 'Weiter']
+    const submitTexts = isDraft
+      ? ['Entwurf speichern', 'Als Entwurf speichern', 'Speichern']
+      : ['Anzeige aufgeben', 'Veröffentlichen', 'Absenden', 'Weiter']
     let submitBtn = null
     for (const txt of submitTexts) {
       submitBtn = Array.from(document.querySelectorAll('button, input[type="submit"]'))
         .find(b => b.offsetParent && !b.disabled && (b.textContent?.trim() === txt || b.value === txt))
       if (submitBtn) break
     }
-    // Fallback: letzter sichtbarer Submit-Button
-    if (!submitBtn) {
+    // Fallback (nur bei publish): letzter sichtbarer Submit-Button
+    if (!submitBtn && !isDraft) {
       submitBtn = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"]'))
         .filter(b => b.offsetParent && !b.disabled).pop()
     }
@@ -720,14 +722,14 @@ async function fillStep2(listing) {
       submitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
       await wait(600)
       submitBtn.click()
-      updateStatus('✅ Anzeige aufgegeben!', true)
-      console.log('[ListSync KA] ✓ Auto-Submit: Anzeige aufgegeben')
+      updateStatus(isDraft ? '✅ Entwurf gespeichert!' : '✅ Anzeige aufgegeben!', true)
+      console.log('[ListSync KA] ✓ Auto-Submit:', isDraft ? 'Entwurf' : 'Anzeige aufgegeben')
     } else {
-      updateStatus('✅ Fertig – bitte "Anzeige aufgeben" klicken', true)
+      updateStatus(isDraft ? '✅ Fertig – bitte "Entwurf speichern" klicken' : '✅ Fertig – bitte "Anzeige aufgeben" klicken', true)
       console.warn('[ListSync KA] Submit-Button nicht gefunden')
     }
   } catch(e) {
-    updateStatus('✅ Fertig – bitte "Anzeige aufgeben" klicken', true)
+    updateStatus('✅ Fertig – bitte manuell bestätigen', true)
     console.warn('[ListSync KA] Auto-Submit Fehler:', e.message)
   }
 
