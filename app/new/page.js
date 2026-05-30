@@ -103,6 +103,8 @@ export default function NewListing() {
   const [step, setStep]       = useState(1)
   const [errors, setErrors]   = useState({})
   const [loading, setLoading] = useState(false)
+  const [loadingMode, setLoadingMode] = useState(null)   // 'draft' | 'publish'
+  const [publishMode, setPublishMode] = useState('publish') // 'draft' | 'publish'
   const [uploading, setUploading] = useState(false)
   const [mobileHelper, setMobileHelper] = useState(null)
   const [imgs, setImgs]       = useState([])
@@ -127,10 +129,10 @@ export default function NewListing() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.category])
 
-  const validate = () => {
+  const validate = (mode) => {
     const e = {}
     if(step===1){ if(!form.title.trim()) e.title='Bitte Titel eingeben'; if(!form.price||Number(form.price)<=0) e.price='Gültigen Preis eingeben' }
-    if(step===3){ if(form.platforms.length===0) e.platforms='Mindestens eine Plattform wählen' }
+    if(step===3 && mode!=='draft'){ if(form.platforms.length===0) e.platforms='Mindestens eine Plattform wählen' }
     setErrors(e); return Object.keys(e).length===0
   }
 
@@ -161,20 +163,28 @@ export default function NewListing() {
 
   const removeImg = (i) => setImgs(x => x.filter((_,j)=>j!==i))
 
-  const handleNext = async () => {
-    if(!validate()) return
+  const handleNext = async (mode) => {
+    if(!validate(mode)) return
     if(step<3){ setStep(s=>s+1); setErrors({}); return }
-    setLoading(true)
+    const isDraft = mode === 'draft'
+    setLoading(true); setLoadingMode(mode)
     try {
       const res = await fetch('/api/listings', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           ...form, price: Number(form.price), buyPrice: Number(form.buyPrice||0),
           images: imgs.map(i=>i.url), ebayCategory: form.ebayCategory,
+          status: isDraft ? 'entwurf' : 'aktiv',
         })
       })
       if(res.ok) {
         const created = await res.json().catch(() => null)
+        // Entwurf: nur speichern, NICHT crossposten
+        if (isDraft) {
+          sessionStorage.setItem('ls_just_created', (created?.title || 'Listing') + ' als Entwurf gespeichert')
+          router.push('/listings')
+          return
+        }
         const extPlatforms = form.platforms.filter(p => ['vinted','kleinanzeigen','ebay'].includes(p))
         if (extPlatforms.length > 0 && created) {
           // Ping/Pong: Extension wirklich aktiv? (zuverlässiger als DOM-Attribut)
@@ -203,7 +213,7 @@ export default function NewListing() {
         alert('Fehler beim Speichern: ' + (err.error || res.status))
       }
     } catch(e) { alert('Netzwerkfehler: ' + e.message) }
-    finally { setLoading(false) }
+    finally { setLoading(false); setLoadingMode(null) }
   }
 
   const lbl  = { display:'block', fontSize:13, fontWeight:600, color:'var(--text-2)', marginBottom:6 }
@@ -511,39 +521,78 @@ export default function NewListing() {
 
           {/* ── Step 3 ── */}
           {step===3 && (
-            <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-              {errors.platforms && <p style={{ color:'#ef4444', fontSize:13, fontWeight:600 }}>{errors.platforms}</p>}
-              <div style={{ display:'flex', justifyContent:'flex-end' }}>
-                <button
-                  onClick={() => set('platforms', form.platforms.length === Object.keys(PLATFORMS).length ? [] : Object.keys(PLATFORMS))}
-                  style={{ padding:'6px 14px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-2)', fontWeight:600, fontSize:12.5, cursor:'pointer', fontFamily:'inherit', transition:'all .15s' }}>
-                  {form.platforms.length === Object.keys(PLATFORMS).length ? 'Keine' : 'Alle'}
-                </button>
+            <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+
+              {/* Auswahl: Entwurf oder Hochladen */}
+              <div>
+                <label style={{ ...lbl, marginBottom:10 }}>Was soll passieren?</label>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                  {[
+                    { id:'draft',   icon:'📝', title:'Als Entwurf',   desc:'Nur speichern,\nnoch nicht posten' },
+                    { id:'publish', icon:'🚀', title:'Jetzt hochladen', desc:'Speichern & direkt\nauf alle Plattformen' },
+                  ].map(opt => {
+                    const sel = publishMode === opt.id
+                    return (
+                      <div key={opt.id} onClick={()=>setPublishMode(opt.id)}
+                        style={{ padding:'16px 12px', borderRadius:18, cursor:'pointer', textAlign:'center',
+                          border:`2px solid ${sel?(opt.id==='publish'?'#6366f1':'#f59e0b'):'var(--border)'}`,
+                          background:sel?(opt.id==='publish'?'rgba(99,102,241,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
+                          transition:'all .15s' }}>
+                        <div style={{ fontSize:28, marginBottom:6 }}>{opt.icon}</div>
+                        <p style={{ fontSize:13, fontWeight:700, color: sel?(opt.id==='publish'?'#6366f1':'#d97706'):'var(--text-1)', margin:'0 0 3px' }}>{opt.title}</p>
+                        <p style={{ fontSize:11, color:'var(--text-3)', margin:0, lineHeight:1.4, whiteSpace:'pre-line' }}>{opt.desc}</p>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
-              {Object.entries(PLATFORMS).map(([id,p]) => {
-                const sel = form.platforms.includes(id)
-                return (
-                  <div key={id} onClick={()=>{ togglePlt(id); setErrors({}) }}
-                    style={{ border:`2px solid ${sel?'#818cf8':'var(--border)'}`, borderRadius:20, padding:16, cursor:'pointer', background:sel?'rgba(99,102,241,0.06)':'var(--surface)', transition:'all .15s' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                      <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0, border:`2px solid ${sel?'#6366f1':'var(--border)'}`, background:sel?'#6366f1':'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                        {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                      </div>
-                      <PlatformBadge plt={id}/>
-                    </div>
-                    {sel && (
-                      <div className={`mt-3 p-3 rounded-xl ${p.bg} border ${p.border}`}>
-                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Optimierter Titel</p>
-                        <p className={`text-sm font-semibold ${p.text}`}>{optimizeTitle(form.title||'Dein Artikel',id)}</p>
-                      </div>
-                    )}
+
+              {/* Plattformen — nur bei "Hochladen" */}
+              {publishMode === 'publish' && (
+                <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                  {errors.platforms && <p style={{ color:'#ef4444', fontSize:13, fontWeight:600 }}>{errors.platforms}</p>}
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <label style={lbl}>Plattformen</label>
+                    <button
+                      onClick={() => set('platforms', form.platforms.length === Object.keys(PLATFORMS).length ? [] : Object.keys(PLATFORMS))}
+                      style={{ padding:'5px 12px', borderRadius:10, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-2)', fontWeight:600, fontSize:12, cursor:'pointer', fontFamily:'inherit' }}>
+                      {form.platforms.length === Object.keys(PLATFORMS).length ? 'Keine' : 'Alle'}
+                    </button>
                   </div>
-                )
-              })}
-              {form.platforms.length>0 && (
-                <div style={{ background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:20, padding:16 }}>
-                  <p style={{ fontSize:13.5, fontWeight:700, color:'#10b981', margin:'0 0 4px' }}>✨ Bereit zum Veröffentlichen</p>
-                  <p style={{ fontSize:12, color:'#10b981', margin:0, opacity:0.8 }}>Wird auf {form.platforms.length} Plattform{form.platforms.length>1?'en':''} gepostet.</p>
+                  {Object.entries(PLATFORMS).map(([id,p]) => {
+                    const sel = form.platforms.includes(id)
+                    return (
+                      <div key={id} onClick={()=>{ togglePlt(id); setErrors({}) }}
+                        style={{ border:`2px solid ${sel?'#818cf8':'var(--border)'}`, borderRadius:20, padding:16, cursor:'pointer', background:sel?'rgba(99,102,241,0.06)':'var(--surface)', transition:'all .15s' }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                          <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0, border:`2px solid ${sel?'#6366f1':'var(--border)'}`, background:sel?'#6366f1':'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                            {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                          </div>
+                          <PlatformBadge plt={id}/>
+                        </div>
+                        {sel && (
+                          <div className={`mt-3 p-3 rounded-xl ${p.bg} border ${p.border}`}>
+                            <p className="text-xs font-bold text-gray-500 uppercase mb-1">Optimierter Titel</p>
+                            <p className={`text-sm font-semibold ${p.text}`}>{optimizeTitle(form.title||'Dein Artikel',id)}</p>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {form.platforms.length>0 && (
+                    <div style={{ background:'var(--success-bg)', border:'1px solid var(--success-border)', borderRadius:20, padding:16 }}>
+                      <p style={{ fontSize:13.5, fontWeight:700, color:'#10b981', margin:'0 0 4px' }}>✨ Bereit zum Veröffentlichen</p>
+                      <p style={{ fontSize:12, color:'#10b981', margin:0, opacity:0.8 }}>Wird auf {form.platforms.length} Plattform{form.platforms.length>1?'en':''} gepostet.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Entwurf-Hinweis */}
+              {publishMode === 'draft' && (
+                <div style={{ background:'rgba(245,158,11,0.08)', border:'1px solid rgba(245,158,11,0.25)', borderRadius:20, padding:16 }}>
+                  <p style={{ fontSize:13.5, fontWeight:700, color:'#d97706', margin:'0 0 4px' }}>📝 Wird als Entwurf gespeichert</p>
+                  <p style={{ fontSize:12, color:'#d97706', margin:0, opacity:0.8 }}>Du kannst später aus den Listings heraus crossposten.</p>
                 </div>
               )}
             </div>
@@ -557,11 +606,24 @@ export default function NewListing() {
                 ← Zurück
               </button>
             )}
-            <button onClick={handleNext} disabled={loading||uploading}
-              className="ls-btn-primary"
-              style={{ flex:1, padding:14, borderRadius:14, fontSize:15 }}>
-              {loading?'Wird gespeichert…':step<3?'Weiter →':'🚀 Listing erstellen & posten'}
-            </button>
+            {step<3 ? (
+              <button onClick={()=>handleNext()} disabled={loading||uploading}
+                className="ls-btn-primary"
+                style={{ flex:1, padding:14, borderRadius:14, fontSize:15 }}>
+                Weiter →
+              </button>
+            ) : publishMode === 'draft' ? (
+              <button onClick={()=>handleNext('draft')} disabled={loading||uploading}
+                style={{ flex:1, padding:14, borderRadius:14, fontSize:15, fontWeight:700, cursor:loading||uploading?'default':'pointer', fontFamily:'inherit', border:'2px solid #f59e0b', background:'rgba(245,158,11,0.1)', color:'#d97706', opacity:loading||uploading?0.6:1, transition:'all .15s' }}>
+                {loading&&loadingMode==='draft' ? '💾 Wird gespeichert…' : '📝 Als Entwurf speichern'}
+              </button>
+            ) : (
+              <button onClick={()=>handleNext('publish')} disabled={loading||uploading}
+                className="ls-btn-primary"
+                style={{ flex:1, padding:14, borderRadius:14, fontSize:15 }}>
+                {loading&&loadingMode==='publish' ? '🚀 Wird hochgeladen…' : '🚀 Jetzt hochladen & crossposten'}
+              </button>
+            )}
           </div>
         </div>
       </main>
