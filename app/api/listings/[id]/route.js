@@ -64,11 +64,12 @@ export async function PATCH(req, { params }) {
   // Update new fields via raw SQL (bypasses stale Prisma client validation)
   const rawUpdates = []
   const rawArgs    = []
-  if (data.material      !== undefined) { rawUpdates.push('material');      rawArgs.push(data.material) }
-  if (data.stil          !== undefined) { rawUpdates.push('stil');          rawArgs.push(data.stil) }
-  if (data.beinform      !== undefined) { rawUpdates.push('beinform');      rawArgs.push(data.beinform) }
-  if (data.taillenumfang !== undefined) { rawUpdates.push('taillenumfang'); rawArgs.push(data.taillenumfang) }
-  if (data.kaCategory    !== undefined) { rawUpdates.push('"kaCategory"');  rawArgs.push(data.kaCategory) }
+  if (data.material      !== undefined) { rawUpdates.push('material');       rawArgs.push(data.material) }
+  if (data.stil          !== undefined) { rawUpdates.push('stil');           rawArgs.push(data.stil) }
+  if (data.beinform      !== undefined) { rawUpdates.push('beinform');       rawArgs.push(data.beinform) }
+  if (data.taillenumfang !== undefined) { rawUpdates.push('taillenumfang');  rawArgs.push(data.taillenumfang) }
+  if (data.kaCategory    !== undefined) { rawUpdates.push('"kaCategory"');   rawArgs.push(data.kaCategory) }
+  if (data.ebayCategory  !== undefined) { rawUpdates.push('"ebayCategory"'); rawArgs.push(data.ebayCategory) }
 
   if (rawUpdates.length) {
     const setParts = rawUpdates.map(f => `${f} = ?`).join(', ')
@@ -88,6 +89,7 @@ export async function PATCH(req, { params }) {
     beinform:      data.beinform      !== undefined ? data.beinform      : (existing.beinform      || ''),
     taillenumfang: data.taillenumfang !== undefined ? data.taillenumfang : (existing.taillenumfang || ''),
     kaCategory:    data.kaCategory    !== undefined ? data.kaCategory    : (existing.kaCategory    || ''),
+    ebayCategory:  data.ebayCategory  !== undefined ? data.ebayCategory  : (existing.ebayCategory  || ''),
   })
 }
 

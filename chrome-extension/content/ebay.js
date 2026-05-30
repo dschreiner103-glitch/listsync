@@ -1,9 +1,7 @@
 'use strict'
 
 // ── eBay Anzeige automatisch ausfüllen ────────────────────────────────────────
-// Ziel-URL: https://www.ebay.de/sl/list
 
-// Kategorie-Mapping ListSync → eBay Kategorie-IDs (häufigste Kleidungs-Kats)
 const CATEGORY_IDS = {
   'Damen':               '63861',
   'Damen – Kleidung':    '63861',
@@ -26,32 +24,20 @@ const CATEGORY_IDS = {
   'Sonstiges':           '99',
 }
 
-function getCategoryId(category) {
-  if (!category) return null
-  if (CATEGORY_IDS[category]) return CATEGORY_IDS[category]
-  const keys = Object.keys(CATEGORY_IDS).sort((a, b) => b.length - a.length)
-  for (const key of keys) {
-    if (category.startsWith(key)) return CATEGORY_IDS[key]
-  }
-  const first = category.split(' – ')[0]
-  return CATEGORY_IDS[first] || null
-}
-
-// Zustand-Mapping → eBay conditionId
-// Confirmed live: 1000=Neu mit Etikett, 1500=Neu ohne Etikett, 1750=Neu mit Mängeln,
+// Zustand-Mapping
+// Live-bestätigt: 1000=Neu mit Etikett, 1500=Neu ohne Etikett, 1750=Neu mit Mängeln,
 //                 2990=Gebraucht - Hervorragend, 3000=Gebraucht - Gut, 3010=Gebraucht - Akzeptabel
 function getConditionId(condition) {
   if (!condition) return null
   const c = condition.toLowerCase()
-  if (c.includes('neu mit etikett'))                               return '1000'
+  if (c.includes('neu mit etikett'))                                return '1000'
   if (c.includes('neu ohne etikett') || c.includes('nie getragen')) return '1500'
-  if (c.includes('sehr gut') || c.includes('hervorragend'))        return '2990'
-  if (c.includes('befriedigend') || c.includes('akzeptabel'))      return '3010'
+  if (c.includes('neu mit mängeln'))                                return '1750'
+  if (c.includes('hervorragend') || c.includes('sehr gut'))         return '2990'
+  if (c.includes('befriedigend') || c.includes('akzeptabel'))       return '3010'
   if (c.includes('gut'))                                            return '3000'
   return null
 }
-
-// ── Produktart aus Listing ableiten ───────────────────────────────────────────
 
 function detectProduktart(listing) {
   const text = [listing.category, listing.title, listing.kaCategory, listing.description]
@@ -165,144 +151,19 @@ function updateStatus(msg, done = false) {
   console.log('[ListSync eBay]', msg)
 }
 
-// ── Titel ausfüllen ───────────────────────────────────────────────────────────
-
-async function fillTitle(listing) {
-  try {
-    const el = await waitForAny([
-      'input[id="itemTitle"]',
-      'input[name="itemTitle"]',
-      '[data-testid="title-input"] input',
-      '[data-testid="item-title"] input',
-      'input[aria-label*="Titel"]',
-      'input[aria-label*="Artikelbezeichnung"]',
-      'input[placeholder*="Titel"]',
-      'input[placeholder*="Artikelbezeichnung"]',
-    ], 15000)
-    const suffix = ' | Top Zustand ✅'
-    const title  = (listing.title + suffix).substring(0, 80)
-    setNativeValue(el, title)
-    console.log('[ListSync eBay] ✓ Titel:', title)
-  } catch(e) { console.warn('[ListSync eBay] Titel-Fehler:', e.message) }
-}
-
-// ── Preis ausfüllen ───────────────────────────────────────────────────────────
-
-async function fillPrice(listing) {
-  try {
-    const el = await waitForAny([
-      'input[id="binPrice"]',
-      'input[name="startPrice"]',
-      'input[name="binPrice"]',
-      '[data-testid="bin-price-input"] input',
-      '[data-testid="price-input"] input',
-      'input[aria-label*="Preis"]',
-      'input[aria-label*="Kaufpreis"]',
-      'input[placeholder*="Preis"]',
-      '#price-input',
-    ], 10000)
-    // eBay DE uses comma as decimal separator
-    const priceStr = String(Number(listing.price).toFixed(2)).replace('.', ',')
-    setNativeValue(el, priceStr)
-    console.log('[ListSync eBay] ✓ Preis:', priceStr)
-  } catch(e) { console.warn('[ListSync eBay] Preis-Fehler:', e.message) }
-}
-
-// ── Beschreibung ausfüllen ────────────────────────────────────────────────────
-
-async function fillDescription(listing) {
-  try {
-    let desc = listing.description || ''
-    const extras = []
-    if (listing.brand)     extras.push(`Marke: ${listing.brand}`)
-    if (listing.condition) extras.push(`Zustand: ${listing.condition}`)
-    if (listing.size)      extras.push(`Größe: ${listing.size}`)
-    if (listing.color)     extras.push(`Farbe: ${listing.color}`)
-    if (extras.length) desc = desc + (desc ? '\n\n' : '') + extras.join('\n')
-
-    // Check for TinyMCE/rich text iframe first
-    const iframes = document.querySelectorAll('iframe')
-    for (const iframe of iframes) {
-      try {
-        const iDoc = iframe.contentDocument
-        if (!iDoc) continue
-        const body = iDoc.querySelector('body[contenteditable], #tinymce, .mce-content-body, [contenteditable="true"]')
-        if (body) {
-          body.innerHTML = desc.replace(/\n/g, '<br>')
-          body.dispatchEvent(new Event('input', { bubbles: true }))
-          console.log('[ListSync eBay] ✓ Beschreibung (iframe/TinyMCE)')
-          return
-        }
-      } catch {}
-    }
-
-    // Fallback: plain textarea or contenteditable
-    const el = await waitForAny([
-      'textarea[id*="desc"]',
-      'textarea[name*="desc"]',
-      '[data-testid*="description"] textarea',
-      '[data-testid*="description"] [contenteditable]',
-      'textarea[aria-label*="Beschreibung"]',
-      'textarea[placeholder*="Beschreibung"]',
-      '[contenteditable="true"]',
-    ], 8000)
-
-    if (el.contentEditable === 'true') {
-      el.innerHTML = desc.replace(/\n/g, '<br>')
-      el.dispatchEvent(new Event('input', { bubbles: true }))
-    } else {
-      setNativeValue(el, desc)
-    }
-    console.log('[ListSync eBay] ✓ Beschreibung')
-  } catch(e) { console.warn('[ListSync eBay] Beschreibung-Fehler:', e.message) }
-}
-
-// ── Zustand auswählen ─────────────────────────────────────────────────────────
-
-async function selectCondition(listing) {
-  const condId = getConditionId(listing.condition)
-  if (!condId) return
-  try {
-    // Radio buttons with data value
-    const radios = document.querySelectorAll(`input[type="radio"][value="${condId}"]`)
-    if (radios.length) {
-      radios[0].click()
-      console.log('[ListSync eBay] ✓ Zustand (radio):', condId)
-      return
-    }
-    // Select dropdown
-    const sel = document.querySelector('select[id*="condition"], select[name*="condition"], [data-testid*="condition"] select')
-    if (sel) {
-      sel.value = condId
-      sel.dispatchEvent(new Event('change', { bubbles: true }))
-      console.log('[ListSync eBay] ✓ Zustand (select):', condId)
-    }
-  } catch(e) { console.warn('[ListSync eBay] Zustand-Fehler:', e.message) }
-}
-
 // ── Bilder hochladen ──────────────────────────────────────────────────────────
 
 async function uploadImages(imageData) {
   if (!imageData?.length) return
-
-  // Strategy 1: MAIN world via background (handles React Fiber)
   try {
     const res = await chrome.runtime.sendMessage({ type: 'INJECT_MAIN_IMAGES', imageData })
-    if (res?.ok) {
-      console.log('[ListSync eBay] ✓ Bilder via MAIN-World:', imageData.length)
-      return
-    }
+    if (res?.ok) { console.log('[ListSync eBay] ✓ Bilder via MAIN-World:', imageData.length); return }
   } catch {}
-
-  // Strategy 2: DataTransfer on file input
   const files = base64ToFiles(imageData)
   if (!files.length) return
   const dt = new DataTransfer()
   files.forEach(f => dt.items.add(f))
-
-  const fi = document.querySelector(
-    'input[type="file"][accept*="image"], input[type="file"][multiple], input[type="file"]'
-  )
+  const fi = document.querySelector('input[type="file"][accept*="image"], input[type="file"][multiple], input[type="file"]')
   if (fi) {
     Object.defineProperty(fi, 'files', { value: dt.files, configurable: true, writable: true })
     fi.dispatchEvent(new Event('change', { bubbles: true }))
@@ -310,11 +171,7 @@ async function uploadImages(imageData) {
     console.log('[ListSync eBay] ✓ Bilder via DataTransfer:', files.length)
     return
   }
-
-  // Strategy 3: Drop zone
-  const dropZone = document.querySelector(
-    '[class*="photo-upload"], [class*="PhotoUpload"], [data-testid*="photo"], [data-testid*="upload"]'
-  )
+  const dropZone = document.querySelector('[class*="photo-upload"], [class*="PhotoUpload"], [data-testid*="photo"], [data-testid*="upload"]')
   if (dropZone) {
     dropZone.dispatchEvent(new DragEvent('dragenter', { bubbles: true, cancelable: true, dataTransfer: dt }))
     dropZone.dispatchEvent(new DragEvent('dragover',  { bubbles: true, cancelable: true, dataTransfer: dt }))
@@ -323,246 +180,175 @@ async function uploadImages(imageData) {
   }
 }
 
-// ── Prelist/Suggest Seite abhandeln ──────────────────────────────────────────
-// URL: https://www.ebay.de/sl/prelist/suggest
-// eBay zeigt zuerst eine Suchmaske, um die Kategorie vorzuschlagen.
-// Wir füllen den Titel ein und klicken "Weiter" / "Überspringen".
+// ── Prelist-Seite ─────────────────────────────────────────────────────────────
 
 async function handlePrelist() {
   const listing = await getListing()
   if (!listing) return
-
   showBanner(listing)
-  updateStatus('Prelist-Seite – Titel wird eingegeben…')
+  updateStatus('Prelist – Titel wird eingegeben…')
   await wait(2500)
 
-  // Titelfeld finden (Label "Titel", hint "0/80")
   const searchInput = await waitForAny([
-    'input[type="text"]',
-    'input[id*="title"]',
-    'input[name*="title"]',
-    'input[aria-label*="Titel"]',
-    'input[placeholder*="Angebotstitel"]',
+    'input[type="text"]', 'input[id*="title"]', 'input[name*="title"]',
+    'input[aria-label*="Titel"]', 'input[placeholder*="Angebotstitel"]',
   ], 12000).catch(() => null)
 
   if (searchInput) {
     searchInput.focus()
     await wait(200)
     setNativeValue(searchInput, listing.title)
-    console.log('[ListSync eBay] ✓ Prelist-Titel eingegeben:', listing.title)
     await wait(800)
   }
 
-  // "Weiter"-Button – unten auf der Seite, wird nach Titeleingabe aktiv
-  const findNextBtn = () => {
-    // Suche nach Button mit Text "Weiter"
-    const allBtns = Array.from(document.querySelectorAll('button'))
-    return allBtns.find(b => b.textContent.trim() === 'Weiter' || b.textContent.trim() === 'Fortfahren')
-      || document.querySelector('button[type="submit"], button[data-testid*="next"], button[data-testid*="submit"]')
-  }
-  const nextBtn = findNextBtn()
+  const nextBtn = Array.from(document.querySelectorAll('button'))
+    .find(b => b.textContent.trim() === 'Weiter' || b.textContent.trim() === 'Fortfahren')
+    || document.querySelector('button[type="submit"]')
 
   if (nextBtn) {
     nextBtn.click()
-    console.log('[ListSync eBay] ✓ Prelist Weiter-Button geklickt')
-    updateStatus('Kategorie-Auswahl – warte auf Vorschläge…')
-
-    // Nach Klick: eBay zeigt entweder Kategorie-Vorschläge ODER navigiert direkt zu /lstng.
-    // Wenn Vorschläge erscheinen, versuchen wir die passende Kleidungs-Kategorie zu klicken.
+    updateStatus('Kategorie-Auswahl…')
     await wait(2500)
     if (window.location.pathname.includes('/prelist') || window.location.pathname.includes('/sl/list')) {
-      // Noch auf der Prelist-Seite → Kategorie-Vorschläge sichtbar, die richtige auswählen
-      const CLOTHING_KEYWORDS = ['kleidung', 'mode', 'jeans', 'damen', 'herren', 'hosen', 'jacken', 'shirts', 'tops', 'pullover']
-      const allOptions = Array.from(document.querySelectorAll(
-        'button, [role="option"], [role="radio"], li, [class*="suggest"], [class*="categor"]'
-      )).filter(el => el.offsetParent)
-
+      const CLOTHING_KW = ['kleidung', 'mode', 'jeans', 'damen', 'herren', 'hosen', 'jacken', 'shirts', 'tops', 'pullover']
+      const allOpts = Array.from(document.querySelectorAll('button, [role="option"], [role="radio"], li, [class*="suggest"], [class*="categor"]')).filter(el => el.offsetParent)
       let picked = null
-      for (const kw of CLOTHING_KEYWORDS) {
-        picked = allOptions.find(el => el.textContent.toLowerCase().includes(kw))
+      for (const kw of CLOTHING_KW) {
+        picked = allOpts.find(el => el.textContent.toLowerCase().includes(kw))
         if (picked) break
       }
       if (picked) {
         picked.click()
-        console.log('[ListSync eBay] ✓ Kategorie-Vorschlag geklickt:', picked.textContent.trim().substring(0, 50))
         await wait(800)
-        // Dann nochmal Weiter/Bestätigen klicken
         const confirmBtn = Array.from(document.querySelectorAll('button'))
-          .find(b => b.offsetParent && (b.textContent.trim() === 'Weiter' || b.textContent.trim() === 'Bestätigen' || b.textContent.trim() === 'Fortfahren'))
-        if (confirmBtn) { confirmBtn.click(); console.log('[ListSync eBay] ✓ Kategorie bestätigt') }
+          .find(b => b.offsetParent && ['Weiter', 'Bestätigen', 'Fortfahren'].includes(b.textContent.trim()))
+        if (confirmBtn) confirmBtn.click()
       }
     }
-  } else {
-    // Weiter-Button nicht gefunden → Prelist überspringen und direkt zum /lstng
-    console.log('[ListSync eBay] Weiter-Button nicht gefunden – warte auf Navigation')
   }
 }
 
-// ── Neues /lstng Interface ────────────────────────────────────────────────────
+// ── /lstng Interface ──────────────────────────────────────────────────────────
 
 async function fillLstng() {
   const listing = await getListing()
   if (!listing) return
   showBanner(listing)
-  updateStatus('Neues eBay-Formular wird ausgefüllt…')
-
-  // Seite braucht Zeit zum Laden (React SPA)
+  updateStatus('eBay-Formular wird ausgefüllt…')
   await wait(3500)
 
-  // 0. KATEGORIE prüfen – RC-Modell / Fahrzeug-Felder = falsche Auto-Kategorie
+  // 0. KATEGORIE: falsche Auto-Kategorie korrigieren
   try {
-    const WRONG_FIELDS = ['Kraftstoff', 'Propellerart', 'Modellbauklasse', 'Maßstab', 'Montagezustand', 'Kabinenklasse', 'Maßstab']
-    if (WRONG_FIELDS.some(f => document.body.innerText.includes(f))) {
-      updateStatus('⚠️ Falsche Kategorie erkannt – korrigiere…')
-      console.log('[ListSync eBay] Falsche Kategorie erkannt')
-
-      // "Bearbeiten" Button bei ARTIKELKATEGORIE klicken
+    const WRONG = ['Kraftstoff', 'Propellerart', 'Modellbauklasse', 'Maßstab', 'Montagezustand', 'Kabinenklasse']
+    if (WRONG.some(f => document.body.innerText.includes(f))) {
+      updateStatus('⚠️ Falsche Kategorie – korrigiere…')
       const editBtn = Array.from(document.querySelectorAll('button, a, [role="button"]'))
         .find(el => el.offsetParent && el.textContent.trim() === 'Bearbeiten')
       if (editBtn) {
         editBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
-        await wait(500)
-        editBtn.click()
-        await wait(2000)
-
-        // Suchfeld für Kategorie
-        const searchInput = document.querySelector(
-          'input[placeholder*="Suchen"], input[placeholder*="Kategorie"], input[type="search"], input[aria-label*="Suchen"], input[aria-label*="Kategorie"], input[type="text"]'
-        )
-        if (searchInput) {
-          const catQuery = (listing.category || '').toLowerCase().includes('herren') ? 'Herren Jeans'
-            : (listing.category || '').toLowerCase().includes('kinder') ? 'Kinder Kleidung'
-            : 'Damen Jeans'
-          searchInput.focus()
-          setNativeValue(searchInput, catQuery)
-          searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
+        await wait(500); editBtn.click(); await wait(2000)
+        const inp = document.querySelector('input[placeholder*="Suchen"], input[type="search"], input[type="text"]')
+        if (inp) {
+          const q = (listing.category || '').toLowerCase().includes('herren') ? 'Herren Jeans'
+                  : (listing.category || '').toLowerCase().includes('kinder') ? 'Kinder Kleidung'
+                  : 'Damen Jeans'
+          inp.focus(); setNativeValue(inp, q)
+          inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
           await wait(2000)
-
-          // Ersten Treffer auswählen
-          const results = Array.from(document.querySelectorAll(
-            '[role="option"], [role="listitem"], [class*="result"], [class*="suggest"], li'
-          )).filter(el => el.offsetParent && el.textContent.trim().length > 2)
-          if (results[0]) {
-            results[0].click()
-            await wait(1000)
-            console.log('[ListSync eBay] ✓ Kategorie gewählt:', results[0].textContent.trim().substring(0, 40))
-          }
-
-          // Bestätigen / Fertig
-          const confirmBtn = Array.from(document.querySelectorAll('button'))
-            .find(b => b.offsetParent && ['Fertig', 'Bestätigen', 'OK', 'Übernehmen', 'Auswählen', 'Weiter'].includes(b.textContent.trim()))
-          if (confirmBtn) { confirmBtn.click(); await wait(2500) }
+          const res = Array.from(document.querySelectorAll('[role="option"], li')).filter(el => el.offsetParent && el.textContent.trim().length > 2)
+          if (res[0]) { res[0].click(); await wait(1000) }
+          const ok = Array.from(document.querySelectorAll('button'))
+            .find(b => b.offsetParent && ['Fertig','Bestätigen','OK','Weiter'].includes(b.textContent.trim()))
+          if (ok) { ok.click(); await wait(2500) }
         }
       }
     }
-  } catch(e) { console.warn('[ListSync eBay] Kategorie-Fix Fehler:', e.message) }
+  } catch(e) { console.warn('[eBay] Kategorie-Fix:', e.message) }
 
-  // 1. TITEL — "Angebotstitel" Feld (vom Prelist bereits befüllt, aber überschreiben)
+  // 1. TITEL
   try {
-    // Suche alle sichtbaren Text-Inputs und nimm den mit Angebotstitel-Label
-    const titleInput = await waitForAny([
-      'input[aria-label*="Angebotstitel"]',
-      'input[aria-label*="Titel"]',
-      'input[id*="title"]',
-      'input[name*="title"]',
+    const inp = await waitForAny([
+      'input[aria-label*="Angebotstitel"]', 'input[aria-label*="Titel"]',
+      'input[id*="title"]', 'input[name*="title"]',
     ], 8000).catch(() => null)
-
-    // Fallback: erstes nicht-hidden text-input
-    const inp = titleInput || [...document.querySelectorAll('input[type="text"], input:not([type])')].find(el => {
-      const label = document.querySelector(`label[for="${el.id}"]`)
-      return label?.textContent?.includes('Angebotstitel') || label?.textContent?.includes('Titel')
-    })
-
     if (inp) {
-      inp.focus()
-      await wait(200)
-      const suffix = ' | Top Zustand ✅'
-      const title = (listing.title + suffix).substring(0, 80)
-      setNativeValue(inp, title)
-      console.log('[ListSync eBay lstng] ✓ Titel:', title)
+      inp.focus(); await wait(200)
+      setNativeValue(inp, (listing.title + ' | Top Zustand ✅').substring(0, 80))
+      console.log('[eBay lstng] ✓ Titel')
     }
-  } catch(e) { console.warn('[ListSync eBay lstng] Titel-Fehler:', e.message) }
+  } catch(e) { console.warn('[eBay lstng] Titel:', e.message) }
 
   await wait(400)
 
-  // 2. ZUSTAND — Tiles oder Dialog
+  // 2. ZUSTAND
+  // Quick-Tiles auf der Seite: "Neu mit Etikett", "Gebraucht - Gut" + Icon-Button "..." (leerer Text!)
+  // "..." Button: class enthält "fake-menu-button" UND "icon-btn", ariaLabel="Weitere Optionen"
   try {
     const condId = getConditionId(listing.condition)
     if (condId) {
-      // Alle bekannten Label-Varianten pro conditionId (kurz + lang)
       const COND_LABELS = {
         '1000': ['Neu mit Etikett'],
         '1500': ['Neu ohne Etikett'],
         '1750': ['Neu mit Mängeln'],
-        '2990': ['Sehr gut', 'Gebraucht - Sehr gut', 'Gebraucht – Sehr gut', 'Hervorragend', 'Gebraucht - Hervorragend'],
-        '3000': ['Gut', 'Gebraucht - Gut', 'Gebraucht – Gut'],
-        '3010': ['Akzeptabel', 'Gebraucht - Akzeptabel', 'Gebraucht – Akzeptabel', 'Befriedigend'],
+        '2990': ['Gebraucht - Hervorragend', 'Gebraucht – Hervorragend'],
+        '3000': ['Gebraucht - Gut', 'Gebraucht – Gut'],
+        '3010': ['Gebraucht - Akzeptabel', 'Gebraucht – Akzeptabel'],
       }
       const labels = COND_LABELS[condId] || []
 
-      // Zum Zustand-Bereich scrollen (eBay zeigt "ZUSTAND" in Großbuchstaben)
-      const zustandHeader = Array.from(document.querySelectorAll('h2,h3,h4,label,span,div,p'))
-        .find(el => {
-          const t = el.textContent.trim().toUpperCase()
-          return (t === 'ZUSTAND' || t === 'ARTIKELZUSTAND' || t === 'KONDITION') && el.children.length === 0
-        })
-      if (zustandHeader) { zustandHeader.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(700) }
+      const zustandHdr = Array.from(document.querySelectorAll('h2,h3,h4,span,div,p'))
+        .find(el => { const t = el.textContent.trim().toUpperCase(); return (t === 'ZUSTAND' || t === 'ARTIKELZUSTAND') && !el.children.length })
+      if (zustandHdr) { zustandHdr.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(700) }
 
-      const allClickable = () => Array.from(document.querySelectorAll(
-        'button, [role="radio"], [role="option"], [role="button"]'
-      ))
+      const allClickable = () => Array.from(document.querySelectorAll('button, [role="radio"], [role="option"], [role="button"]'))
       let condSet = false
 
-      // Stufe 1: Exakten Tile-Text direkt finden (z.B. "Neu mit Etikett", "Sehr gut")
-      for (const label of labels) {
-        const tile = allClickable().find(el => el.offsetParent && el.textContent.trim() === label)
-        if (tile) { tile.click(); condSet = true; console.log('[ListSync eBay] ✓ Zustand (direkt):', label); break }
-      }
-
-      // Stufe 2: Erst "Neu" oder "Gebraucht" klicken, dann Sub-Option wählen
-      if (!condSet) {
-        const isNeu  = ['1000','1500','1750'].includes(condId)
-        const parent = allClickable().find(el => el.offsetParent && el.textContent.trim() === (isNeu ? 'Neu' : 'Gebraucht'))
-        if (parent) {
-          parent.click()
-          await wait(900)
-          for (const label of labels) {
-            const opt = allClickable().find(el => el.offsetParent && el.textContent.trim() === label)
-            if (opt) { opt.click(); condSet = true; console.log('[ListSync eBay] ✓ Zustand (2-Stufe):', label); break }
-          }
-          if (!condSet && isNeu && condId === '1000') condSet = true  // "Neu" ohne Etikett = top-level reicht
+      // Stufe 1: Direkt-Tile klicken (z.B. "Gebraucht - Hervorragend" ist sichtbarer Tile)
+      for (const lbl of labels) {
+        const tile = allClickable().find(el => el.offsetParent && el.textContent.trim() === lbl)
+        if (tile) {
+          tile.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(300)
+          tile.click(); condSet = true
+          console.log('[eBay] ✓ Zustand Tile:', lbl); break
         }
       }
 
-      // Stufe 3: "..." Dialog
+      // Stufe 2: "..." Icon-Button → Dialog mit Radio-Inputs (value=condId)
+      // WICHTIG: Der Button hat KEINEN Text – selector über class+icon-btn
       if (!condSet) {
-        const moreBtn = allClickable().find(b => b.offsetParent &&
-          (b.textContent.trim() === '...' || b.textContent.trim() === 'Mehr' || b.textContent.trim() === 'Alle'))
+        const moreBtn = document.querySelector('button[class*="fake-menu-button"][class*="icon-btn"]')
+          || document.querySelector('button[aria-label="Weitere Optionen"]')
         if (moreBtn) {
-          moreBtn.click()
-          await wait(900)
-          const radio = document.querySelector(`input[value="${condId}"]`)
-          if (radio) { radio.click(); await wait(200); condSet = true }
+          moreBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(300)
+          moreBtn.click(); await wait(1200)
+          const radio = document.querySelector(`input[type="radio"][value="${condId}"]`)
+          if (radio) {
+            radio.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(300)
+            radio.click()
+            const lbl = document.querySelector(`label[for="${radio.id}"]`)
+            if (lbl) lbl.click()
+            condSet = true
+            console.log('[eBay] ✓ Zustand Dialog:', condId)
+          }
           if (!condSet) {
-            for (const label of labels) {
-              const dlgEl = Array.from(document.querySelectorAll('button, [role="radio"], [role="option"], div, span'))
-                .find(el => el.offsetParent && el.textContent.trim() === label)
-              if (dlgEl) { dlgEl.click(); condSet = true; break }
+            for (const lbl of labels) {
+              const el = Array.from(document.querySelectorAll('[role="radio"], button, label'))
+                .find(e => e.offsetParent && e.textContent.trim() === lbl)
+              if (el) { el.click(); condSet = true; break }
             }
           }
-          await wait(300)
+          await wait(400)
           const fertig = Array.from(document.querySelectorAll('button'))
-            .find(b => b.offsetParent && (b.textContent.trim() === 'Fertig' || b.textContent.trim() === 'OK' || b.textContent.trim() === 'Bestätigen'))
-          if (fertig) { fertig.click(); await wait(400) }
-          console.log('[ListSync eBay] ✓ Zustand (Dialog):', condId)
+            .find(b => b.offsetParent && ['Fertig', 'OK', 'Bestätigen'].includes(b.textContent.trim()))
+          if (fertig) { fertig.click(); await wait(500) }
         }
       }
     }
-  } catch(e) { console.warn('[ListSync eBay lstng] Zustand-Fehler:', e.message) }
+  } catch(e) { console.warn('[eBay lstng] Zustand:', e.message) }
 
   await wait(400)
 
-  // 3. BESCHREIBUNG — über "HTML-Code anzeigen" Checkbox → textarea
+  // 3. BESCHREIBUNG
   try {
     let desc = listing.description || ''
     const extras = []
@@ -572,279 +358,213 @@ async function fillLstng() {
     if (listing.color)     extras.push(`Farbe: ${listing.color}`)
     if (extras.length) desc = (desc ? desc + '\n\n' : '') + extras.join('\n')
 
-    // Strategie 1: "HTML-Code anzeigen" Checkbox klicken → gibt einfaches textarea
-    const allEls = Array.from(document.querySelectorAll('label, span, div'))
-    const htmlLabel = allEls.find(el => el.textContent?.trim() === 'HTML-Code anzeigen')
-    let filledViaHtml = false
+    // Strategie 1: "HTML-Code anzeigen" Checkbox → einfaches textarea
+    const htmlLabel = Array.from(document.querySelectorAll('label, span, div'))
+      .find(el => el.textContent?.trim() === 'HTML-Code anzeigen')
+    let filled = false
     if (htmlLabel) {
       const cb = htmlLabel.tagName === 'LABEL'
         ? document.getElementById(htmlLabel.htmlFor) || htmlLabel.querySelector('input[type="checkbox"]')
-        : htmlLabel.previousElementSibling?.querySelector?.('input[type="checkbox"]')
-          || htmlLabel.closest('label')?.querySelector('input[type="checkbox"]')
-      if (cb && !cb.checked) {
-        cb.click()
-        await wait(600)
-      }
+        : htmlLabel.closest('label')?.querySelector('input[type="checkbox"]')
+      if (cb && !cb.checked) { cb.click(); await wait(600) }
       const ta = document.querySelector('textarea[class*="desc"], textarea[name*="desc"], textarea[id*="desc"], textarea')
-      if (ta) {
-        ta.focus()
-        setNativeValue(ta, desc)
-        filledViaHtml = true
-        console.log('[ListSync eBay lstng] ✓ Beschreibung via HTML-textarea')
-      }
+      if (ta) { ta.focus(); setNativeValue(ta, desc); filled = true; console.log('[eBay] ✓ Beschreibung HTML-textarea') }
     }
 
-    // Strategie 2: contenteditable direkt befüllen
-    if (!filledViaHtml) {
-      // Scrolle zur Beschreibung – sie erscheint nach Fotos & Merkmalen
-      const allSections = Array.from(document.querySelectorAll('section, [class*="section"], [class*="module"]'))
-      const descSection = allSections.find(s => s.textContent.includes('BESCHREIBUNG') || s.textContent.includes('Beschreibung'))
-      if (descSection) descSection.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      await wait(400)
-
+    if (!filled) {
       const editables = Array.from(document.querySelectorAll('[contenteditable="true"]'))
-      // Nimm das größte contenteditable (wahrscheinlich der Editor)
       const editor = editables.sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0]
       if (editor) {
-        editor.click()
-        editor.focus()
-        await wait(300)
-        // Alles selektieren und ersetzen
+        editor.click(); editor.focus(); await wait(300)
         document.execCommand('selectAll', false, null)
         document.execCommand('delete', false, null)
         document.execCommand('insertText', false, desc)
-        if (!editor.textContent.trim()) {
-          // execCommand hat nicht funktioniert – innerHTML setzen
-          editor.innerHTML = desc.replace(/\n/g, '<br>')
-          editor.dispatchEvent(new Event('input',  { bubbles: true }))
-        }
-        console.log('[ListSync eBay lstng] ✓ Beschreibung via contenteditable')
+        if (!editor.textContent.trim()) { editor.innerHTML = desc.replace(/\n/g, '<br>'); editor.dispatchEvent(new Event('input', { bubbles: true })) }
+        console.log('[eBay] ✓ Beschreibung contenteditable')
       }
     }
-  } catch(e) { console.warn('[ListSync eBay lstng] Beschreibung-Fehler:', e.message) }
+  } catch(e) { console.warn('[eBay lstng] Beschreibung:', e.message) }
 
   await wait(500)
 
-  // 3b. ARTIKELMERKMALE — Marke & Farbe
+  // 4. ARTIKELMERKMALE
+  // eBay /lstng DOM (live bestätigt):
+  //   [class*="attributes--field"]
+  //     ├─ [class*="attributes--label"]  ← Label-Text
+  //     ├─ button.toggle-button          ← Größe: direkt anklickbare Toggle-Buttons (XS/S/M/L...)
+  //     └─ button[class*="se-expand-button"]  ← Dropdown-Trigger für Marke/Farbe/Material etc.
+  //
+  // Nach Klick auf Dropdown → Suchfeld placeholder "Suchen oder eigene Angaben machen"
+  // WICHTIG für React-Filter: InputEvent mit inputType='insertText', NICHT char-by-char!
+  // Optionen: div[role="menuitemradio"] — NICHT der Container div[role="menu"]
+
   async function fillAspect(labelText, value) {
     if (!value) return false
     try {
-      // eBay /lstng Struktur:
-      //   div[class*="attributes--field"]
-      //     ├─ div[class*="attributes--label"]  ← enthält Label-Text (+ Tooltip)
-      //     └─ div[class*="attributes--value"]
-      //          └─ button[class*="fake-menu-button"]  ← Dropdown-Trigger
-      // WICHTIG: Der Button ist im SIBLING, nicht im Ancestor-Pfad!
-      let dropBtn = null
-
-      // Strategie 1 (primär): Row per CSS-Klasse finden → Button im Sibling
-      // Kein label-Variable nötig — direkt über Row-Struktur!
+      // Row finden
       const allRows = Array.from(document.querySelectorAll('[class*="attributes--field"]'))
       const attrRow = allRows.find(r => {
         const lbl = r.querySelector('[class*="attributes--label"]')
         return lbl && lbl.textContent.trim().startsWith(labelText)
       })
-      if (attrRow) {
-        dropBtn = attrRow.querySelector('button[class*="fake-menu-button"], button[class*="expand-button"], button[class*="se-expand"]')
-                  || attrRow.querySelector('button')
-      }
+      if (!attrRow) { console.warn('[eBay] Row nicht gefunden:', labelText); return false }
 
-      // Strategie 2 (Fallback): positionsbasiert — Element rechts neben dem Label
-      if (!dropBtn) {
-        const labelEl = Array.from(document.querySelectorAll('a, span, label, div, td, th, p, li, button'))
-          .find(el => el.textContent.trim() === labelText)
-        if (labelEl) {
-          const labelRect = labelEl.getBoundingClientRect()
-          dropBtn = Array.from(document.querySelectorAll('button, [role="button"], [role="combobox"]'))
-            .find(el => {
-              if (el === labelEl) return false
-              const r = el.getBoundingClientRect()
-              return r.width > 80 && r.left > labelRect.right - 20
-                     && Math.abs((r.top + r.height / 2) - (labelRect.top + labelRect.height / 2)) < 30
-            })
+      attrRow.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await wait(300)
+
+      // STRATEGIE A: Toggle-Buttons (z.B. Größe: XS, S, M, L, XL…)
+      // eBay zeigt Größen als direkt anklickbare Buttons im Row
+      const toggleBtns = Array.from(attrRow.querySelectorAll('button[class*="toggle-button"], [class*="se-toggle-button"]'))
+      if (toggleBtns.length > 0) {
+        const valLow = value.toLowerCase()
+        const match = toggleBtns.find(b => b.textContent.trim().toLowerCase() === valLow)
+                   || toggleBtns.find(b => (b.getAttribute('aria-label') || '').toLowerCase() === valLow)
+                   || toggleBtns.find(b => b.textContent.trim().toLowerCase().includes(valLow))
+        if (match) {
+          match.click()
+          console.log('[eBay] ✓', labelText, '→ Toggle:', match.textContent.trim())
+          await wait(400)
+          return true
         }
+        // Kein passender Toggle-Wert → weiter zum Dropdown (z.B. "andere Größe")
       }
 
-      if (!dropBtn) { console.warn('[ListSync] Button nicht gefunden für:', labelText); return false }
+      // STRATEGIE B: Dropdown (Marke, Farbe, Material, Produktart etc.)
+      const dropBtn = attrRow.querySelector('button[class*="se-expand-button"]')
+        || attrRow.querySelector('button[class*="fake-menu-button"]:not([class*="icon-btn"]):not([class*="tooltip"]):not([class*="fake-link"])')
 
-      // Scroll in Sicht damit auch Felder unterhalb des Viewports klickbar sind
+      if (!dropBtn) { console.warn('[eBay] Kein Dropdown-Button für:', labelText); return false }
+
       dropBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      await wait(350)
-
-      console.log('[ListSync] Klicke Dropdown für:', labelText)
+      await wait(400)
       dropBtn.click()
-      await wait(700)
+      await wait(900)
 
-      // Suchfeld — erscheint als Portal irgendwo im DOM
+      // Suchfeld finden (erscheint als Portal)
       const searchInput = Array.from(document.querySelectorAll('input'))
         .filter(el => el.offsetParent !== null)
         .find(el => (el.placeholder || '').toLowerCase().includes('suchen')
                  || (el.placeholder || '').toLowerCase().includes('eigene'))
-      if (!searchInput) { console.warn('[ListSync] Suchfeld nicht gefunden nach Klick auf:', labelText); return false }
 
-      // Zeichen für Zeichen tippen — React braucht echte Keyboard-Events
-      searchInput.focus()
-      searchInput.click()
-      await wait(200)
-      // Feld leeren
-      const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
-      nativeSetter?.call(searchInput, '')
-      searchInput.dispatchEvent(new Event('input', { bubbles: true }))
-      await wait(100)
-      // Jeden Buchstaben einzeln tippen
-      for (const char of value) {
-        nativeSetter?.call(searchInput, searchInput.value + char)
-        searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }))
-        searchInput.dispatchEvent(new Event('input', { bubbles: true }))
-        searchInput.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }))
-        await wait(40)
+      if (!searchInput) {
+        console.warn('[eBay] Suchfeld nicht gefunden für:', labelText)
+        // Dropdown schließen
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }))
+        return false
       }
-      await wait(800) // Warten bis Dropdown-Liste sich aktualisiert
 
-      // Optionen suchen — eBay nutzt role="menuitemradio" in div.menu__item
-      const findOpts = () => Array.from(document.querySelectorAll(
-        '[role="menuitemradio"], [role="option"], .menu__item, [class*="menu__item"], li, [class*="option"], [class*="suggest"]'
-      )).filter(el => el.offsetParent !== null && el.textContent.trim().length > 0)
+      // React-Filter auslösen: InputEvent mit inputType (NICHT char-by-char — funktioniert nicht!)
+      searchInput.focus()
+      await wait(100)
+      const ns = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+      ns?.call(searchInput, value)
+      searchInput.dispatchEvent(new InputEvent('input', {
+        bubbles: true, cancelable: true, inputType: 'insertText', data: value,
+      }))
+      await wait(1000)
 
-      let opts = findOpts()
-      if (!opts.length) { await wait(600); opts = findOpts() } // nochmal warten
+      // Optionen: ZUERST [role="menuitemradio"] — das ist das echte Item, NICHT der Container
+      const getItems = () => Array.from(document.querySelectorAll('[role="menuitemradio"], [role="option"]'))
+        .filter(el => el.offsetParent !== null && el.textContent.trim().length > 0)
 
-      const match = opts.find(el => el.textContent.trim().toLowerCase() === value.toLowerCase())
-               || opts.find(el => el.textContent.trim().toLowerCase().includes(value.toLowerCase()))
+      let items = getItems()
+      if (!items.length) { await wait(600); items = getItems() }
+
+      const valLow = value.toLowerCase()
+      const match = items.find(el => el.textContent.trim().toLowerCase() === valLow)
+                 || items.find(el => el.textContent.trim().toLowerCase().includes(valLow))
+                 || items.find(el => valLow.includes(el.textContent.trim().toLowerCase()) && el.textContent.trim().length > 2)
 
       if (match) {
-        // eBay benötigt mousedown + mouseup + click für die Auswahl
+        match.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        await wait(200)
         match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
         match.dispatchEvent(new MouseEvent('mouseup',   { bubbles: true, cancelable: true }))
         match.click()
-        console.log('[ListSync eBay lstng] ✓', labelText, '→', match.textContent.trim())
+        console.log('[eBay] ✓', labelText, '→', match.textContent.trim())
         await wait(500)
         return true
       }
 
-      // Kein Match → Enter (eigene Angabe übernehmen)
+      // Kein Treffer → Enter (eigene Angabe)
       searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
-      console.log('[ListSync eBay lstng] ✓', labelText, '→ eigene Angabe:', value)
-      await wait(300)
+      searchInput.dispatchEvent(new KeyboardEvent('keyup',   { key: 'Enter', keyCode: 13, bubbles: true }))
+      console.log('[eBay] ✓', labelText, '→ eigene Angabe:', value)
+      await wait(400)
       return true
-    } catch(e) { console.warn('[ListSync] fillAspect Fehler:', e.message); return false }
+    } catch(e) { console.warn('[eBay] fillAspect', labelText, ':', e.message); return false }
   }
 
-  // Artikelmerkmale-Sektion in den Viewport scrollen damit sie gerendert wird
+  // Artikelmerkmale-Sektion scrollen
   const merkmalSection = Array.from(document.querySelectorAll('h2, h3, h4, div, section'))
-    .find(el => {
-      const t = el.textContent.trim()
-      return t === 'ARTIKELMERKMALE' || t === 'Artikelmerkmale' || t === 'Artikeldetails'
-    })
-  if (merkmalSection) {
-    merkmalSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    await wait(1000)
-  } else {
-    window.scrollBy(0, 1400)
-    await wait(1000)
-  }
+    .find(el => { const t = el.textContent.trim(); return t === 'ARTIKELMERKMALE' || t === 'Artikelmerkmale' || t === 'Artikeldetails' })
+  if (merkmalSection) { merkmalSection.scrollIntoView({ behavior: 'smooth', block: 'start' }); await wait(1000) }
+  else { window.scrollBy(0, 1400); await wait(1000) }
 
-  if (listing.brand)         { await fillAspect('Marke',         listing.brand) }
-  if (listing.size)          { await fillAspect('Größe',         listing.size) }
-  if (listing.color)         { await fillAspect('Farbe',         listing.color) }
-  if (listing.material)      { await fillAspect('Material',      listing.material) }
-  if (listing.stil)          { await fillAspect('Stil',          listing.stil) }
-  if (listing.beinform)      { await fillAspect('Beinform',      listing.beinform) }
-  if (listing.taillenumfang) { await fillAspect('Taillenumfang', listing.taillenumfang) }
-
-  // Produktart automatisch aus Kategorie / Titel ableiten
+  if (listing.brand)         await fillAspect('Marke',         listing.brand)
+  if (listing.size)          await fillAspect('Größe',         listing.size)
+  if (listing.color)         await fillAspect('Farbe',         listing.color)
+  if (listing.material)      await fillAspect('Material',      listing.material)
+  if (listing.stil)          await fillAspect('Stil',          listing.stil)
+  if (listing.beinform)      await fillAspect('Beinform',      listing.beinform)
+  if (listing.taillenumfang) await fillAspect('Taillenumfang', listing.taillenumfang)
   const produktart = detectProduktart(listing)
-  if (produktart)            { await fillAspect('Produktart',    produktart) }
+  if (produktart)            await fillAspect('Produktart',    produktart)
 
   await wait(300)
 
-  // 4. PREIS — "Artikelpreis" Feld mit € Symbol
+  // 5. PREIS
   try {
-    // Suche Input in der Nähe von "Artikelpreis" Label
     const priceInput = await waitForAny([
-      'input[aria-label*="Artikelpreis"]',
-      'input[aria-label*="Preis"]',
-      'input[id*="price"]',
-      'input[name*="price"]',
+      'input[aria-label*="Artikelpreis"]', 'input[aria-label*="Preis"]',
+      'input[id*="price"]', 'input[name*="price"]',
     ], 5000).catch(() => null)
-
-    // Fallback: Input neben einem Label das "Artikelpreis" enthält
     const allLabels = Array.from(document.querySelectorAll('label, [class*="label"]'))
     const priceLabel = allLabels.find(l => l.textContent.trim() === 'Artikelpreis')
-    const inp = priceInput || (priceLabel
-      ? document.getElementById(priceLabel.htmlFor) || priceLabel.closest('div')?.querySelector('input')
-      : null)
-
+    const inp = priceInput || (priceLabel ? document.getElementById(priceLabel.htmlFor) || priceLabel.closest('div')?.querySelector('input') : null)
     if (inp) {
-      inp.focus()
-      await wait(200)
-      const priceStr = String(Number(listing.price).toFixed(2)).replace('.', ',')
-      setNativeValue(inp, priceStr)
-      console.log('[ListSync eBay lstng] ✓ Preis:', priceStr)
+      inp.focus(); await wait(200)
+      setNativeValue(inp, String(Number(listing.price).toFixed(2)).replace('.', ','))
+      console.log('[eBay lstng] ✓ Preis')
     }
-  } catch(e) { console.warn('[ListSync eBay lstng] Preis-Fehler:', e.message) }
+  } catch(e) { console.warn('[eBay lstng] Preis:', e.message) }
 
   await wait(400)
 
-  // 5. BILDER hochladen
+  // 6. BILDER
   updateStatus('Bilder werden hochgeladen…')
   await wait(500)
   await uploadImages(listing.imageData || [])
 
-  updateStatus('✅ Fertig – Lieferung prüfen & Angebot einstellen', true)
+  updateStatus('✅ Fertig – Versand prüfen & Angebot einstellen', true)
   await chrome.storage.local.remove('pendingListing')
-  console.log('[ListSync eBay lstng] ✅ Alles ausgefüllt')
+  console.log('[eBay lstng] ✅ Alles ausgefüllt')
 }
 
-// ── Altes /sl/list Interface ───────────────────────────────────────────────────
+// ── Altes /sl/list Interface ──────────────────────────────────────────────────
 
 async function fill() {
   const listing = await getListing()
   if (!listing) return
   showBanner(listing)
-
   await wait(3000)
-
-  updateStatus('Titel wird ausgefüllt…')
-  await fillTitle(listing)
+  updateStatus('Titel…'); await waitForAny(['input[id="itemTitle"]', 'input[name="itemTitle"]', 'input[aria-label*="Titel"]'], 15000).then(el => { const t = (listing.title + ' | Top Zustand ✅').substring(0, 80); setNativeValue(el, t) }).catch(() => {})
   await wait(500)
-
-  updateStatus('Preis wird ausgefüllt…')
-  await fillPrice(listing)
+  updateStatus('Preis…'); await waitForAny(['input[id="binPrice"]', 'input[name="startPrice"]', 'input[aria-label*="Preis"]', '#price-input'], 10000).then(el => setNativeValue(el, String(Number(listing.price).toFixed(2)).replace('.', ','))).catch(() => {})
   await wait(400)
-
-  updateStatus('Beschreibung wird ausgefüllt…')
-  await fillDescription(listing)
-  await wait(400)
-
-  updateStatus('Zustand wird gesetzt…')
-  await selectCondition(listing)
-  await wait(400)
-
-  updateStatus('Bilder werden hochgeladen…')
-  await wait(500)
-  await uploadImages(listing.imageData || [])
-
-  updateStatus('✅ Fertig – Kategorie & Versand prüfen, dann absenden', true)
+  updateStatus('Bilder…'); await wait(500); await uploadImages(listing.imageData || [])
+  updateStatus('✅ Fertig', true)
   await chrome.storage.local.remove('pendingListing')
-  console.log('[ListSync eBay] ✅ Alles ausgefüllt')
 }
 
-// ── Entry point: Prelist-Seite oder Listing-Seite? ────────────────────────────
+// ── Entry Point ───────────────────────────────────────────────────────────────
 
 function init() {
   const path = window.location.pathname
-  if (path.includes('/prelist')) {
-    setTimeout(handlePrelist, 2000)
-  } else if (path.includes('/lstng')) {
-    setTimeout(fillLstng, 3000)
-  } else if (path.includes('/sl/list')) {
-    setTimeout(fill, 3000)
-  }
+  if (path.includes('/prelist'))    setTimeout(handlePrelist, 2000)
+  else if (path.includes('/lstng')) setTimeout(fillLstng, 3000)
+  else if (path.includes('/sl/list')) setTimeout(fill, 3000)
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init)
-} else {
-  init()
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init)
+else init()

@@ -7,6 +7,41 @@ import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, fmt } from '@/components/Badge'
 import CategoryPicker from '@/components/CategoryPicker'
 
+// eBay-Unterkategorie-Optionen je Hauptkategorie
+const EBAY_CATS = {
+  'Damen':             ['Jeans','Jacken & Mäntel','Pullover & Strickjacken','Kleider & Röcke','Shirts & Tops','Hosen','Shorts','Bademode','Sportbekleidung'],
+  'Damen – Kleidung':  ['Jeans','Jacken & Mäntel','Pullover & Strickjacken','Kleider & Röcke','Shirts & Tops','Hosen','Shorts','Bademode','Sportbekleidung'],
+  'Damen – Schuhe':    ['Sneaker','Stiefel & Stiefeletten','Pumps','Ballerinas','Sandalen'],
+  'Damen – Taschen':   ['Handtaschen','Rucksäcke','Clutches','Geldbörsen'],
+  'Herren':            ['Jeans','Jacken & Mäntel','Pullover & Strickjacken','Hemden','Hosen & Chinos','T-Shirts','Shorts','Sportbekleidung'],
+  'Herren – Kleidung': ['Jeans','Jacken & Mäntel','Pullover & Strickjacken','Hemden','Hosen & Chinos','T-Shirts','Shorts','Sportbekleidung'],
+  'Herren – Schuhe':   ['Sneaker','Stiefel','Halbschuhe & Schnürschuhe'],
+  'Kinder':            ['Babykleidung','Mädchenkleidung','Jungenkleidung','Kinderschuhe','Spielzeug'],
+  'Kinder – Mädchen':  ['Mädchenkleidung','Mädchenschuhe','Spielzeug'],
+  'Kinder – Jungs':    ['Jungenkleidung','Jungenschuhe','Spielzeug'],
+  'Elektronik':        ['Smartphones','Laptops','Tablets','Kopfhörer','Sonstige Elektronik'],
+  'Beauty':            ['Parfüm & Düfte','Make-up','Hautpflege','Haarpflege'],
+  'Beauty – Make-up':  ['Make-up'],
+  'Beauty – Hautpflege': ['Hautpflege'],
+  'Beauty – Parfüm & Düfte': ['Parfüm & Düfte'],
+  'Haustiere':         ['Hundezubehör','Katzenzubehör','Sonstiges Zubehör'],
+  'Haustiere – Hunde': ['Hundezubehör'],
+  'Haustiere – Katzen':['Katzenzubehör'],
+  'Sonstiges':         ['Sonstiges'],
+}
+function getEbayCats(category) {
+  if (!category) return []
+  if (EBAY_CATS[category]) return EBAY_CATS[category]
+  // Partial match (e.g. "Damen – Kleidung – Jeans" → "Damen – Kleidung")
+  const keys = Object.keys(EBAY_CATS).sort((a,b) => b.length - a.length)
+  for (const k of keys) {
+    if (category === k || category.startsWith(k + ' – ') || category.startsWith(k)) {
+      return EBAY_CATS[k]
+    }
+  }
+  return []
+}
+
 // KA-Unterkategorie-Optionen je Hauptkategorie
 const KA_LEAVES = {
   '153/154': ['Jacken & Mäntel','Jeans','Pullover','Hosen','Röcke & Kleider','Shirts & Tops','Shorts','Sportbekleidung','Bademode','Weitere Damenbekleidung'],
@@ -74,7 +109,7 @@ export default function NewListing() {
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
     condition:'Sehr gut', category:'',
-    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', kaCategory:'', shipping:[], shipSize:'',
+    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', kaCategory:'', ebayCategory:'', shipping:[], shipSize:'',
     platforms:['vinted','kleinanzeigen','ebay'],
     address:''
   })
@@ -135,7 +170,7 @@ export default function NewListing() {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
           ...form, price: Number(form.price), buyPrice: Number(form.buyPrice||0),
-          images: imgs.map(i=>i.url),
+          images: imgs.map(i=>i.url), ebayCategory: form.ebayCategory,
         })
       })
       if(res.ok) {
@@ -284,6 +319,26 @@ export default function NewListing() {
                     <option value="">– automatisch erkennen –</option>
                     {getKALeaves(form.category).map(leaf => (
                       <option key={leaf} value={leaf}>{leaf}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* ─ eBay Kategorie ─ */}
+              {form.platforms.includes('ebay') && form.category && getEbayCats(form.category).length > 0 && (
+                <div style={{ background:'rgba(202,138,4,0.06)', border:'1px solid rgba(202,138,4,0.3)', borderRadius:12, padding:'12px 14px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                    <span style={{ fontSize:11, fontWeight:700, color:'#ca8a04', textTransform:'uppercase', letterSpacing:'.06em' }}>🟡 eBay Kategorie</span>
+                    <span style={{ fontSize:10, color:'#ca8a04', opacity:.7 }}>verhindert falsche Auto-Erkennung</span>
+                  </div>
+                  <select
+                    value={form.ebayCategory}
+                    onChange={e => set('ebayCategory', e.target.value)}
+                    style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid rgba(202,138,4,0.4)', background:'var(--surface)', color:'var(--text-1)', fontSize:13, fontWeight:600 }}
+                  >
+                    <option value="">– automatisch erkennen –</option>
+                    {getEbayCats(form.category).map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
                     ))}
                   </select>
                 </div>

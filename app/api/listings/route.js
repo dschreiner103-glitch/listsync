@@ -76,8 +76,9 @@ export async function POST(req) {
     const beinform      = data.beinform      || ''
     const taillenumfang = data.taillenumfang || ''
     const kaCategory    = data.kaCategory    || ''
-    await prisma.$executeRaw`UPDATE "Listing" SET material = ${material}, stil = ${stil}, beinform = ${beinform}, taillenumfang = ${taillenumfang}, "kaCategory" = ${kaCategory} WHERE id = ${listing.id}`
-    return NextResponse.json({ ...parseListing(listing), material, stil, beinform, taillenumfang, kaCategory }, { status: 201 })
+    const ebayCategory  = data.ebayCategory  || ''
+    await prisma.$executeRaw`UPDATE "Listing" SET material = ${material}, stil = ${stil}, beinform = ${beinform}, taillenumfang = ${taillenumfang}, "kaCategory" = ${kaCategory}, "ebayCategory" = ${ebayCategory} WHERE id = ${listing.id}`
+    return NextResponse.json({ ...parseListing(listing), material, stil, beinform, taillenumfang, kaCategory, ebayCategory }, { status: 201 })
   } catch(e) {
     console.error('[API POST /listings]', e.message)
     return NextResponse.json({ error: e.message }, { status: 500 })

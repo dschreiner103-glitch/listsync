@@ -128,20 +128,45 @@ async function openVintedNewListing() {
 }
 
 function getEbayCategoryIdFromListing(listing) {
-  const cat = listing?.category || ''
-  const ka  = listing?.kaCategory || ''
+  const cat  = listing?.category     || ''
+  const ka   = listing?.kaCategory   || ''
+  const ebay = listing?.ebayCategory || ''
 
-  // Aus kaCategory ableiten – spezifischer als Oberkategorie (z.B. Jeans statt Damen allgemein)
-  if (ka) {
-    const isDamen  = cat.toLowerCase().includes('damen')  || (!cat.toLowerCase().includes('herren') && !cat.toLowerCase().includes('kinder'))
-    const isHerren = cat.toLowerCase().includes('herren')
-    const kaLow    = ka.toLowerCase()
-    if (kaLow.includes('jeans'))                          return isDamen ? '11554'  : isHerren ? '11483'  : '11554'
-    if (kaLow.includes('jacken') || kaLow.includes('mäntel')) return isDamen ? '63862'  : isHerren ? '57988'  : '63862'
-    if (kaLow.includes('pullover') || kaLow.includes('strick')) return isDamen ? '63864'  : isHerren ? '57988'  : '63864'
-    if (kaLow.includes('röcke') || kaLow.includes('kleider'))  return isDamen ? '63861'  : null
-    if (kaLow.includes('shirts') || kaLow.includes('tops'))    return isDamen ? '63861'  : isHerren ? '57988'  : '63861'
-    if (kaLow.includes('hosen'))                          return isDamen ? '63861'  : isHerren ? '57988'  : '63861'
+  const catLow   = cat.toLowerCase()
+  const isDamen  = catLow.includes('damen')  || (!catLow.includes('herren') && !catLow.includes('kinder'))
+  const isHerren = catLow.includes('herren')
+  const isKinder = catLow.includes('kinder')
+
+  // Aus ebayCategory (vom Formular manuell gewählt) – höchste Priorität
+  // Aus kaCategory (automatisch vorgeschlagen)  – zweite Priorität
+  const src = ebay || ka
+  if (src) {
+    const s = src.toLowerCase()
+    if (s.includes('jeans'))                              return isDamen ? '11554'  : isHerren ? '11483' : '11554'
+    if (s.includes('jacken') || s.includes('mäntel'))    return isDamen ? '63862'  : isHerren ? '57988' : '63862'
+    if (s.includes('pullover') || s.includes('strick'))  return isDamen ? '63864'  : isHerren ? '57988' : '63864'
+    if (s.includes('kleider') || s.includes('röcke'))    return isDamen ? '63861'  : '63861'
+    if (s.includes('shirts') || s.includes('tops') || s.includes('hemden') || s.includes('t-shirts')) return isDamen ? '63861' : isHerren ? '57988' : '63861'
+    if (s.includes('hosen') || s.includes('chinos'))     return isDamen ? '63861'  : isHerren ? '57988' : '63861'
+    if (s.includes('shorts'))                            return isDamen ? '63861'  : isHerren ? '57988' : '63861'
+    if (s.includes('bademode'))                          return isDamen ? '63861'  : '63861'
+    if (s.includes('sportbekleidung'))                   return isDamen ? '63861'  : isHerren ? '57988' : '63861'
+    if (s.includes('sneaker'))                           return isDamen ? '63889'  : isHerren ? '93427' : '63889'
+    if (s.includes('stiefel'))                           return isDamen ? '63889'  : isHerren ? '93427' : '63889'
+    if (s.includes('pumps') || s.includes('ballerinas') || s.includes('sandalen')) return '63889'
+    if (s.includes('halbschuhe'))                        return '93427'
+    if (s.includes('handtaschen') || s.includes('rucksäcke') || s.includes('clutch') || s.includes('geldbörse')) return '169291'
+    if (s.includes('parfüm') || s.includes('düfte'))    return '180345'
+    if (s.includes('make-up'))                           return '26395'
+    if (s.includes('hautpflege'))                        return '11854'
+    if (s.includes('haarpflege'))                        return '26395'
+    if (s.includes('smartphone'))                        return '9355'
+    if (s.includes('laptop'))                            return '177'
+    if (s.includes('tablet'))                            return '171485'
+    if (s.includes('kopfhörer'))                         return '15052'
+    if (s.includes('hunde'))                             return '20744'
+    if (s.includes('katzen'))                            return '20741'
+    if (isKinder)                                        return '171146'
   }
 
   if (!cat) return null
