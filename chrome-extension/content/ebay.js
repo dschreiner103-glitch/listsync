@@ -647,9 +647,16 @@ async function fillLstng() {
   const isDraft = listing.status === 'entwurf'
   updateStatus(isDraft ? 'Entwurf wird gespeichert…' : 'Angebot wird eingestellt…')
   try {
+    // Live-bestätigte eBay-Button-Texte (Stand 2025):
+    //   Publish: "Artikel kostenlos einstellen" / "Artikel einstellen" / "Einstellen"
+    //   Draft:   "Speichern"
     const submitTexts = isDraft
-      ? ['Entwurf speichern', 'Als Entwurf speichern', 'Speichern']
-      : ['Einstellen', 'Angebot einstellen', 'Veröffentlichen', 'In den Verkauf einstellen']
+      ? ['Speichern', 'Entwurf speichern', 'Als Entwurf speichern']
+      : ['Artikel kostenlos einstellen', 'Artikel einstellen', 'Einstellen', 'Angebot einstellen', 'Veröffentlichen']
+
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+    await wait(800)
+
     let submitBtn = null
     for (const txt of submitTexts) {
       submitBtn = Array.from(document.querySelectorAll('button'))
@@ -661,10 +668,10 @@ async function fillLstng() {
       await wait(700)
       submitBtn.click()
       updateStatus(isDraft ? '✅ Entwurf gespeichert!' : '✅ Angebot eingestellt!', true)
-      console.log('[eBay lstng] ✓ Auto-Submit:', isDraft ? 'Entwurf' : 'Einstellen')
+      console.log('[eBay lstng] ✓ Auto-Submit:', submitBtn.textContent.trim())
     } else {
-      updateStatus(isDraft ? '✅ Fertig – bitte "Entwurf speichern" klicken' : '✅ Fertig – bitte "Einstellen" klicken', true)
-      console.warn('[eBay lstng] Submit-Button nicht gefunden')
+      updateStatus(isDraft ? '✅ Fertig – bitte "Speichern" klicken' : '✅ Fertig – bitte "Artikel einstellen" klicken', true)
+      console.warn('[eBay lstng] Submit-Button nicht gefunden. Sichtbare Buttons:', Array.from(document.querySelectorAll('button')).filter(b=>b.offsetParent&&!b.disabled).map(b=>b.textContent.trim()).filter(t=>t).slice(-10))
     }
   } catch(e) {
     updateStatus('✅ Fertig – bitte manuell bestätigen', true)
