@@ -332,8 +332,33 @@ async function fillLstng() {
           || document.querySelector('[role="dialog"]')
         if (!dialog) { console.warn('[eBay] Zustand-Dialog nicht gefunden'); return false }
 
-        const radio = dialog.querySelector(`input[type="radio"][value="${condId}"]`)
-        if (!radio) { console.warn('[eBay] Radio', condId, 'nicht in Dialog'); return false }
+        // Strategie 1: Radio per Value finden (Kleidung: 1000/1500/1750/2990/3000/3010)
+        let radio = dialog.querySelector(`input[type="radio"][value="${condId}"]`)
+
+        // Strategie 2: Wenn value nicht matcht (andere Kategorien: Elektronik, Haustiere etc.)
+        //   → Radio per Label-Text suchen
+        if (!radio) {
+          // Mapping condId → mögliche Label-Texte für andere Kategorien
+          const TEXT_MATCH = {
+            '1000': ['Neu'],
+            '1500': ['Neu: Sonstige', 'Neu ohne', 'New: Other'],
+            '1750': ['Neu mit Mängeln'],
+            '2990': ['Gebraucht', 'Sehr gut'],
+            '3000': ['Gebraucht'],
+            '3010': ['Gebraucht', 'Als Ersatzteil'],
+          }
+          const candidates = TEXT_MATCH[condId] || ['Gebraucht']
+          const allRadios = Array.from(dialog.querySelectorAll('input[type="radio"]'))
+          for (const txt of candidates) {
+            for (const r of allRadios) {
+              const lbl = dialog.querySelector(`label[for="${r.id}"]`)
+              if (lbl && lbl.textContent.trim().startsWith(txt)) { radio = r; break }
+            }
+            if (radio) break
+          }
+          if (radio) console.log('[eBay] Zustand via Text-Match gefunden')
+          else { console.warn('[eBay] Kein passendes Radio für condId:', condId); return false }
+        }
 
         const radioLbl = dialog.querySelector(`label[for="${radio.id}"]`) || radio.closest('label')
         if (radioLbl) radioLbl.click()
