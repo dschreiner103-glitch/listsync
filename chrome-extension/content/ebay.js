@@ -281,66 +281,98 @@ async function fillLstng() {
   await wait(400)
 
   // 2. ZUSTAND
-  // Quick-Tiles auf der Seite: "Neu mit Etikett", "Gebraucht - Gut" + Icon-Button "..." (leerer Text!)
-  // "..." Button: class enthält "fake-menu-button" UND "icon-btn", ariaLabel="Weitere Optionen"
+  // DOM-Struktur (live bestätigt, 2025):
+  //
+  // ZUSTAND NOCH NICHT GEWÄHLT (section hat class "summary--warn"):
+  //   button.condition-recommendation-value  → Quick-Tiles ("Neu mit Etikett", "Gebraucht - Gut")
+  //   button.condition-recommendation-more-values  → "..." öffnet Dialog
+  //
+  // ZUSTAND BEREITS GEWÄHLT (kein summary--warn):
+  //   button.smry--value.refocus.fake-link  → zeigt aktuellen Zustand, Klick öffnet Dialog
+  //
+  // DIALOG "Artikelzustand" (lightbox-dialog__window):
+  //   input[type="radio"][name="condition"][value="condId"]  +  label[for=radio.id]
+  //   button "Fertig" zum Bestätigen
   try {
     const condId = getConditionId(listing.condition)
     if (condId) {
-      const COND_LABELS = {
-        '1000': ['Neu mit Etikett'],
-        '1500': ['Neu ohne Etikett'],
-        '1750': ['Neu mit Mängeln'],
-        '2990': ['Gebraucht - Hervorragend', 'Gebraucht – Hervorragend'],
-        '3000': ['Gebraucht - Gut', 'Gebraucht – Gut'],
-        '3010': ['Gebraucht - Akzeptabel', 'Gebraucht – Akzeptabel'],
-      }
-      const labels = COND_LABELS[condId] || []
+      window.scrollTo({ top: 0, behavior: 'instant' })
+      await wait(600)
 
-      const zustandHdr = Array.from(document.querySelectorAll('h2,h3,h4,span,div,p'))
-        .find(el => { const t = el.textContent.trim().toUpperCase(); return (t === 'ZUSTAND' || t === 'ARTIKELZUSTAND') && !el.children.length })
-      if (zustandHdr) { zustandHdr.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(700) }
-
-      const allClickable = () => Array.from(document.querySelectorAll('button, [role="radio"], [role="option"], [role="button"]'))
+      const condSection = document.querySelector('[class*="summary__condition"]')
       let condSet = false
 
-      // Stufe 1: Direkt-Tile klicken (z.B. "Gebraucht - Hervorragend" ist sichtbarer Tile)
-      for (const lbl of labels) {
-        const tile = allClickable().find(el => el.offsetParent && el.textContent.trim() === lbl)
-        if (tile) {
-          tile.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(300)
-          tile.click(); condSet = true
-          console.log('[eBay] ✓ Zustand Tile:', lbl); break
+      // Hilfsfunktion: Dialog öffnen, condId per Radio setzen, Fertig klicken
+      async function selectViaDialog() {
+        const dialog = document.querySelector('[class*="lightbox-dialog__window"]')
+          || document.querySelector('[role="dialog"]')
+        if (!dialog) { console.warn('[eBay] Zustand-Dialog nicht gefunden'); return false }
+
+        const radio = dialog.querySelector(`input[type="radio"][value="${condId}"]`)
+        if (!radio) { console.warn('[eBay] Radio', condId, 'nicht in Dialog'); return false }
+
+        const radioLbl = dialog.querySelector(`label[for="${radio.id}"]`) || radio.closest('label')
+        if (radioLbl) radioLbl.click()
+        else { radio.click(); radio.dispatchEvent(new Event('change', { bubbles: true })) }
+        await wait(400)
+
+        const fertig = Array.from(dialog.querySelectorAll('button'))
+          .find(b => b.offsetParent && ['Fertig', 'OK', 'Bestätigen'].includes(b.textContent.trim()))
+        if (fertig) { fertig.click(); await wait(600) }
+
+        console.log('[eBay] ✓ Zustand Dialog:', condId)
+        return true
+      }
+
+      // Fall A: Zustand bereits gesetzt (button.smry--value vorhanden)
+      const smryBtn = condSection?.querySelector('button[class*="smry--value"]')
+      if (smryBtn) {
+        // Quick-Check: ist der richtige Zustand schon gesetzt? (Dann nichts tun)
+        const COND_TEXT = { '1000': 'Neu mit Etikett', '1500': 'Neu ohne Etikett', '1750': 'Neu mit Mängeln',
+                            '2990': 'Gebraucht - Hervorragend', '3000': 'Gebraucht - Gut', '3010': 'Gebraucht - Akzeptabel' }
+        const wanted = COND_TEXT[condId]
+        if (smryBtn.textContent.trim() === wanted) {
+          condSet = true
+          console.log('[eBay] ✓ Zustand bereits korrekt:', wanted)
+        } else {
+          // Falscher Zustand gesetzt → Dialog öffnen und korrigieren
+          smryBtn.scrollIntoView({ behavior: 'instant', block: 'center' })
+          await wait(200)
+          smryBtn.click()
+          await wait(1500)
+          condSet = await selectViaDialog()
         }
       }
 
-      // Stufe 2: "..." Icon-Button → Dialog mit Radio-Inputs (value=condId)
-      // WICHTIG: Der Button hat KEINEN Text – selector über class+icon-btn
+      // Fall B: Noch kein Zustand gesetzt → Quick-Tiles oder "..." Button
       if (!condSet) {
-        const moreBtn = document.querySelector('button[class*="fake-menu-button"][class*="icon-btn"]')
-          || document.querySelector('button[aria-label="Weitere Optionen"]')
-        if (moreBtn) {
-          moreBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(300)
-          moreBtn.click(); await wait(1200)
-          const radio = document.querySelector(`input[type="radio"][value="${condId}"]`)
-          if (radio) {
-            radio.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(300)
-            radio.click()
-            const lbl = document.querySelector(`label[for="${radio.id}"]`)
-            if (lbl) lbl.click()
+        // Quick-Tiles (nur 1000 und 3000 verfügbar)
+        const TILE_IDS = { 'Neu mit Etikett': '1000', 'Gebraucht - Gut': '3000', 'Gebraucht – Gut': '3000' }
+        const quickTiles = Array.from((condSection || document).querySelectorAll('button[class*="condition-recommendation-value"]'))
+        for (const tile of quickTiles) {
+          if (tile.offsetParent && TILE_IDS[tile.textContent.trim()] === condId) {
+            tile.scrollIntoView({ behavior: 'instant', block: 'center' })
+            await wait(200)
+            tile.click()
             condSet = true
-            console.log('[eBay] ✓ Zustand Dialog:', condId)
+            console.log('[eBay] ✓ Zustand Tile:', tile.textContent.trim())
+            break
           }
-          if (!condSet) {
-            for (const lbl of labels) {
-              const el = Array.from(document.querySelectorAll('[role="radio"], button, label'))
-                .find(e => e.offsetParent && e.textContent.trim() === lbl)
-              if (el) { el.click(); condSet = true; break }
-            }
+        }
+
+        // "..." Button → Dialog (für alle anderen Zustände)
+        if (!condSet) {
+          const moreBtn = (condSection || document).querySelector('button[class*="condition-recommendation-more-values"]')
+            || document.querySelector('button[aria-label="Weitere Artikelzustände ansehen"]')
+          if (moreBtn) {
+            moreBtn.scrollIntoView({ behavior: 'instant', block: 'center' })
+            await wait(300)
+            moreBtn.click()
+            await wait(1500)
+            condSet = await selectViaDialog()
+          } else {
+            console.warn('[eBay] Zustand: kein passender Button gefunden')
           }
-          await wait(400)
-          const fertig = Array.from(document.querySelectorAll('button'))
-            .find(b => b.offsetParent && ['Fertig', 'OK', 'Bestätigen'].includes(b.textContent.trim()))
-          if (fertig) { fertig.click(); await wait(500) }
         }
       }
     }
