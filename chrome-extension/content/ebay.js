@@ -604,7 +604,32 @@ async function fillLstng() {
   await wait(500)
   await uploadImages(listing.imageData || [])
 
-  updateStatus('✅ Fertig – Versand prüfen & Angebot einstellen', true)
+  // ── Auto-Submit: "Einstellen" Button klicken ─────────────────────────────
+  await wait(1000)
+  updateStatus('Angebot wird eingestellt…')
+  try {
+    const submitTexts = ['Einstellen', 'Angebot einstellen', 'Veröffentlichen', 'In den Verkauf einstellen']
+    let submitBtn = null
+    for (const txt of submitTexts) {
+      submitBtn = Array.from(document.querySelectorAll('button'))
+        .find(b => b.offsetParent && !b.disabled && b.textContent?.trim() === txt)
+      if (submitBtn) break
+    }
+    if (submitBtn) {
+      submitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await wait(700)
+      submitBtn.click()
+      updateStatus('✅ Angebot eingestellt!', true)
+      console.log('[eBay lstng] ✓ Auto-Submit: Angebot eingestellt')
+    } else {
+      updateStatus('✅ Fertig – bitte "Einstellen" klicken', true)
+      console.warn('[eBay lstng] Submit-Button nicht gefunden')
+    }
+  } catch(e) {
+    updateStatus('✅ Fertig – bitte "Einstellen" klicken', true)
+    console.warn('[eBay lstng] Auto-Submit Fehler:', e.message)
+  }
+
   await chrome.storage.local.remove('pendingListing')
   console.log('[eBay lstng] ✅ Alles ausgefüllt')
 }
