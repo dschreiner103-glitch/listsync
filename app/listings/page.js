@@ -30,6 +30,7 @@ export default function Listings() {
   const [modal, setModal]               = useState(null)
   const [toast, setToast]               = useState(null)
   const [selPlatforms, setSelPlatforms] = useState([])
+  const [crosspostMode, setCrosspostMode] = useState('publish') // 'publish' | 'draft'
   const [relistDays, setRelistDays]     = useState(5)
   const [mobileHelper, setMobileHelper] = useState(null) // { listing, platforms }
   const [extStatus, setExtStatus]       = useState(null)  // null | true | false
@@ -189,16 +190,22 @@ export default function Listings() {
 
   const doPost = async (id) => {
     const listing = listings.find(l => l.id === id)
-    await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ platforms: selPlatforms }) })
-    setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms } : l))
+    const isDraft = crosspostMode === 'draft'
+    // Status im DB aktualisieren
+    const newStatus = isDraft ? 'entwurf' : 'aktiv'
+    const patch = { platforms: selPlatforms, status: newStatus }
+    await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
+    setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms, status: newStatus } : l))
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
     setModal(null)
     if (extPlatforms.length > 0 && listing) {
+      // Status-Override mitgeben damit Extension den richtigen Button klickt
+      const listingWithMode = { ...listing, status: newStatus }
       if (await checkExtension()) {
-        window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
-        showToast(`Öffne ${extPlatforms.join(' & ')}…`)
+        window.postMessage({ type: 'LISTSYNC_POST', listing: listingWithMode, platforms: extPlatforms }, '*')
+        showToast(isDraft ? `Entwurf auf ${extPlatforms.join(' & ')} speichern…` : `Öffne ${extPlatforms.join(' & ')}…`)
       } else {
-        setMobileHelper({ listing, platforms: extPlatforms })
+        setMobileHelper({ listing: listingWithMode, platforms: extPlatforms })
       }
     } else {
       showToast(`Auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''} gepostet`)
@@ -212,6 +219,7 @@ export default function Listings() {
   const tabs = [
     { id: 'alle',     label: 'Alle',     count: listings.length },
     { id: 'aktiv',    label: 'Aktiv',    count: listings.filter(l => l.status === 'aktiv').length },
+    { id: 'entwurf',  label: 'Entwürfe', count: listings.filter(l => l.status === 'entwurf').length },
     { id: 'verkauft', label: 'Verkauft', count: listings.filter(l => l.status === 'verkauft').length },
     { id: 'inaktiv',  label: 'Inaktiv',  count: listings.filter(l => l.status === 'inaktiv').length },
   ]
@@ -556,6 +564,19 @@ export default function Listings() {
                       </div>
                     )}
 
+                    {l.status === 'entwurf' && (
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)', display: 'flex', gap: 8 }}>
+                        <button onClick={() => { setSelPlatforms(l.platforms.length ? [...l.platforms] : ['vinted','kleinanzeigen','ebay']); setModal({ type: 'crosspost', id: l.id }) }}
+                          style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 1 }}>
+                          {ICONS.crosspost} Hochladen
+                        </button>
+                        <button onClick={() => setDeleteConfirm(l.id)}
+                          style={{ ...actionBtn('rgba(239,68,68,0.06)', '#ef4444', 'rgba(239,68,68,0.12)'), flex: 'none', padding: '10px 12px' }}>
+                          {ICONS.trash}
+                        </button>
+                      </div>
+                    )}
+
                     {l.status === 'verkauft' && (
                       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)' }}>
                         <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
@@ -613,6 +634,28 @@ export default function Listings() {
         <ModalWrap>
           <ModalHeader title="Crossposten" />
           <ListingPreview l={modalListing} />
+
+          {/* Entwurf / Hochladen Auswahl */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
+            {[
+              { id:'publish', icon:'🚀', label:'Hochladen',   desc:'Direkt veröffentlichen' },
+              { id:'draft',   icon:'📝', label:'Als Entwurf', desc:'Nur speichern, nicht posten' },
+            ].map(opt => {
+              const sel = crosspostMode === opt.id
+              return (
+                <div key={opt.id} onClick={()=>setCrosspostMode(opt.id)}
+                  style={{ padding:'12px 10px', borderRadius:14, cursor:'pointer', textAlign:'center',
+                    border:`2px solid ${sel?(opt.id==='publish'?'#6366f1':'#f59e0b'):'var(--border)'}`,
+                    background:sel?(opt.id==='publish'?'rgba(99,102,241,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
+                    transition:'all .15s' }}>
+                  <div style={{ fontSize:22, marginBottom:4 }}>{opt.icon}</div>
+                  <p style={{ fontSize:12.5, fontWeight:700, margin:'0 0 2px', color:sel?(opt.id==='publish'?'#6366f1':'#d97706'):'var(--text-1)' }}>{opt.label}</p>
+                  <p style={{ fontSize:10.5, color:'var(--text-3)', margin:0 }}>{opt.desc}</p>
+                </div>
+              )
+            })}
+          </div>
+
           <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Plattformen auswählen</p>
           <div style={{ marginBottom: 18 }}>
             {Object.entries(PLATFORMS).map(([id, p]) => {
@@ -650,9 +693,16 @@ export default function Listings() {
             })}
           </div>
           <button onClick={() => doPost(modalListing.id)} disabled={selPlatforms.length === 0}
-            className="ls-btn-primary"
-            style={{ width: '100%', padding: '13px', borderRadius: 14, fontSize: 14 }}>
-            {selPlatforms.length > 0 ? `Auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''} posten` : 'Plattform auswählen'}
+            style={{ width:'100%', padding:'13px', borderRadius:14, fontSize:14, fontWeight:700,
+              border:'none', cursor:selPlatforms.length===0?'default':'pointer', fontFamily:'inherit',
+              background: crosspostMode==='draft' ? 'rgba(245,158,11,0.15)' : 'linear-gradient(135deg,#6366f1,#818cf8)',
+              color: crosspostMode==='draft' ? '#d97706' : '#fff',
+              border: crosspostMode==='draft' ? '2px solid #f59e0b' : 'none',
+              opacity: selPlatforms.length===0 ? 0.5 : 1 }}>
+            {selPlatforms.length === 0 ? 'Plattform auswählen'
+              : crosspostMode === 'draft'
+              ? `📝 Als Entwurf auf ${selPlatforms.length} Plattform${selPlatforms.length>1?'en':''} speichern`
+              : `🚀 Auf ${selPlatforms.length} Plattform${selPlatforms.length>1?'en':''} hochladen`}
           </button>
         </ModalWrap>
       )}
@@ -738,6 +788,7 @@ export default function Listings() {
                 <select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}
                   style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box' }}>
                   <option value="aktiv">Aktiv</option>
+                  <option value="entwurf">Entwurf</option>
                   <option value="inaktiv">Inaktiv</option>
                   <option value="verkauft">Verkauft</option>
                 </select>
