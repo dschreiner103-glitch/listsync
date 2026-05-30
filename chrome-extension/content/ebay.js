@@ -637,10 +637,20 @@ async function fillLstng() {
 
   await wait(400)
 
-  // 6. BILDER
+  // 6. BILDER – warte auf imageData vom Background-Loader (Race Condition Fix)
+  // Background lädt Bilder parallel zum Tab-Öffnen → imageData kann noch [] sein
+  updateStatus('Bilder werden geladen…')
+  let imgData = listing.imageData || []
+  if (!imgData.length) {
+    for (let i = 0; i < 30; i++) {
+      await wait(800)
+      const fresh = await getListing()
+      if (fresh?.imageData?.length) { imgData = fresh.imageData; break }
+    }
+  }
   updateStatus('Bilder werden hochgeladen…')
-  await wait(500)
-  await uploadImages(listing.imageData || [])
+  await wait(300)
+  await uploadImages(imgData)
 
   // Warten bis eBay mindestens 1 Bild-Thumbnail im Uploader zeigt (max 20s)
   if ((listing.imageData || []).length > 0) {

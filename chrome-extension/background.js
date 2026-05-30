@@ -376,8 +376,16 @@ function injectImages(imageData) {
       if (ok) return
     }
     // Native fallback wenn Fiber nicht gefunden oder onChange fehlgeschlagen
+    // eBay fehelix: Input kurz sichtbar machen damit der change-Handler sicher feuert
+    var wasHidden = fi.style.display === 'none' || window.getComputedStyle(fi).display === 'none'
+    if (wasHidden) {
+      fi.style.cssText = 'display:block;position:fixed;top:-9999px;opacity:0;pointer-events:none'
+    }
     fi.dispatchEvent(new Event('change', { bubbles: true }))
     fi.dispatchEvent(new Event('input',  { bubbles: true }))
+    if (wasHidden) {
+      setTimeout(function() { fi.style.display = 'none' }, 2000)
+    }
     // Angular 1.x: $apply() damit ngModel/ngChange Binding reagiert
     try {
       if (window.angular) {
