@@ -409,6 +409,54 @@ async function fillLstng() {
   // Seite braucht Zeit zum Laden (React SPA)
   await wait(3500)
 
+  // 0. KATEGORIE prüfen – RC-Modell / Fahrzeug-Felder = falsche Auto-Kategorie
+  try {
+    const WRONG_FIELDS = ['Kraftstoff', 'Propellerart', 'Modellbauklasse', 'Maßstab', 'Montagezustand', 'Kabinenklasse', 'Maßstab']
+    if (WRONG_FIELDS.some(f => document.body.innerText.includes(f))) {
+      updateStatus('⚠️ Falsche Kategorie erkannt – korrigiere…')
+      console.log('[ListSync eBay] Falsche Kategorie erkannt')
+
+      // "Bearbeiten" Button bei ARTIKELKATEGORIE klicken
+      const editBtn = Array.from(document.querySelectorAll('button, a, [role="button"]'))
+        .find(el => el.offsetParent && el.textContent.trim() === 'Bearbeiten')
+      if (editBtn) {
+        editBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        await wait(500)
+        editBtn.click()
+        await wait(2000)
+
+        // Suchfeld für Kategorie
+        const searchInput = document.querySelector(
+          'input[placeholder*="Suchen"], input[placeholder*="Kategorie"], input[type="search"], input[aria-label*="Suchen"], input[aria-label*="Kategorie"], input[type="text"]'
+        )
+        if (searchInput) {
+          const catQuery = (listing.category || '').toLowerCase().includes('herren') ? 'Herren Jeans'
+            : (listing.category || '').toLowerCase().includes('kinder') ? 'Kinder Kleidung'
+            : 'Damen Jeans'
+          searchInput.focus()
+          setNativeValue(searchInput, catQuery)
+          searchInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true }))
+          await wait(2000)
+
+          // Ersten Treffer auswählen
+          const results = Array.from(document.querySelectorAll(
+            '[role="option"], [role="listitem"], [class*="result"], [class*="suggest"], li'
+          )).filter(el => el.offsetParent && el.textContent.trim().length > 2)
+          if (results[0]) {
+            results[0].click()
+            await wait(1000)
+            console.log('[ListSync eBay] ✓ Kategorie gewählt:', results[0].textContent.trim().substring(0, 40))
+          }
+
+          // Bestätigen / Fertig
+          const confirmBtn = Array.from(document.querySelectorAll('button'))
+            .find(b => b.offsetParent && ['Fertig', 'Bestätigen', 'OK', 'Übernehmen', 'Auswählen', 'Weiter'].includes(b.textContent.trim()))
+          if (confirmBtn) { confirmBtn.click(); await wait(2500) }
+        }
+      }
+    }
+  } catch(e) { console.warn('[ListSync eBay] Kategorie-Fix Fehler:', e.message) }
+
   // 1. TITEL — "Angebotstitel" Feld (vom Prelist bereits befüllt, aber überschreiben)
   try {
     // Suche alle sichtbaren Text-Inputs und nimm den mit Angebotstitel-Label
@@ -452,34 +500,47 @@ async function fillLstng() {
       }
       const labels = COND_LABELS[condId] || []
 
-      // Zum Zustand-Bereich scrollen damit Tiles sichtbar / klickbar sind
-      const zustandHeader = Array.from(document.querySelectorAll('h2,h3,h4,label,span,div'))
-        .find(el => el.children.length === 0 && (el.textContent.trim() === 'Zustand' || el.textContent.trim() === 'Kondition'))
+      // Zum Zustand-Bereich scrollen (eBay zeigt "ZUSTAND" in Großbuchstaben)
+      const zustandHeader = Array.from(document.querySelectorAll('h2,h3,h4,label,span,div,p'))
+        .find(el => {
+          const t = el.textContent.trim().toUpperCase()
+          return (t === 'ZUSTAND' || t === 'ARTIKELZUSTAND' || t === 'KONDITION') && el.children.length === 0
+        })
       if (zustandHeader) { zustandHeader.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(700) }
 
-      // Clickable Tiles suchen – eBay /lstng nutzt button, div[role], span[role]
-      const allClickable = Array.from(document.querySelectorAll(
+      const allClickable = () => Array.from(document.querySelectorAll(
         'button, [role="radio"], [role="option"], [role="button"]'
       ))
       let condSet = false
 
+      // Stufe 1: Exakten Tile-Text direkt finden (z.B. "Neu mit Etikett", "Sehr gut")
       for (const label of labels) {
-        const tile = allClickable.find(el => el.offsetParent && el.textContent.trim() === label)
-        if (tile) {
-          tile.click()
-          condSet = true
-          console.log('[ListSync eBay] ✓ Zustand (Tile):', label)
-          break
+        const tile = allClickable().find(el => el.offsetParent && el.textContent.trim() === label)
+        if (tile) { tile.click(); condSet = true; console.log('[ListSync eBay] ✓ Zustand (direkt):', label); break }
+      }
+
+      // Stufe 2: Erst "Neu" oder "Gebraucht" klicken, dann Sub-Option wählen
+      if (!condSet) {
+        const isNeu  = ['1000','1500','1750'].includes(condId)
+        const parent = allClickable().find(el => el.offsetParent && el.textContent.trim() === (isNeu ? 'Neu' : 'Gebraucht'))
+        if (parent) {
+          parent.click()
+          await wait(900)
+          for (const label of labels) {
+            const opt = allClickable().find(el => el.offsetParent && el.textContent.trim() === label)
+            if (opt) { opt.click(); condSet = true; console.log('[ListSync eBay] ✓ Zustand (2-Stufe):', label); break }
+          }
+          if (!condSet && isNeu && condId === '1000') condSet = true  // "Neu" ohne Etikett = top-level reicht
         }
       }
 
+      // Stufe 3: "..." Dialog
       if (!condSet) {
-        // Fallback: "..." oder "Mehr"-Button öffnet Dialog mit Radio-Inputs
-        const moreBtn = allClickable.find(b => b.offsetParent &&
+        const moreBtn = allClickable().find(b => b.offsetParent &&
           (b.textContent.trim() === '...' || b.textContent.trim() === 'Mehr' || b.textContent.trim() === 'Alle'))
         if (moreBtn) {
           moreBtn.click()
-          await wait(700)
+          await wait(900)
           const radio = document.querySelector(`input[value="${condId}"]`)
           if (radio) { radio.click(); await wait(200); condSet = true }
           if (!condSet) {
@@ -605,6 +666,10 @@ async function fillLstng() {
       }
 
       if (!dropBtn) { console.warn('[ListSync] Button nicht gefunden für:', labelText); return false }
+
+      // Scroll in Sicht damit auch Felder unterhalb des Viewports klickbar sind
+      dropBtn.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      await wait(350)
 
       console.log('[ListSync] Klicke Dropdown für:', labelText)
       dropBtn.click()
