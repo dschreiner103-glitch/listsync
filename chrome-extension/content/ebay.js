@@ -25,18 +25,28 @@ const CATEGORY_IDS = {
 }
 
 // Zustand-Mapping
-// Live-bestätigt: 1000=Neu mit Etikett, 1500=Neu ohne Etikett, 1750=Neu mit Mängeln,
-//                 2990=Gebraucht - Hervorragend, 3000=Gebraucht - Gut, 3010=Gebraucht - Akzeptabel
+// eBay DE: 1000=Neu mit Etikett, 1500=Neu ohne Etikett, 1750=Neu mit Mängeln,
+//          2990=Gebraucht - Hervorragend, 3000=Gebraucht - Gut, 3010=Gebraucht - Akzeptabel
+// Vinted DE: "Neu mit Etikett", "Sehr gut", "Gut", "Befriedigend",
+//            "Wie neu", "Fast wie neu", "Neuwertig", "Gut erhalten"
+// App-Werte: "Neu mit Etikett", "Neu ohne Etikett", "Sehr gut", "Gut", "Akzeptabel"
 function getConditionId(condition) {
-  if (!condition) return null
-  const c = condition.toLowerCase()
-  if (c.includes('neu mit etikett'))                                return '1000'
-  if (c.includes('neu ohne etikett') || c.includes('nie getragen')) return '1500'
-  if (c.includes('neu mit mängeln'))                                return '1750'
-  if (c.includes('hervorragend') || c.includes('sehr gut'))         return '2990'
-  if (c.includes('befriedigend') || c.includes('akzeptabel'))       return '3010'
-  if (c.includes('gut'))                                            return '3000'
-  return null
+  if (!condition) return '3000' // Fallback: Gebraucht - Gut
+  const c = condition.toLowerCase().trim()
+  // Neu-Varianten (mit Etikett / original verpackt)
+  if (c.includes('neu mit etikett') || c === 'neu' || c.includes('brand new') || c.includes('new with tag')) return '1000'
+  // Neu ohne Etikett / Wie neu / Neuwertig
+  if (c.includes('neu ohne etikett') || c.includes('nie getragen') || c.includes('wie neu') || c.includes('neuwertig') || c.includes('fast wie neu') || c.includes('new without tag')) return '1500'
+  // Neu mit Mängeln
+  if (c.includes('neu mit mängeln') || c.includes('neu mit maengeln')) return '1750'
+  // Sehr gut / Hervorragend / Top-Zustand
+  if (c.includes('hervorragend') || c.includes('sehr gut') || c.includes('top zustand') || c.includes('very good') || c.includes('gut erhalten') || c === 'sehr gut') return '2990'
+  // Befriedigend / Akzeptabel / Fair
+  if (c.includes('befriedigend') || c.includes('akzeptabel') || c.includes('fair') || c.includes('acceptable')) return '3010'
+  // Gut (erst NACH "Sehr gut" prüfen!)
+  if (c.includes('gut') || c.includes('good')) return '3000'
+  // Unbekannt → Gebraucht - Gut als sicherer Fallback
+  return '3000'
 }
 
 function detectProduktart(listing) {
@@ -295,6 +305,7 @@ async function fillLstng() {
   //   button "Fertig" zum Bestätigen
   try {
     const condId = getConditionId(listing.condition)
+    console.log('[eBay] Zustand: listing.condition =', listing.condition, '→ condId =', condId)
     if (condId) {
       window.scrollTo({ top: 0, behavior: 'instant' })
       await wait(600)
