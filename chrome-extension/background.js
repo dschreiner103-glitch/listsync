@@ -116,9 +116,13 @@ async function openKleinanzeigenNewListing() {
 }
 
 async function openEbayNewListing(listing) {
-  // eBay startet jetzt mit /sl/prelist/suggest als erstem Schritt
-  await chrome.tabs.create({ url: 'https://www.ebay.de/sl/prelist/suggest' })
-  console.log('[ListSync BG] ✓ eBay-Tab geöffnet (prelist/suggest)')
+  // Direkt mit Kategorie öffnen – überspringt Prelist und verhindert falsche Auto-Kategorie
+  const catId = getEbayCategoryIdFromListing(listing)
+  const url = catId
+    ? `https://www.ebay.de/sl/list?category=${catId}`
+    : 'https://www.ebay.de/sl/prelist/suggest'
+  await chrome.tabs.create({ url })
+  console.log('[ListSync BG] ✓ eBay-Tab geöffnet, catId:', catId || 'keiner → prelist')
 }
 
 async function openVintedNewListing() {
@@ -127,7 +131,22 @@ async function openVintedNewListing() {
 }
 
 function getEbayCategoryIdFromListing(listing) {
-  const cat = listing?.category
+  const cat = listing?.category || ''
+  const ka  = listing?.kaCategory || ''
+
+  // Aus kaCategory ableiten – spezifischer als Oberkategorie (z.B. Jeans statt Damen allgemein)
+  if (ka) {
+    const isDamen  = cat.toLowerCase().includes('damen')  || (!cat.toLowerCase().includes('herren') && !cat.toLowerCase().includes('kinder'))
+    const isHerren = cat.toLowerCase().includes('herren')
+    const kaLow    = ka.toLowerCase()
+    if (kaLow.includes('jeans'))                          return isDamen ? '11554'  : isHerren ? '11483'  : '11554'
+    if (kaLow.includes('jacken') || kaLow.includes('mäntel')) return isDamen ? '63862'  : isHerren ? '57988'  : '63862'
+    if (kaLow.includes('pullover') || kaLow.includes('strick')) return isDamen ? '63864'  : isHerren ? '57988'  : '63864'
+    if (kaLow.includes('röcke') || kaLow.includes('kleider'))  return isDamen ? '63861'  : null
+    if (kaLow.includes('shirts') || kaLow.includes('tops'))    return isDamen ? '63861'  : isHerren ? '57988'  : '63861'
+    if (kaLow.includes('hosen'))                          return isDamen ? '63861'  : isHerren ? '57988'  : '63861'
+  }
+
   if (!cat) return null
   const EBAY_IDS = {
     'Damen': '63861', 'Damen – Kleidung': '63861',

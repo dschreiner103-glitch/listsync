@@ -51,6 +51,31 @@ function getConditionId(condition) {
   return null
 }
 
+// ── Produktart aus Listing ableiten ───────────────────────────────────────────
+
+function detectProduktart(listing) {
+  const text = [listing.category, listing.title, listing.kaCategory, listing.description]
+    .filter(Boolean).join(' ').toLowerCase()
+  if (text.includes('jeans'))                                     return 'Jeans'
+  if (text.includes('legging'))                                   return 'Leggings'
+  if (text.includes('shorts') || text.includes('kurze hose'))     return 'Shorts'
+  if (text.includes('rock') && !text.includes('pullover'))        return 'Rock'
+  if (text.includes('kleid') || text.includes('röcke & kleid'))   return 'Kleid'
+  if (text.includes('bluse'))                                     return 'Bluse'
+  if (text.includes('overall') || text.includes('jumpsuit'))      return 'Jumpsuit'
+  if (text.includes('blazer'))                                    return 'Blazer'
+  if (text.includes('mantel'))                                    return 'Mantel'
+  if (text.includes('jacke'))                                     return 'Jacke'
+  if (text.includes('weste'))                                     return 'Weste'
+  if (text.includes('pullover') || text.includes('strick'))       return 'Pullover'
+  if (text.includes('hoodie') || text.includes('kapuzenpull'))    return 'Hoodie'
+  if (text.includes('sweatshirt'))                                return 'Sweatshirt'
+  if (text.includes('t-shirt') || text.includes('tshirt'))        return 'T-Shirt'
+  if (text.includes('top') || text.includes('shirt'))             return 'T-Shirt'
+  if (text.includes('hose'))                                      return 'Hose'
+  return null
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async function getListing() {
@@ -73,7 +98,7 @@ function waitForAny(selectors, timeout = 15000) {
       const el = find()
       if (el) { ob.disconnect(); clearTimeout(tid); resolve(el) }
     })
-    ob.observe(document.body, { childList: true, subtree: true })
+    ob.observe(document.body, { childList: true, subtree: true, attributes: true })
     const tid = setTimeout(() => { ob.disconnect(); reject(new Error('Timeout: ' + selectors[0])) }, timeout)
   })
 }
@@ -390,30 +415,63 @@ async function fillLstng() {
 
   await wait(400)
 
-  // 2. ZUSTAND — "..." öffnet Zustand-Dialog mit Radios nach value
-  // Confirmed: click "..." → input[value=condId] → click "Fertig"
+  // 2. ZUSTAND — Tiles oder Dialog
   try {
     const condId = getConditionId(listing.condition)
     if (condId) {
-      // Try direct quick-select first (Neu mit Etikett=1000, Gebraucht - Gut=3000)
-      const directLabel = condId === '1000' ? 'Neu mit Etikett' : condId === '3000' ? 'Gebraucht - Gut' : null
-      const allBtns = Array.from(document.querySelectorAll('button'))
-      let condSet = false
-      if (directLabel) {
-        const directBtn = allBtns.find(b => b.offsetParent && b.textContent.trim() === directLabel)
-        if (directBtn) { directBtn.click(); condSet = true; console.log('[ListSync eBay] ✓ Zustand (direkt):', directLabel) }
+      // Alle bekannten Label-Varianten pro conditionId (kurz + lang)
+      const COND_LABELS = {
+        '1000': ['Neu mit Etikett'],
+        '1500': ['Neu ohne Etikett'],
+        '1750': ['Neu mit Mängeln'],
+        '2990': ['Sehr gut', 'Gebraucht - Sehr gut', 'Gebraucht – Sehr gut', 'Hervorragend', 'Gebraucht - Hervorragend'],
+        '3000': ['Gut', 'Gebraucht - Gut', 'Gebraucht – Gut'],
+        '3010': ['Akzeptabel', 'Gebraucht - Akzeptabel', 'Gebraucht – Akzeptabel', 'Befriedigend'],
       }
+      const labels = COND_LABELS[condId] || []
+
+      // Zum Zustand-Bereich scrollen damit Tiles sichtbar / klickbar sind
+      const zustandHeader = Array.from(document.querySelectorAll('h2,h3,h4,label,span,div'))
+        .find(el => el.children.length === 0 && (el.textContent.trim() === 'Zustand' || el.textContent.trim() === 'Kondition'))
+      if (zustandHeader) { zustandHeader.scrollIntoView({ behavior: 'smooth', block: 'center' }); await wait(700) }
+
+      // Clickable Tiles suchen – eBay /lstng nutzt button, div[role], span[role]
+      const allClickable = Array.from(document.querySelectorAll(
+        'button, [role="radio"], [role="option"], [role="button"]'
+      ))
+      let condSet = false
+
+      for (const label of labels) {
+        const tile = allClickable.find(el => el.offsetParent && el.textContent.trim() === label)
+        if (tile) {
+          tile.click()
+          condSet = true
+          console.log('[ListSync eBay] ✓ Zustand (Tile):', label)
+          break
+        }
+      }
+
       if (!condSet) {
-        // Open "..." dialog
-        const moreBtn = allBtns.find(b => b.offsetParent && b.textContent.trim() === '...')
+        // Fallback: "..." oder "Mehr"-Button öffnet Dialog mit Radio-Inputs
+        const moreBtn = allClickable.find(b => b.offsetParent &&
+          (b.textContent.trim() === '...' || b.textContent.trim() === 'Mehr' || b.textContent.trim() === 'Alle'))
         if (moreBtn) {
           moreBtn.click()
-          await wait(600)
+          await wait(700)
           const radio = document.querySelector(`input[value="${condId}"]`)
-          if (radio) { radio.click(); await wait(200) }
-          const fertig = Array.from(document.querySelectorAll('button')).find(b => b.offsetParent && b.textContent.trim() === 'Fertig')
+          if (radio) { radio.click(); await wait(200); condSet = true }
+          if (!condSet) {
+            for (const label of labels) {
+              const dlgEl = Array.from(document.querySelectorAll('button, [role="radio"], [role="option"], div, span'))
+                .find(el => el.offsetParent && el.textContent.trim() === label)
+              if (dlgEl) { dlgEl.click(); condSet = true; break }
+            }
+          }
+          await wait(300)
+          const fertig = Array.from(document.querySelectorAll('button'))
+            .find(b => b.offsetParent && (b.textContent.trim() === 'Fertig' || b.textContent.trim() === 'OK' || b.textContent.trim() === 'Bestätigen'))
           if (fertig) { fertig.click(); await wait(400) }
-          console.log('[ListSync eBay] ✓ Zustand (dialog):', condId)
+          console.log('[ListSync eBay] ✓ Zustand (Dialog):', condId)
         }
       }
     }
@@ -587,21 +645,29 @@ async function fillLstng() {
 
   // Artikelmerkmale-Sektion in den Viewport scrollen damit sie gerendert wird
   const merkmalSection = Array.from(document.querySelectorAll('h2, h3, h4, div, section'))
-    .find(el => el.textContent.trim() === 'ARTIKELMERKMALE' || el.textContent.trim() === 'Artikelmerkmale')
+    .find(el => {
+      const t = el.textContent.trim()
+      return t === 'ARTIKELMERKMALE' || t === 'Artikelmerkmale' || t === 'Artikeldetails'
+    })
   if (merkmalSection) {
     merkmalSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    await wait(800)
+    await wait(1000)
   } else {
-    window.scrollBy(0, 1200)
-    await wait(800)
+    window.scrollBy(0, 1400)
+    await wait(1000)
   }
 
   if (listing.brand)         { await fillAspect('Marke',         listing.brand) }
   if (listing.size)          { await fillAspect('Größe',         listing.size) }
   if (listing.color)         { await fillAspect('Farbe',         listing.color) }
+  if (listing.material)      { await fillAspect('Material',      listing.material) }
   if (listing.stil)          { await fillAspect('Stil',          listing.stil) }
   if (listing.beinform)      { await fillAspect('Beinform',      listing.beinform) }
   if (listing.taillenumfang) { await fillAspect('Taillenumfang', listing.taillenumfang) }
+
+  // Produktart automatisch aus Kategorie / Titel ableiten
+  const produktart = detectProduktart(listing)
+  if (produktart)            { await fillAspect('Produktart',    produktart) }
 
   await wait(300)
 
