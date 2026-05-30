@@ -143,14 +143,18 @@ function detectCategory(listing) {
         console.log(`[ListSync KA] Kategorie-Map: "${rest}" → "${mapped}"`)
         return { path, leaf: mapped }
       }
+      // Letzten Teil nach " – " nehmen und nochmal mappen
       const leafPart = rest.split(' – ').pop().trim()
-      console.log(`[ListSync KA] Kategorie-Fallback-Leaf: "${leafPart}"`)
-      return { path, leaf: leafPart || null }
+      const mappedLeaf = CAT_TO_KA_LEAF[leafPart] || leafPart
+      console.log(`[ListSync KA] Kategorie-Fallback-Leaf: "${leafPart}" → "${mappedLeaf}"`)
+      return { path, leaf: mappedLeaf || null }
     }
     // kaCategory aus Formular als Leaf nutzen (falls gesetzt)
+    // → durch CAT_TO_KA_LEAF mappen damit App-Namen → KA-Namen übersetzt werden
     if (listing.kaCategory) {
-      console.log(`[ListSync KA] kaCategory als Leaf: "${listing.kaCategory}"`)
-      return { path, leaf: listing.kaCategory }
+      const mappedKA = CAT_TO_KA_LEAF[listing.kaCategory] || listing.kaCategory
+      console.log(`[ListSync KA] kaCategory als Leaf: "${listing.kaCategory}" → "${mappedKA}"`)
+      return { path, leaf: mappedKA }
     }
     return { path, leaf: null }
   }
@@ -165,8 +169,10 @@ function detectCategory(listing) {
     for (const kw of entry.kw) {
       if (text.includes(kw)) {
         console.log(`[ListSync KA] Keyword-Match: "${kw}" → ${entry.path} / ${entry.leaf}`)
-        // kaCategory überschreibt Leaf wenn gesetzt
-        if (listing.kaCategory) return { ...entry, leaf: listing.kaCategory }
+        if (listing.kaCategory) {
+          const mappedKA = CAT_TO_KA_LEAF[listing.kaCategory] || listing.kaCategory
+          return { ...entry, leaf: mappedKA }
+        }
         return entry
       }
     }
