@@ -642,6 +642,34 @@ async function fillLstng() {
   await wait(500)
   await uploadImages(listing.imageData || [])
 
+  // Warten bis eBay mindestens 1 Bild-Thumbnail im Uploader zeigt (max 20s)
+  if ((listing.imageData || []).length > 0) {
+    updateStatus('Warte auf Bild-Verarbeitung…')
+    const thumbSelectors = [
+      '[class*="uploader-thumbnails-ux"] img',
+      '[class*="photo-thumbnails"] img',
+      '[class*="uploader"] img[src*="blob"]',
+      '[class*="uploader"] img[src*="http"]',
+      '[class*="thumbnail"] img',
+    ]
+    let thumbsOk = false
+    for (let i = 0; i < 40; i++) {
+      await wait(500)
+      for (const sel of thumbSelectors) {
+        const imgs = Array.from(document.querySelectorAll(sel)).filter(img => img.offsetParent && img.naturalWidth > 0)
+        if (imgs.length > 0) { thumbsOk = true; break }
+      }
+      if (thumbsOk) break
+    }
+    if (thumbsOk) {
+      console.log('[eBay lstng] ✓ Bilder im Uploader sichtbar')
+      await wait(1500) // kurz nach Thumbnail-Erscheinen warten
+    } else {
+      console.warn('[eBay lstng] Bilder nach 20s nicht sichtbar – Submit trotzdem')
+      await wait(2000)
+    }
+  }
+
   // ── Auto-Submit ───────────────────────────────────────────────────────────
   await wait(1000)
   const isDraft = listing.status === 'entwurf'
