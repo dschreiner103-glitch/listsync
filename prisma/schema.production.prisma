@@ -21,34 +21,35 @@ model User {
 }
 
 model Listing {
-  id          Int       @id @default(autoincrement())
-  title       String
-  description String    @default("")
-  price       Float
-  buyPrice    Float     @default(0)
-  condition   String    @default("Gut")
-  category    String    @default("Sonstiges")
-  brand       String    @default("")
-  size        String    @default("")
+  id            Int       @id @default(autoincrement())
+  title         String
+  description   String    @default("")
+  price         Float
+  buyPrice      Float     @default(0)
+  condition     String    @default("Gut")
+  category      String    @default("Sonstiges")
+  brand         String    @default("")
+  size          String    @default("")
   color         String    @default("")
   material      String    @default("")
   stil          String    @default("")
   beinform      String    @default("")
   taillenumfang String    @default("")
   kaCategory    String    @default("")
+  ebayCategory  String    @default("")
   address       String    @default("")
   shipping      String    @default("[]")
   shipSize      String    @default("")
   status        String    @default("aktiv")
-  platforms   String    @default("[]")
-  images      String    @default("[]")
-  views       Int       @default(0)
-  days        Int       @default(0)
-  relistedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  userId      Int?
-  user        User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  platforms     String    @default("[]")
+  images        String    @default("[]")
+  views         Int       @default(0)
+  days          Int       @default(0)
+  relistedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        Int?
+  user          User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model PlatformAccount {
@@ -75,15 +76,15 @@ model Settings {
 }
 
 model Receipt {
-  id          Int      @id @default(autoincrement())
-  receiptNo   String   @unique  // z.B. RE-2026-0001
-  type        String   @default("sale")  // "sale" | "purchase" | "monthly"
-  listingId   Int?
-  userId      Int?
-  issuedAt    DateTime @default(now())
-  periodFrom  DateTime?
-  periodTo    DateTime?
-  totalNet    Float    @default(0)
-  data        String   @default("{}")  // JSON snapshot der Belegdaten
-  createdAt   DateTime @default(now())
+  id         Int       @id @default(autoincrement())
+  receiptNo  String    @unique
+  type       String    @default("sale")
+  listingId  Int?
+  userId     Int?
+  issuedAt   DateTime  @default(now())
+  periodFrom DateTime?
+  periodTo   DateTime?
+  totalNet   Float     @default(0)
+  data       String    @default("{}")
+  createdAt  DateTime  @default(now())
 }
