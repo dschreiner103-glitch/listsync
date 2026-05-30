@@ -365,14 +365,36 @@ async function handlePrelist() {
   if (nextBtn) {
     nextBtn.click()
     console.log('[ListSync eBay] ✓ Prelist Weiter-Button geklickt')
-    updateStatus('Kategorie-Auswahl – kurz warten…')
+    updateStatus('Kategorie-Auswahl – warte auf Vorschläge…')
+
+    // Nach Klick: eBay zeigt entweder Kategorie-Vorschläge ODER navigiert direkt zu /lstng.
+    // Wenn Vorschläge erscheinen, versuchen wir die passende Kleidungs-Kategorie zu klicken.
+    await wait(2500)
+    if (window.location.pathname.includes('/prelist') || window.location.pathname.includes('/sl/list')) {
+      // Noch auf der Prelist-Seite → Kategorie-Vorschläge sichtbar, die richtige auswählen
+      const CLOTHING_KEYWORDS = ['kleidung', 'mode', 'jeans', 'damen', 'herren', 'hosen', 'jacken', 'shirts', 'tops', 'pullover']
+      const allOptions = Array.from(document.querySelectorAll(
+        'button, [role="option"], [role="radio"], li, [class*="suggest"], [class*="categor"]'
+      )).filter(el => el.offsetParent)
+
+      let picked = null
+      for (const kw of CLOTHING_KEYWORDS) {
+        picked = allOptions.find(el => el.textContent.toLowerCase().includes(kw))
+        if (picked) break
+      }
+      if (picked) {
+        picked.click()
+        console.log('[ListSync eBay] ✓ Kategorie-Vorschlag geklickt:', picked.textContent.trim().substring(0, 50))
+        await wait(800)
+        // Dann nochmal Weiter/Bestätigen klicken
+        const confirmBtn = Array.from(document.querySelectorAll('button'))
+          .find(b => b.offsetParent && (b.textContent.trim() === 'Weiter' || b.textContent.trim() === 'Bestätigen' || b.textContent.trim() === 'Fortfahren'))
+        if (confirmBtn) { confirmBtn.click(); console.log('[ListSync eBay] ✓ Kategorie bestätigt') }
+      }
+    }
   } else {
-    // Fallback: direkt zur Listing-Seite navigieren
-    console.log('[ListSync eBay] Weiter-Button nicht gefunden – navigiere direkt')
-    const catId = getCategoryId(listing.category)
-    window.location.href = catId
-      ? `https://www.ebay.de/sl/list?category=${catId}`
-      : 'https://www.ebay.de/sl/list'
+    // Weiter-Button nicht gefunden → Prelist überspringen und direkt zum /lstng
+    console.log('[ListSync eBay] Weiter-Button nicht gefunden – warte auf Navigation')
   }
 }
 

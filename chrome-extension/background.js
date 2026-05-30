@@ -116,13 +116,10 @@ async function openKleinanzeigenNewListing() {
 }
 
 async function openEbayNewListing(listing) {
-  // Direkt mit Kategorie öffnen – überspringt Prelist und verhindert falsche Auto-Kategorie
-  const catId = getEbayCategoryIdFromListing(listing)
-  const url = catId
-    ? `https://www.ebay.de/sl/list?category=${catId}`
-    : 'https://www.ebay.de/sl/prelist/suggest'
-  await chrome.tabs.create({ url })
-  console.log('[ListSync BG] ✓ eBay-Tab geöffnet, catId:', catId || 'keiner → prelist')
+  // eBay-Prelist: Titel eingeben → Kategorie-Suche → /lstng
+  // Direkte /sl/list?category=X URL wird von eBay nicht mehr akzeptiert (Error-Page)
+  await chrome.tabs.create({ url: 'https://www.ebay.de/sl/prelist/suggest' })
+  console.log('[ListSync BG] ✓ eBay-Tab geöffnet (prelist/suggest), catId für Merkmale:', getEbayCategoryIdFromListing(listing))
 }
 
 async function openVintedNewListing() {
