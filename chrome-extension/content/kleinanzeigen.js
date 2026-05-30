@@ -82,7 +82,7 @@ const CATEGORY_PATH = {
 const CAT_TO_KA_LEAF = {
   // Damen Kleidung
   'Hosen':                        'Hosen',
-  'Hosen & Jeans':                'Hosen',
+  'Hosen & Jeans':                'Jeans',
   'Jeans':                        'Jeans',
   'Pullover':                     'Pullover',
   'Pullover & Strickpullover':    'Pullover',
@@ -128,8 +128,13 @@ const CAT_TO_KA_LEAF = {
 }
 
 function detectCategory(listing) {
-  const text = ((listing.title || '') + ' ' + (listing.description || '')).toLowerCase()
-  // 1. Keyword-Matching aus Titel/Beschreibung
+  // Kategorie-String mit einbeziehen – z.B. "Hosen & Jeans" → "jeans" matcht vor "hosen"
+  const text = (
+    (listing.title || '') + ' ' +
+    (listing.description || '') + ' ' +
+    (listing.category || '')
+  ).toLowerCase()
+  // 1. Keyword-Matching aus Titel/Beschreibung/Kategorie
   for (const entry of KEYWORD_CATEGORIES) {
     for (const kw of entry.kw) {
       if (text.includes(kw)) {
