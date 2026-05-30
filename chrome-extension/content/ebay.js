@@ -357,32 +357,57 @@ async function fillLstng() {
 
       // Fall B: Noch kein Zustand gesetzt → Quick-Tiles oder "..." Button
       if (!condSet) {
-        // Quick-Tiles (nur 1000 und 3000 verfügbar)
-        const TILE_IDS = { 'Neu mit Etikett': '1000', 'Gebraucht - Gut': '3000', 'Gebraucht – Gut': '3000' }
-        const quickTiles = Array.from((condSection || document).querySelectorAll('button[class*="condition-recommendation-value"]'))
-        for (const tile of quickTiles) {
-          if (tile.offsetParent && TILE_IDS[tile.textContent.trim()] === condId) {
-            tile.scrollIntoView({ behavior: 'instant', block: 'center' })
-            await wait(200)
-            tile.click()
-            condSet = true
-            console.log('[eBay] ✓ Zustand Tile:', tile.textContent.trim())
-            break
-          }
-        }
+        // WARTEN bis Quick-Tiles oder "..." Button erscheinen (Timing-Fix)
+        const root = condSection || document
+        const anyCondBtn = await waitForAny([
+          'button[class*="condition-recommendation-more-values"]',
+          'button[aria-label="Weitere Artikelzustände ansehen"]',
+          'button[class*="condition-recommendation-value"]',
+        ], 8000).catch(() => null)
 
-        // "..." Button → Dialog (für alle anderen Zustände)
-        if (!condSet) {
-          const moreBtn = (condSection || document).querySelector('button[class*="condition-recommendation-more-values"]')
-            || document.querySelector('button[aria-label="Weitere Artikelzustände ansehen"]')
-          if (moreBtn) {
-            moreBtn.scrollIntoView({ behavior: 'instant', block: 'center' })
-            await wait(300)
-            moreBtn.click()
-            await wait(1500)
-            condSet = await selectViaDialog()
-          } else {
-            console.warn('[eBay] Zustand: kein passender Button gefunden')
+        if (!anyCondBtn) {
+          console.warn('[eBay] Zustand: Condition-Buttons nach 8s nicht gefunden')
+        } else {
+          // Quick-Tiles (nur 1000 und 3000 verfügbar)
+          const TILE_IDS = { 'Neu mit Etikett': '1000', 'Gebraucht - Gut': '3000', 'Gebraucht – Gut': '3000' }
+          const quickTiles = Array.from(root.querySelectorAll('button[class*="condition-recommendation-value"]'))
+          for (const tile of quickTiles) {
+            if (tile.offsetParent && TILE_IDS[tile.textContent.trim()] === condId) {
+              tile.scrollIntoView({ behavior: 'instant', block: 'center' })
+              await wait(200)
+              tile.click()
+              condSet = true
+              console.log('[eBay] ✓ Zustand Tile:', tile.textContent.trim())
+              break
+            }
+          }
+
+          // "..." Button → Dialog (für alle anderen Zustände: 1500/1750/2990/3010)
+          if (!condSet) {
+            const moreBtn = root.querySelector('button[class*="condition-recommendation-more-values"]')
+              || document.querySelector('button[aria-label="Weitere Artikelzustände ansehen"]')
+            if (moreBtn) {
+              moreBtn.scrollIntoView({ behavior: 'instant', block: 'center' })
+              await wait(300)
+              moreBtn.click()
+              await wait(1800)
+              condSet = await selectViaDialog()
+            } else {
+              // Letzter Fallback: smryBtn direkt anklicken falls vorhanden aber oben nicht erkannt
+              const fallbackBtn = document.querySelector('button[class*="smry--value"]')
+              if (fallbackBtn) {
+                console.log('[eBay] Zustand: Fallback smryBtn click')
+                fallbackBtn.click()
+                await wait(1800)
+                condSet = await selectViaDialog()
+              } else {
+                console.warn('[eBay] Zustand: kein passender Button gefunden', {
+                  condId,
+                  sectionClass: condSection?.className,
+                  btns: Array.from(document.querySelectorAll('button')).filter(b=>b.offsetParent).map(b=>b.className.substring(0,60)).slice(0,10)
+                })
+              }
+            }
           }
         }
       }
