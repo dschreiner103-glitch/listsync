@@ -137,7 +137,25 @@ Dark Mode Toggle: `useDark()` aus `lib/theme.js` — setzt `html.dark` Klasse + 
 
 ## eBay Content Script (ebay.js) — Live-bestätigte DOM-Selektoren
 
-**Flow**: `background.js` öffnet `https://www.ebay.de/sl/prelist/suggest` → `handlePrelist()` gibt Titel ein → eBay navigiert zu `/lstng?draftId=...` → `fillLstng()` füllt alles aus.
+**Flow**: `background.js` öffnet `https://www.ebay.de/sl/prelist/suggest` → `handlePrelist()` gibt Titel ein, wartet bis URL `/lstng` enthält → `fillLstng()` füllt alles aus.
+
+### Auto-Submit (live bestätigt)
+- Publish: `"Artikel kostenlos einstellen"` (NICHT "Einstellen"!)
+- Draft:   `"Speichern"`
+- Script scrollt vor Suche nach unten damit Button sichtbar ist
+
+### Bilder (fehelix Uploader)
+- File-Input: `#fehelix-uploader` (display:none, kein React)
+- Injection: `Object.defineProperty(fi, 'files', {get: ()=>dt.files})` + `change` Event
+- Input wird kurz sichtbar gemacht (`position:fixed;top:-9999px`) damit fehelix feuert
+- RACE CONDITION FIX: `imageData` wird beim Tab-Öffnen noch geladen → Retry-Loop bis zu 24s
+- eBay Upload-API: `window.sellingUIUploader['fehelix-uploader'].uploadFiles(files)`
+- Thumbnail-Check: wartet bis `[class*="uploader"] img[src*="blob"]` erscheint (max 20s)
+
+### Prelist → lstng Navigation
+- `handlePrelist()` probiert Button-Texte: "Weiter", "Suchen", "Los", "Kategorien anzeigen"
+- Wartet bis URL `/lstng` enthält (max 15s), ruft dann `fillLstng()` direkt auf
+- Guard `_lstngFillStarted` verhindert Doppel-Ausführung
 
 ### Zustand (Condition) — KRITISCH
 eBay hat zwei DOM-Zustände für die Condition-Section:
@@ -247,6 +265,27 @@ input.dispatchEvent(new Event('input', { bubbles: true }))
 // Für Suchfelder mit React-Filter: InputEvent (NICHT char-by-char KeyboardEvent!)
 input.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, inputType: 'insertText', data: value }))
 ```
+
+## Crosspost-Modus (Entwurf vs. Hochladen)
+
+`listing.status === 'entwurf'` → Extension klickt Draft-Button auf allen Plattformen:
+- Vinted:         "Entwurf speichern"
+- Kleinanzeigen:  "Entwurf speichern"
+- eBay:           "Speichern"
+
+`listing.status === 'aktiv'` → Extension klickt Publish-Button:
+- Vinted:         "Hochladen"  
+- Kleinanzeigen:  "Anzeige aufgeben"
+- eBay:           "Artikel kostenlos einstellen"
+
+Modus wählen:
+- Neues Listing → Schritt 3: Karten "Als Entwurf" / "Jetzt hochladen"
+- Bestehende Listings → Crosspost-Modal: Karten oben im Modal
+
+## Kleinanzeigen — Kategorie-Mapping
+`detectCategory()` prüft ZUERST `CATEGORY_PATH` (Herren/Damen/etc.), dann Keyword-Matching.
+`CAT_TO_KA_LEAF` übersetzt App-Namen → KA-Namen (z.B. "Pullover & Strickjacken" → "Pullover" für Damen).
+Fallback: wenn gemappter Leaf nicht gefunden → Original-`kaCategory` wird versucht (z.B. Herren hat "Pullover & Strickjacken" exakt).
 
 ## Noch offen / TODO
 - [ ] Belege: PDF-Generierung (Seite existiert, PDF-Export fehlt noch)
