@@ -489,7 +489,12 @@ async function clickWeiter() {
 
 async function fillStep1(listing) {
   showBanner(listing)
-  const cat = detectCategory(listing)
+  let cat = detectCategory(listing)
+  // Explizit gesetztes kaCategory aus dem Listing hat Vorrang
+  if (listing.kaCategory && cat) {
+    cat = { ...cat, leaf: listing.kaCategory }
+    console.log('[ListSync KA] kaCategory überschreibt Leaf:', listing.kaCategory)
+  }
   if (!cat) {
     updateStatus('⚠️ Kein Kategorie-Mapping – bitte manuell wählen')
     return

@@ -32,6 +32,7 @@ model Listing {
   stil        String    @default("")
   beinform    String    @default("")
   taillenumfang String  @default("")
+  kaCategory    String  @default("")
   shipping    String    @default("[]")
   shipSize    String    @default("")
   address     String    @default("")

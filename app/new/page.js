@@ -1,11 +1,66 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, fmt } from '@/components/Badge'
 import CategoryPicker from '@/components/CategoryPicker'
+
+// KA-Unterkategorie-Optionen je Hauptkategorie
+const KA_LEAVES = {
+  '153/154': ['Jacken & Mäntel','Jeans','Pullover','Hosen','Röcke & Kleider','Shirts & Tops','Shorts','Sportbekleidung','Bademode','Weitere Damenbekleidung'],
+  '153/159': ['Sneaker','Stiefel & Stiefeletten','Ballerinas','Pumps','Sandalen & Flip-Flops','Weitere Damenschuhe'],
+  '153/156': ['Handtaschen','Rucksäcke','Geldbörsen','Weitere Taschen'],
+  '153/160': ['Shirts & Hemden','Pullover & Strickjacken','Hosen & Chinos','Jeans','Jacken & Mäntel','Anzüge & Sakkos','Sportbekleidung','Weitere Herrenbekleidung'],
+  '153/158': ['Sneaker','Stiefel','Halbschuhe & Schnürschuhe','Weitere Herrenschuhe'],
+  '153/224': ['Parfüm & Düfte','Make-up','Hautpflege','Haarpflege','Nagelpflege','Weitere Beauty'],
+  '17/22':   ['Babykleidung & -schuhe','Kinderkleidung','Kinderschuhe','Spielzeug'],
+  '17/23':   ['Spielzeug','Weiteres Spielzeug'],
+  '130/135': ['Hunde','Katzen','Kleintiere','Vögel','Weitere Haustiere'],
+  '161':     ['Smartphones','Laptops','Tablets','Weitere Elektronik'],
+  '80':      ['Möbel','Dekoration','Küche','Weitere Home'],
+  '185':     ['Sportkleidung','Sportschuhe','Sportausrüstung','Weitere Sport'],
+  '228':     ['Sonstiges'],
+}
+// Welcher KA-Pfad zu welcher Haupt-Kategorie gehört
+const KA_PATH_BY_CATEGORY = {
+  'Damen': '153/154', 'Damen – Kleidung': '153/154',
+  'Damen – Schuhe': '153/159', 'Damen – Taschen': '153/156', 'Damen – Accessoires': '153/156',
+  'Herren': '153/160', 'Herren – Kleidung': '153/160', 'Herren – Schuhe': '153/158',
+  'Beauty': '153/224', 'Kinder': '17/22', 'Kinder – Spielzeug': '17/23',
+  'Haustiere': '130/135', 'Elektronik': '161', 'Home & Living': '80',
+  'Sport & Outdoor': '185', 'Sonstiges': '228',
+}
+function getKALeaves(category) {
+  if (!category) return []
+  const keys = Object.keys(KA_PATH_BY_CATEGORY).sort((a,b) => b.length - a.length)
+  for (const k of keys) {
+    if (category === k || category.startsWith(k + ' – ') || category.startsWith(k)) {
+      return KA_LEAVES[KA_PATH_BY_CATEGORY[k]] || []
+    }
+  }
+  return []
+}
+// Bestes KA-Leaf aus Kategorie-String automatisch vorschlagen
+const CAT_TO_KA_LEAF_SUGGEST = {
+  'Jeans': 'Jeans', 'Hosen & Jeans': 'Jeans', 'Hosen': 'Hosen', 'Hosen & Chinos': 'Hosen & Chinos',
+  'Pullover & Strickpullover': 'Pullover', 'Pullover & Sweater': 'Pullover', 'Pullover': 'Pullover',
+  'Jacken & Mäntel': 'Jacken & Mäntel', 'Kleider': 'Röcke & Kleider', 'Röcke & Kleider': 'Röcke & Kleider',
+  'Tops & T-Shirts': 'Shirts & Tops', 'Shirts & Tops': 'Shirts & Tops', 'Shorts': 'Shorts',
+  'Sportkleidung': 'Sportbekleidung', 'Bademode': 'Bademode',
+  'Sneaker': 'Sneaker', 'Stiefel & Stiefeletten': 'Stiefel & Stiefeletten',
+  'Ballerinas': 'Ballerinas', 'Pumps': 'Pumps', 'Sandalen & Flip-Flops': 'Sandalen & Flip-Flops',
+  'Handtaschen': 'Handtaschen', 'Rucksäcke': 'Rucksäcke', 'Geldbörsen': 'Geldbörsen',
+  'Shirts & Hemden': 'Shirts & Hemden', 'Anzüge & Blazer': 'Anzüge & Sakkos',
+  'Blazer & Anzüge': 'Anzüge & Sakkos', 'Jeans (Herren)': 'Jeans',
+}
+function suggestKALeaf(category) {
+  if (!category) return ''
+  const parts = category.split(' – ')
+  const last = parts[parts.length - 1]?.trim()
+  return CAT_TO_KA_LEAF_SUGGEST[last] || ''
+}
 
 export default function NewListing() {
   const router  = useRouter()
@@ -19,7 +74,7 @@ export default function NewListing() {
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
     condition:'Sehr gut', category:'',
-    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', shipping:[], shipSize:'',
+    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', kaCategory:'', shipping:[], shipSize:'',
     platforms:['vinted','kleinanzeigen','ebay'],
     address:''
   })
@@ -27,6 +82,15 @@ export default function NewListing() {
   const set = (k,v) => setForm(f=>({...f,[k]:v}))
   const togglePlt  = p => set('platforms', form.platforms.includes(p)?form.platforms.filter(x=>x!==p):[...form.platforms,p])
   const toggleShip = s => set('shipping',  form.shipping.includes(s)?form.shipping.filter(x=>x!==s):[...form.shipping,s])
+
+  // Wenn Kategorie gesetzt wird → KA-Kategorie automatisch vorschlagen (nur wenn noch leer)
+  useEffect(() => {
+    if (form.category && !form.kaCategory) {
+      const suggested = suggestKALeaf(form.category)
+      if (suggested) set('kaCategory', suggested)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.category])
 
   const validate = () => {
     const e = {}
@@ -200,10 +264,30 @@ export default function NewListing() {
                   </div>
                   <div>
                     <label style={lbl}>Kategorie</label>
-                    <CategoryPicker value={form.category} onChange={v=>{ set('category',v); set('size','') }}/>
+                    <CategoryPicker value={form.category} onChange={v=>{ set('category',v); set('size',''); set('kaCategory', suggestKALeaf(v)) }}/>
                   </div>
                 </div>
               </div>
+
+              {/* ─ Kleinanzeigen Kategorie ─ */}
+              {form.platforms.includes('kleinanzeigen') && form.category && getKALeaves(form.category).length > 0 && (
+                <div style={{ background:'rgba(234,88,12,0.06)', border:'1px solid rgba(234,88,12,0.25)', borderRadius:12, padding:'12px 14px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                    <span style={{ fontSize:11, fontWeight:700, color:'#ea580c', textTransform:'uppercase', letterSpacing:'.06em' }}>🟠 Kleinanzeigen Kategorie</span>
+                    {form.kaCategory && <span style={{ fontSize:10, color:'#ea580c', opacity:.7 }}>wird automatisch ausgewählt</span>}
+                  </div>
+                  <select
+                    value={form.kaCategory}
+                    onChange={e => set('kaCategory', e.target.value)}
+                    style={{ width:'100%', padding:'9px 12px', borderRadius:9, border:'1.5px solid rgba(234,88,12,0.35)', background:'var(--surface)', color:'var(--text-1)', fontSize:13, fontWeight:600 }}
+                  >
+                    <option value="">– automatisch erkennen –</option>
+                    {getKALeaves(form.category).map(leaf => (
+                      <option key={leaf} value={leaf}>{leaf}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* ─ Divider ─ */}
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>

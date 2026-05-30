@@ -68,6 +68,7 @@ export async function PATCH(req, { params }) {
   if (data.stil          !== undefined) { rawUpdates.push('stil');          rawArgs.push(data.stil) }
   if (data.beinform      !== undefined) { rawUpdates.push('beinform');      rawArgs.push(data.beinform) }
   if (data.taillenumfang !== undefined) { rawUpdates.push('taillenumfang'); rawArgs.push(data.taillenumfang) }
+  if (data.kaCategory    !== undefined) { rawUpdates.push('"kaCategory"');  rawArgs.push(data.kaCategory) }
 
   if (rawUpdates.length) {
     const setParts = rawUpdates.map(f => `${f} = ?`).join(', ')
@@ -86,6 +87,7 @@ export async function PATCH(req, { params }) {
     stil:          data.stil          !== undefined ? data.stil          : (existing.stil          || ''),
     beinform:      data.beinform      !== undefined ? data.beinform      : (existing.beinform      || ''),
     taillenumfang: data.taillenumfang !== undefined ? data.taillenumfang : (existing.taillenumfang || ''),
+    kaCategory:    data.kaCategory    !== undefined ? data.kaCategory    : (existing.kaCategory    || ''),
   })
 }
 
