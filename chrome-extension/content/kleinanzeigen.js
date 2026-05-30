@@ -128,42 +128,48 @@ const CAT_TO_KA_LEAF = {
 }
 
 function detectCategory(listing) {
-  // Kategorie-String mit einbeziehen – z.B. "Hosen & Jeans" → "jeans" matcht vor "hosen"
-  const text = (
-    (listing.title || '') + ' ' +
-    (listing.description || '') + ' ' +
-    (listing.category || '')
-  ).toLowerCase()
-  // 1. Keyword-Matching aus Titel/Beschreibung/Kategorie
-  for (const entry of KEYWORD_CATEGORIES) {
-    for (const kw of entry.kw) {
-      if (text.includes(kw)) {
-        console.log(`[ListSync KA] Keyword-Match: "${kw}" → ${entry.path} / ${entry.leaf}`)
-        return entry
-      }
-    }
-  }
-  // 2. Kategorie-String direkt mappen
   const cat = listing.category || ''
   const pathKeys = Object.keys(CATEGORY_PATH).sort((a, b) => b.length - a.length)
+
+  // 1. ZUERST: Kategorie-String direkt mappen (hat Vorrang vor Keyword-Matching!)
+  //    Verhindert z.B. dass "Hoodie" bei Herren auf Damen-Pfad landet.
   for (const key of pathKeys) {
     if (!cat.startsWith(key)) continue
     const path = CATEGORY_PATH[key]
-    // Leaf aus dem Teil nach dem gematchten Key extrahieren
     const rest = cat.slice(key.length).replace(/^\s*–\s*/, '').trim()
     if (rest) {
-      // Direktes Mapping (z.B. "Pullover & Strickpullover" → "Pullover")
       const mapped = CAT_TO_KA_LEAF[rest]
       if (mapped) {
         console.log(`[ListSync KA] Kategorie-Map: "${rest}" → "${mapped}"`)
         return { path, leaf: mapped }
       }
-      // Fallback: Rest-String direkt als Leaf versuchen (clickItemByText hat Partial-Match)
       const leafPart = rest.split(' – ').pop().trim()
       console.log(`[ListSync KA] Kategorie-Fallback-Leaf: "${leafPart}"`)
       return { path, leaf: leafPart || null }
     }
+    // kaCategory aus Formular als Leaf nutzen (falls gesetzt)
+    if (listing.kaCategory) {
+      console.log(`[ListSync KA] kaCategory als Leaf: "${listing.kaCategory}"`)
+      return { path, leaf: listing.kaCategory }
+    }
     return { path, leaf: null }
+  }
+
+  // 2. DANACH: Keyword-Matching als Fallback (nur wenn kein Kategorie-Match)
+  const text = (
+    (listing.title || '') + ' ' +
+    (listing.description || '') + ' ' +
+    (listing.category || '')
+  ).toLowerCase()
+  for (const entry of KEYWORD_CATEGORIES) {
+    for (const kw of entry.kw) {
+      if (text.includes(kw)) {
+        console.log(`[ListSync KA] Keyword-Match: "${kw}" → ${entry.path} / ${entry.leaf}`)
+        // kaCategory überschreibt Leaf wenn gesetzt
+        if (listing.kaCategory) return { ...entry, leaf: listing.kaCategory }
+        return entry
+      }
+    }
   }
   return null
 }

@@ -211,28 +211,41 @@ async function handlePrelist() {
     await wait(800)
   }
 
-  const nextBtn = Array.from(document.querySelectorAll('button'))
-    .find(b => b.textContent.trim() === 'Weiter' || b.textContent.trim() === 'Fortfahren')
+  // "Weiter"-Button finden – eBay nutzt verschiedene Texte
+  const nextBtn = Array.from(document.querySelectorAll('button, input[type="submit"]'))
+    .find(b => b.offsetParent && !b.disabled && [
+      'Weiter', 'Fortfahren', 'Suchen', 'Los', 'Einstellen', 'Kategorien anzeigen'
+    ].includes(b.textContent.trim()))
     || document.querySelector('button[type="submit"]')
+    || Array.from(document.querySelectorAll('button')).find(b => b.offsetParent && !b.disabled)
 
   if (nextBtn) {
+    nextBtn.scrollIntoView({ behavior: 'instant', block: 'center' })
+    await wait(300)
     nextBtn.click()
-    updateStatus('Kategorie-Auswahl…')
-    await wait(2500)
-    if (window.location.pathname.includes('/prelist') || window.location.pathname.includes('/sl/list')) {
-      const CLOTHING_KW = ['kleidung', 'mode', 'jeans', 'damen', 'herren', 'hosen', 'jacken', 'shirts', 'tops', 'pullover']
-      const allOpts = Array.from(document.querySelectorAll('button, [role="option"], [role="radio"], li, [class*="suggest"], [class*="categor"]')).filter(el => el.offsetParent)
-      let picked = null
-      for (const kw of CLOTHING_KW) {
-        picked = allOpts.find(el => el.textContent.toLowerCase().includes(kw))
-        if (picked) break
-      }
-      if (picked) {
-        picked.click()
-        await wait(800)
+    updateStatus('Warte auf lstng…')
+
+    // Warte bis eBay zu /lstng navigiert (max 15s)
+    let waited = 0
+    while (waited < 15000 && !window.location.pathname.includes('/lstng')) {
+      await wait(500)
+      waited += 500
+      // Falls eBay auf /prelist bleibt und Kategorie-Auswahl zeigt → ersten Vorschlag klicken
+      if (waited === 3000 && window.location.pathname.includes('/prelist')) {
+        const firstOpt = Array.from(document.querySelectorAll('button, [role="option"], li'))
+          .find(el => el.offsetParent && el.textContent.trim().length > 3 && !['Weiter','Fortfahren','Suchen'].includes(el.textContent.trim()))
+        if (firstOpt) { firstOpt.click(); await wait(1000) }
         const confirmBtn = Array.from(document.querySelectorAll('button'))
           .find(b => b.offsetParent && ['Weiter', 'Bestätigen', 'Fortfahren'].includes(b.textContent.trim()))
         if (confirmBtn) confirmBtn.click()
+      }
+    }
+    if (window.location.pathname.includes('/lstng')) {
+      if (!_lstngFillStarted) {
+        _lstngFillStarted = true
+        updateStatus('lstng geladen – Formular wird ausgefüllt…')
+        await wait(2000)
+        await fillLstng()
       }
     }
   }
@@ -655,10 +668,14 @@ async function fill() {
 
 // ── Entry Point ───────────────────────────────────────────────────────────────
 
+let _lstngFillStarted = false
+
 function init() {
   const path = window.location.pathname
   if (path.includes('/prelist'))    setTimeout(handlePrelist, 2000)
-  else if (path.includes('/lstng')) setTimeout(fillLstng, 3000)
+  else if (path.includes('/lstng')) {
+    if (!_lstngFillStarted) { _lstngFillStarted = true; setTimeout(fillLstng, 3000) }
+  }
   else if (path.includes('/sl/list')) setTimeout(fill, 3000)
 }
 
