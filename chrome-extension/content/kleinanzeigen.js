@@ -80,18 +80,19 @@ const CATEGORY_PATH = {
 // Wenn Keyword-Matching fehlschlägt, wird der letzte Teil des Kategorie-Strings
 // direkt auf den KA-Leaf-Namen gemappt (z.B. "Pullover & Strickpullover" → "Pullover")
 const CAT_TO_KA_LEAF = {
-  // Damen Kleidung
+  // ── Damen Kleidung (153/154) ──────────────────────────────────────────────
+  'Jeans':                        'Jeans',
   'Hosen':                        'Hosen',
   'Hosen & Jeans':                'Jeans',
-  'Jeans':                        'Jeans',
   'Pullover':                     'Pullover',
   'Pullover & Strickpullover':    'Pullover',
   'Pullover & Sweater':           'Pullover',
-  'Pullover & Strickjacken':      'Pullover',
+  'Pullover & Strickjacken':      'Pullover',   // Damen→Pullover, Herren→exakter Match (Fallback in fillStep1)
   'Jacken & Mäntel':              'Jacken & Mäntel',
   'Kleider':                      'Röcke & Kleider',
   'Röcke':                        'Röcke & Kleider',
   'Röcke & Kleider':              'Röcke & Kleider',
+  'Kleider & Röcke':              'Röcke & Kleider',
   'Shirts & Tops':                'Shirts & Tops',
   'Tops & T-Shirts':              'Shirts & Tops',
   'Tops':                         'Shirts & Tops',
@@ -103,28 +104,66 @@ const CAT_TO_KA_LEAF = {
   'Unterwäsche':                  'Weitere Damenbekleidung',
   'Blazer & Anzüge':              'Weitere Damenbekleidung',
   'Overall':                      'Weitere Damenbekleidung',
-  // Damen Schuhe
+  'Jumpsuit':                     'Weitere Damenbekleidung',
+  // ── Damen Schuhe (153/159) ───────────────────────────────────────────────
   'Sneaker':                      'Sneaker',
   'Stiefel & Stiefeletten':       'Stiefel & Stiefeletten',
   'Stiefel':                      'Stiefel & Stiefeletten',
   'Ballerinas':                   'Ballerinas',
   'Pumps':                        'Pumps',
-  'Sandalen & Flip-Flops':        'Sandalen & Flip-Flops',
   'Sandalen':                     'Sandalen & Flip-Flops',
-  // Damen Taschen
+  'Sandalen & Flip-Flops':        'Sandalen & Flip-Flops',
+  'Flip-Flops':                   'Sandalen & Flip-Flops',
+  // ── Damen Taschen (153/156) ──────────────────────────────────────────────
   'Handtaschen':                  'Handtaschen',
   'Rucksäcke':                    'Rucksäcke',
   'Geldbörsen':                   'Geldbörsen',
-  // Herren Kleidung
-  'Shirts & Hemden':              'Shirts & Hemden',
+  'Clutches':                     'Weitere Taschen',
+  'Umhängetaschen':               'Weitere Taschen',
+  'Shopper':                      'Weitere Taschen',
+  // ── Herren Kleidung (153/160) ────────────────────────────────────────────
   'Hemden':                       'Shirts & Hemden',
+  'Shirts & Hemden':              'Shirts & Hemden',
+  'T-Shirts':                     'Shirts & Hemden',
   'Hosen & Chinos':               'Hosen & Chinos',
   'Chinos':                       'Hosen & Chinos',
   'Anzüge & Sakkos':              'Anzüge & Sakkos',
   'Anzüge & Blazer':              'Anzüge & Sakkos',
   'Sakkos':                       'Anzüge & Sakkos',
-  // Herren Schuhe
+  // ── Herren Schuhe (153/158) ──────────────────────────────────────────────
+  'Halbschuhe & Schnürschuhe':    'Halbschuhe & Schnürschuhe',
   'Stiefel (Herren)':             'Stiefel',
+  // ── Kinder (17/22) ───────────────────────────────────────────────────────
+  'Babykleidung':                 'Babykleidung & -schuhe',
+  'Babyschuhe':                   'Babykleidung & -schuhe',
+  'Mädchenkleidung':              'Kinderkleidung',
+  'Jungenkleidung':               'Kinderkleidung',
+  'Kinderkleidung':               'Kinderkleidung',
+  'Mädchenschuhe':                'Kinderschuhe',
+  'Jungenschuhe':                 'Kinderschuhe',
+  'Kinderschuhe':                 'Kinderschuhe',
+  'Spielzeug':                    'Spielzeug',
+  // ── Beauty (153/224) ─────────────────────────────────────────────────────
+  'Parfüm & Düfte':               'Parfüm & Düfte',
+  'Make-up':                      'Make-up',
+  'Makeup':                       'Make-up',
+  'Hautpflege':                   'Hautpflege',
+  'Haarpflege':                   'Haarpflege',
+  'Nagelpflege':                  'Nagelpflege',
+  // ── Haustiere (130/135) ──────────────────────────────────────────────────
+  'Hundezubehör':                 'Hunde',
+  'Hunde':                        'Hunde',
+  'Katzenzubehör':                'Katzen',
+  'Katzen':                       'Katzen',
+  'Sonstiges Zubehör':            'Weitere Haustiere',
+  // ── Elektronik (161) ─────────────────────────────────────────────────────
+  'Smartphones':                  'Smartphones',
+  'Laptops':                      'Laptops',
+  'Tablets':                      'Tablets',
+  'Kopfhörer':                    'Weitere Elektronik',
+  'Sonstige Elektronik':          'Weitere Elektronik',
+  // ── Sonstiges (228) ──────────────────────────────────────────────────────
+  'Sonstiges':                    'Sonstiges',
 }
 
 function detectCategory(listing) {
@@ -522,7 +561,12 @@ async function fillStep1(listing) {
   if (cat.leaf) {
     updateStatus(`Wähle: ${cat.leaf}…`)
     // 10s Timeout: SPA lädt Kategorie-Items manchmal langsam
-    const clicked = await clickItemByText(cat.leaf, 10000)
+    // Erst gemappten Leaf versuchen, dann Original als Fallback (z.B. "Pullover & Strickjacken" bei Herren)
+    let clicked = await clickItemByText(cat.leaf, 10000)
+    if (!clicked && listing.kaCategory && listing.kaCategory !== cat.leaf) {
+      console.log(`[ListSync KA] Fallback: versuche Original-kaCategory: "${listing.kaCategory}"`)
+      clicked = await clickItemByText(listing.kaCategory, 3000)
+    }
     if (clicked) {
       updateStatus('Kategorie gewählt – warte auf Weiter…')
       // MutationObserver (mit attributes:true) erkennt wenn KA den Submit-Button einblendet
