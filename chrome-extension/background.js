@@ -1,5 +1,36 @@
 const BASE_URL = 'https://project-dle5b.vercel.app'
 
+// ── Tab-Tracking für Hintergrund-Modus ───────────────────────────────────────
+// tabId → { platform, listingId, listingTitle, isDraft, url }
+const trackedTabs = new Map()
+
+// Benachrichtigung anzeigen
+async function showNotification(id, opts) {
+  return chrome.notifications.create(id, {
+    type:    'basic',
+    iconUrl: 'icons/icon48.png',
+    ...opts,
+  })
+}
+
+// Hintergrund-Modus aktiv?
+async function isBackgroundMode() {
+  return new Promise(r => chrome.storage.local.get('backgroundMode', d => r(!!d.backgroundMode)))
+}
+
+// ── Notification-Klick: "Jetzt ansehen" → öffnet Listing ─────────────────────
+chrome.notifications.onButtonClicked.addListener((notifId, btnIdx) => {
+  if (btnIdx === 0) {
+    // Öffne ListSync-Listings-Seite
+    const url = `${BASE_URL}/listings`
+    chrome.tabs.create({ url, active: true })
+  }
+  chrome.notifications.clear(notifId)
+})
+chrome.notifications.onClicked.addListener(notifId => {
+  chrome.notifications.clear(notifId)
+})
+
 // ── Message listener ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -25,8 +56,46 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true
   }
   if (msg.type === 'LISTING_POSTED') {
-    // Content Script (Vinted/KA/eBay) meldet erfolgreichen Submit
+    const tabId = sender.tab?.id
+    const info  = tabId ? trackedTabs.get(tabId) : null
+    const plt   = PLT_NAMES[msg.platform] || msg.platform || 'Plattform'
+    const isDraft = info?.isDraft || false
+    const title   = info?.listingTitle || 'Listing'
+
+    // Benachrichtigung
+    isBackgroundMode().then(bgMode => {
+      const notifId = `posted-${tabId}-${Date.now()}`
+      showNotification(notifId, {
+        title:   isDraft ? `📝 Entwurf gespeichert – ${plt}` : `✅ Hochgeladen – ${plt}`,
+        message: isDraft ? `"${title}" wurde als Entwurf gespeichert.` : `"${title}" wurde erfolgreich veröffentlicht.`,
+        buttons: [{ title: 'Jetzt ansehen →' }],
+      })
+      // Im Hintergrund-Modus Tab automatisch schließen
+      if (bgMode && tabId) {
+        setTimeout(() => {
+          chrome.tabs.remove(tabId).catch(() => {})
+          trackedTabs.delete(tabId)
+        }, 1500) // kurz warten damit der letzte Status-Update sichtbar ist
+      }
+    })
+
     forwardToListSyncBridge(msg).then(() => sendResponse({ ok: true })).catch(() => sendResponse({ ok: false }))
+    return true
+  }
+
+  if (msg.type === 'LISTING_ERROR') {
+    const tabId = sender.tab?.id
+    const info  = tabId ? trackedTabs.get(tabId) : null
+    const plt   = PLT_NAMES[msg.platform] || msg.platform || 'Plattform'
+    const title = info?.listingTitle || 'Listing'
+    const notifId = `error-${tabId}-${Date.now()}`
+    showNotification(notifId, {
+      title:   `❌ Fehler – ${plt}`,
+      message: `"${title}": ${msg.error || 'Unbekannter Fehler'}`,
+      buttons: [{ title: 'Tab öffnen →' }],
+    })
+    // Bei Fehler Tab NICHT auto-schließen damit User sieht was passiert ist
+    sendResponse({ ok: true })
     return true
   }
   if (msg.type === 'INJECT_MAIN_IMAGES') {
@@ -82,16 +151,40 @@ async function fetchImageAsBase64(url) {
 
 // ── Post listing to platforms ─────────────────────────────────────────────────
 
+const PLT_NAMES = { vinted: 'Vinted', kleinanzeigen: 'Kleinanzeigen', ebay: 'eBay' }
+
 async function handlePost(listing, platforms) {
+  const bgMode = await isBackgroundMode()
+
   // 1. Listing sofort ohne Bilder speichern – Tab kann sofort öffnen
   await chrome.storage.local.set({ pendingListing: { ...listing, imageData: [] } })
 
   // 2. Tabs sofort öffnen (parallel, nicht warten)
-  const tabPromises = platforms.map(platform => {
-    if (platform === 'vinted')        return openVintedNewListing()
-    if (platform === 'kleinanzeigen') return openKleinanzeigenNewListing()
-    if (platform === 'ebay')          return openEbayNewListing(listing)
-    return Promise.resolve()
+  const tabPromises = platforms.map(async platform => {
+    let tab = null
+    if (platform === 'vinted')        tab = await openVintedNewListing(bgMode)
+    else if (platform === 'kleinanzeigen') tab = await openKleinanzeigenNewListing(bgMode)
+    else if (platform === 'ebay')     tab = await openEbayNewListing(listing, bgMode)
+    // Tab tracken für Notification + Auto-Close
+    if (tab?.id) {
+      trackedTabs.set(tab.id, {
+        platform,
+        listingId:    listing.id,
+        listingTitle: listing.title || 'Listing',
+        isDraft:      listing.status === 'entwurf',
+      })
+      // Timeout: nach 10min ohne LISTING_POSTED → Fehler-Notification
+      setTimeout(() => {
+        if (trackedTabs.has(tab.id)) {
+          trackedTabs.delete(tab.id)
+          showNotification(`timeout-${tab.id}`, {
+            title:   `⚠️ Timeout – ${PLT_NAMES[platform] || platform}`,
+            message: `"${listing.title || 'Listing'}" – kein Status nach 10 Minuten. Bitte Tab prüfen.`,
+            buttons: [{ title: 'Tab öffnen →' }],
+          })
+        }
+      }, 10 * 60 * 1000)
+    }
   })
 
   // 3. Bilder parallel laden (während Vinted-Tab lädt, spart ~2-5s)
@@ -109,22 +202,22 @@ async function handlePost(listing, platforms) {
   await Promise.all(tabPromises)
 }
 
-async function openKleinanzeigenNewListing() {
-  // Step 1 = category picker → navigates automatically to schritt2 after category click
-  await chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/p-anzeige-aufgeben.html' })
-  console.log('[ListSync BG] ✓ Kleinanzeigen-Tab geöffnet (schritt1)')
+async function openKleinanzeigenNewListing(bgMode = false) {
+  const tab = await chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/p-anzeige-aufgeben.html', active: !bgMode })
+  console.log('[ListSync BG] ✓ Kleinanzeigen-Tab geöffnet (bgMode:', bgMode, ')')
+  return tab
 }
 
-async function openEbayNewListing(listing) {
-  // eBay-Prelist: Titel eingeben → Kategorie-Suche → /lstng
-  // Direkte /sl/list?category=X URL wird von eBay nicht mehr akzeptiert (Error-Page)
-  await chrome.tabs.create({ url: 'https://www.ebay.de/sl/prelist/suggest' })
-  console.log('[ListSync BG] ✓ eBay-Tab geöffnet (prelist/suggest), catId für Merkmale:', getEbayCategoryIdFromListing(listing))
+async function openEbayNewListing(listing, bgMode = false) {
+  const tab = await chrome.tabs.create({ url: 'https://www.ebay.de/sl/prelist/suggest', active: !bgMode })
+  console.log('[ListSync BG] ✓ eBay-Tab geöffnet (bgMode:', bgMode, ')')
+  return tab
 }
 
-async function openVintedNewListing() {
-  await chrome.tabs.create({ url: 'https://www.vinted.de/items/new' })
-  console.log('[ListSync BG] ✓ Vinted-Tab geöffnet')
+async function openVintedNewListing(bgMode = false) {
+  const tab = await chrome.tabs.create({ url: 'https://www.vinted.de/items/new', active: !bgMode })
+  console.log('[ListSync BG] ✓ Vinted-Tab geöffnet (bgMode:', bgMode, ')')
+  return tab
 }
 
 function getEbayCategoryIdFromListing(listing) {

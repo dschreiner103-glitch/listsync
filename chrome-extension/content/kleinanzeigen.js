@@ -781,12 +781,13 @@ async function fillStep2(listing) {
       updateStatus(isDraft ? '✅ Entwurf gespeichert!' : '✅ Anzeige aufgegeben!', true)
       console.log('[ListSync KA] ✓ Auto-Submit:', isDraft ? 'Entwurf' : 'Anzeige aufgegeben')
     } else {
-      updateStatus(isDraft ? '✅ Fertig – bitte "Entwurf speichern" klicken' : '✅ Fertig – bitte "Anzeige aufgeben" klicken', true)
-      console.warn('[ListSync KA] Submit-Button nicht gefunden')
+      const btnHint = isDraft ? '"Entwurf speichern"' : '"Anzeige aufgeben"'
+      updateStatus(`✅ Fertig – bitte ${btnHint} klicken`, true)
+      chrome.runtime.sendMessage({ type: 'LISTING_ERROR', platform: 'kleinanzeigen', error: `Submit-Button ${btnHint} nicht gefunden` }).catch(() => {})
     }
   } catch(e) {
     updateStatus('✅ Fertig – bitte manuell bestätigen', true)
-    console.warn('[ListSync KA] Auto-Submit Fehler:', e.message)
+    chrome.runtime.sendMessage({ type: 'LISTING_ERROR', platform: 'kleinanzeigen', error: e.message }).catch(() => {})
   }
 
   await chrome.storage.local.remove('pendingListing')

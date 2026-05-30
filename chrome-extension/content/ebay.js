@@ -708,12 +708,14 @@ async function fillLstng() {
       updateStatus(isDraft ? '✅ Entwurf gespeichert!' : '✅ Angebot eingestellt!', true)
       console.log('[eBay lstng] ✓ Auto-Submit:', submitBtn.textContent.trim())
     } else {
-      updateStatus(isDraft ? '✅ Fertig – bitte "Speichern" klicken' : '✅ Fertig – bitte "Artikel einstellen" klicken', true)
-      console.warn('[eBay lstng] Submit-Button nicht gefunden. Sichtbare Buttons:', Array.from(document.querySelectorAll('button')).filter(b=>b.offsetParent&&!b.disabled).map(b=>b.textContent.trim()).filter(t=>t).slice(-10))
+      const btnHint = isDraft ? '"Speichern"' : '"Artikel einstellen"'
+      updateStatus(`✅ Fertig – bitte ${btnHint} klicken`, true)
+      console.warn('[eBay lstng] Submit-Button nicht gefunden')
+      chrome.runtime.sendMessage({ type: 'LISTING_ERROR', platform: 'ebay', error: `Submit-Button ${btnHint} nicht gefunden` }).catch(() => {})
     }
   } catch(e) {
     updateStatus('✅ Fertig – bitte manuell bestätigen', true)
-    console.warn('[eBay lstng] Auto-Submit Fehler:', e.message)
+    chrome.runtime.sendMessage({ type: 'LISTING_ERROR', platform: 'ebay', error: e.message }).catch(() => {})
   }
 
   await chrome.storage.local.remove('pendingListing')

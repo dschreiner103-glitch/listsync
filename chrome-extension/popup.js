@@ -1,5 +1,20 @@
 const BASE_URL = 'https://project-dle5b.vercel.app'
 
+// ── Hintergrund-Modus Toggle ────────────────────────────────────────────────
+const bgToggle  = document.getElementById('bgModeToggle')
+const bgSubtext = document.getElementById('bgModeSubtext')
+
+chrome.storage.local.get('backgroundMode', r => {
+  bgToggle.checked = !!r.backgroundMode
+  bgSubtext.textContent = r.backgroundMode ? 'Läuft im Hintergrund + Benachrichtigung' : 'Tabs öffnen sich sichtbar'
+})
+
+bgToggle.addEventListener('change', () => {
+  const enabled = bgToggle.checked
+  chrome.storage.local.set({ backgroundMode: enabled })
+  bgSubtext.textContent = enabled ? 'Läuft im Hintergrund + Benachrichtigung' : 'Tabs öffnen sich sichtbar'
+})
+
 // Status check
 fetch(`${BASE_URL}/api/listings`, { credentials: 'include' })
   .then(r => {
