@@ -108,6 +108,10 @@ export default function NewListing() {
   const [uploading, setUploading] = useState(false)
   const [mobileHelper, setMobileHelper] = useState(null)
   const [imgs, setImgs]       = useState([])
+  const [aiBullets, setAiBullets] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiKeywords, setAiKeywords] = useState([])
+  const [aiError, setAiError]   = useState('')
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
     condition:'Sehr gut', category:'',
@@ -119,6 +123,35 @@ export default function NewListing() {
   const set = (k,v) => setForm(f=>({...f,[k]:v}))
   const togglePlt  = p => set('platforms', form.platforms.includes(p)?form.platforms.filter(x=>x!==p):[...form.platforms,p])
   const toggleShip = s => set('shipping',  form.shipping.includes(s)?form.shipping.filter(x=>x!==s):[...form.shipping,s])
+
+  const handleAiGenerate = async () => {
+    if (!aiBullets.trim()) return
+    setAiLoading(true); setAiError('')
+    try {
+      const res = await fetch('/api/ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bulletPoints: aiBullets,
+          category: form.category,
+          brand: form.brand,
+          condition: form.condition,
+          price: form.price,
+          size: form.size,
+          color: form.color,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setAiError(data.error || 'Fehler'); return }
+      if (data.title) set('title', data.title)
+      if (data.description) set('description', data.description)
+      if (data.keywords?.length) setAiKeywords(data.keywords)
+    } catch (e) {
+      setAiError('Netzwerkfehler')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   // Wenn Kategorie gesetzt wird → KA-Kategorie automatisch vorschlagen (nur wenn noch leer)
   useEffect(() => {
@@ -268,6 +301,39 @@ export default function NewListing() {
           {/* ── Step 1 ── */}
           {step===1 && (
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+              {/* ─ KI-Assistent ─ */}
+              <div style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.06))', border:'1.5px solid rgba(99,102,241,0.25)', borderRadius:18, padding:'16px 16px 14px', display:'flex', flexDirection:'column', gap:12 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontSize:18 }}>✨</span>
+                  <span style={{ fontSize:13, fontWeight:800, color:'#6366f1', letterSpacing:'-0.01em' }}>KI-Assistent</span>
+                  <span style={{ fontSize:11, color:'var(--text-3)', marginLeft:'auto' }}>Titel & Beschreibung automatisch generieren</span>
+                </div>
+                <textarea
+                  value={aiBullets}
+                  onChange={e => setAiBullets(e.target.value)}
+                  rows={3}
+                  placeholder={'Stichpunkte eingeben, z.B.:\nNike Air Max 90, Weiß, Gr. 42, kaum getragen, kleine Verfärbung an der Sohle, OVP fehlt'}
+                  style={{ ...inp, resize:'vertical', fontSize:13, lineHeight:1.5, background:'var(--surface)' }}
+                />
+                {aiError && <p style={{ fontSize:12, color:'#ef4444', margin:0 }}>{aiError}</p>}
+                {aiKeywords.length > 0 && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                    <span style={{ fontSize:11, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.05em' }}>Keywords</span>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                      {aiKeywords.map((kw,i) => (
+                        <span key={i} style={{ fontSize:11.5, fontWeight:600, color:'#6366f1', background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:20, padding:'3px 10px' }}>{kw}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <button
+                  onClick={handleAiGenerate}
+                  disabled={aiLoading || !aiBullets.trim()}
+                  style={{ alignSelf:'flex-end', padding:'9px 18px', borderRadius:12, border:'none', background: aiLoading||!aiBullets.trim() ? 'var(--modal-close)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: aiLoading||!aiBullets.trim() ? 'var(--text-3)' : '#fff', fontWeight:700, fontSize:13, cursor: aiLoading||!aiBullets.trim() ? 'default' : 'pointer', fontFamily:'inherit', transition:'all .15s' }}>
+                  {aiLoading ? '⏳ Generiert…' : '✨ Generieren'}
+                </button>
+              </div>
 
               {/* ─ Essential ─ */}
               <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
