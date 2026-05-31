@@ -29,6 +29,17 @@
     .add-account input { flex: 1; padding: 7px 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 12px; }
     .add-account button { padding: 7px 12px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
     .del-btn { font-size: 11px; color: #ef4444; cursor: pointer; padding: 0 4px; border: none; background: none; line-height: 1; }
+    .progress-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 10px 12px; margin-bottom: 6px; }
+    .progress-card.done { border-color: #bbf7d0; background: #f0fdf4; }
+    .progress-card.error { border-color: #fecaca; background: #fef2f2; }
+    .progress-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .progress-plt { font-size: 12.5px; font-weight: 700; color: #374151; }
+    .progress-pct { font-size: 12px; font-weight: 800; color: #4f46e5; }
+    .progress-bar-bg { height: 5px; background: #f3f4f6; border-radius: 99px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 99px; transition: width .4s ease; background: linear-gradient(90deg, #6366f1, #818cf8); }
+    .progress-card.done .progress-bar-fill { background: #22c55e; }
+    .progress-card.error .progress-bar-fill { background: #ef4444; }
+    .progress-step { font-size: 10.5px; color: #9ca3af; margin-top: 4px; }
     .sync-result { font-size: 11px; color: #374151; padding: 8px 10px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0; margin-top: 6px; display: none; }
     .sync-result.show { display: block; }
     .divider { height: 1px; background: #f3f4f6; margin: 10px 0; }
@@ -60,6 +71,12 @@
     </div>
 
     <a href="https://project-dle5b.vercel.app" target="_blank" class="btn">ListSync öffnen →</a>
+
+    <!-- Aktiver Fortschritt -->
+    <div id="progressSection" style="display:none;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;margin-bottom:6px">Läuft gerade</div>
+      <div id="progressCards"></div>
+    </div>
 
     <!-- Hintergrund-Modus Toggle -->
     <div class="toggle-row">

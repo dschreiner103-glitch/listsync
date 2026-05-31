@@ -10,6 +10,10 @@ async function getListing() {
 
 const wait = ms => new Promise(r => setTimeout(r, ms))
 
+function sendProgress(percent, step) {
+  chrome.runtime.sendMessage({ type: 'PROGRESS', platform: 'vinted', percent, step }).catch(() => {})
+}
+
 function setNativeValue(el, value) {
   const proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
   const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set
@@ -1332,6 +1336,7 @@ async function fill() {
     await wait(600)
   }
 
+  sendProgress(35, 'Größe & Zustand gesetzt')
   // Marke – mehrere testid-Varianten (Vinted ändert sie gelegentlich)
   if (listing.brand) {
     setStatus('Marke wird gesetzt…')
@@ -1385,16 +1390,19 @@ async function fill() {
     await wait(600)
   }
 
+  sendProgress(65, 'Felder fertig – Bilder laden…')
   setStatus('✅ Felder fertig – Bilder werden geladen…')
   await injectImages()
 
   // Warten bis mindestens 1 Thumbnail im DOM sichtbar ist (max 25s)
+  sendProgress(80, 'Bilder hochladen…')
   setStatus('Warte auf Bild-Thumbnails…')
   const thumbsOk = await waitForThumbnails(25000)
 
   if (thumbsOk) {
     await wait(1200)
     const isDraft = listing.status === 'entwurf'
+    sendProgress(93, isDraft ? 'Entwurf wird gespeichert…' : 'Wird veröffentlicht…')
     setStatus(isDraft ? 'Entwurf wird gespeichert…' : 'Artikel wird veröffentlicht…')
     const submitBtn = findSubmitButton(isDraft)
     if (submitBtn) {

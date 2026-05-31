@@ -238,6 +238,10 @@ async function getListing() {
 
 const wait = ms => new Promise(r => setTimeout(r, ms))
 
+function sendProgress(percent, step) {
+  chrome.runtime.sendMessage({ type: 'PROGRESS', platform: 'kleinanzeigen', percent, step }).catch(() => {})
+}
+
 function isVisible(el) {
   if (!el) return false
   const r = el.getBoundingClientRect()
@@ -559,7 +563,8 @@ async function fillStep1(listing) {
 
   // Leaf-Kategorie automatisch klicken (ERST dann Weiter – niemals vorher!)
   if (cat.leaf) {
-    updateStatus(`Wähle: ${cat.leaf}…`)
+    sendProgress(15, `Kategorie wird gewählt…`)
+  updateStatus(`Wähle: ${cat.leaf}…`)
     // 10s Timeout: SPA lädt Kategorie-Items manchmal langsam
     // Erst gemappten Leaf versuchen, dann Original als Fallback (z.B. "Pullover & Strickjacken" bei Herren)
     let clicked = await clickItemByText(cat.leaf, 10000)
@@ -608,6 +613,7 @@ async function pollFor(selector, timeout = 8000) {
 
 async function fillStep2(listing) {
   showBanner(listing)
+  sendProgress(30, 'Formular wird ausgefüllt…')
   updateStatus('Formular wird ausgefüllt…')
   await wait(2000)
 
@@ -739,6 +745,7 @@ async function fillStep2(listing) {
   await wait(400)
 
   // ⑫ Bilder – warte auf imageData vom Background-Loader
+  sendProgress(75, 'Bilder werden hochgeladen…')
   updateStatus('Bilder werden hochgeladen…')
   let imgData = listing.imageData || []
   if (!imgData.length) {
@@ -758,6 +765,7 @@ async function fillStep2(listing) {
   // ── Auto-Submit ───────────────────────────────────────────────────────────
   await wait(800)
   const isDraft = listing.status === 'entwurf'
+  sendProgress(93, isDraft ? 'Entwurf wird gespeichert…' : 'Anzeige wird aufgegeben…')
   updateStatus(isDraft ? 'Entwurf wird gespeichert…' : 'Anzeige wird aufgegeben…')
   try {
     const submitTexts = isDraft

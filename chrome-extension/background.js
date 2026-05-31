@@ -55,12 +55,38 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(e => sendResponse({ ok: false, error: e.message }))
     return true
   }
+  if (msg.type === 'PROGRESS') {
+    // Content Script sendet Fortschritt: { platform, percent, step }
+    const tabId = sender.tab?.id
+    chrome.storage.local.get('crosspostProgress', r => {
+      const prog = r.crosspostProgress || {}
+      prog[msg.platform] = { percent: msg.percent, step: msg.step, tabId, ts: Date.now() }
+      chrome.storage.local.set({ crosspostProgress: prog })
+    })
+    sendResponse({ ok: true })
+    return true
+  }
   if (msg.type === 'LISTING_POSTED') {
     const tabId = sender.tab?.id
     const info  = tabId ? trackedTabs.get(tabId) : null
     const plt   = PLT_NAMES[msg.platform] || msg.platform || 'Plattform'
     const isDraft = info?.isDraft || false
     const title   = info?.listingTitle || 'Listing'
+
+    // Fortschritt auf 100% setzen
+    chrome.storage.local.get('crosspostProgress', r => {
+      const prog = r.crosspostProgress || {}
+      prog[msg.platform] = { percent: 100, step: isDraft ? 'Entwurf gespeichert ✅' : 'Fertig ✅', tabId, done: true, ts: Date.now() }
+      chrome.storage.local.set({ crosspostProgress: prog })
+      // Nach 8s aus dem Progress entfernen
+      setTimeout(() => {
+        chrome.storage.local.get('crosspostProgress', r2 => {
+          const p = r2.crosspostProgress || {}
+          delete p[msg.platform]
+          chrome.storage.local.set({ crosspostProgress: p })
+        })
+      }, 8000)
+    })
 
     // Benachrichtigung
     isBackgroundMode().then(bgMode => {
@@ -93,6 +119,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       title:   `❌ Fehler – ${plt}`,
       message: `"${title}": ${msg.error || 'Unbekannter Fehler'}`,
       buttons: [{ title: 'Tab öffnen →' }],
+    })
+    // Fortschritt auf Fehler setzen
+    chrome.storage.local.get('crosspostProgress', r => {
+      const prog = r.crosspostProgress || {}
+      prog[msg.platform] = { percent: prog[msg.platform]?.percent || 0, step: '❌ Fehler', error: true, tabId, ts: Date.now() }
+      chrome.storage.local.set({ crosspostProgress: prog })
     })
     // Bei Fehler Tab NICHT auto-schließen damit User sieht was passiert ist
     sendResponse({ ok: true })

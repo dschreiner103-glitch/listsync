@@ -80,6 +80,10 @@ async function getListing() {
 
 const wait = ms => new Promise(r => setTimeout(r, ms))
 
+function sendProgress(percent, step) {
+  chrome.runtime.sendMessage({ type: 'PROGRESS', platform: 'ebay', percent, step }).catch(() => {})
+}
+
 function waitForAny(selectors, timeout = 15000) {
   return new Promise((resolve, reject) => {
     const find = () => {
@@ -258,6 +262,7 @@ async function fillLstng() {
   if (!listing) return
   showBanner(listing)
   updateStatus('eBay-Formular wird ausgefüllt…')
+  sendProgress(5, 'Seite geladen…')
   await wait(3500)
 
   // 0. KATEGORIE: falsche Auto-Kategorie korrigieren
@@ -297,6 +302,7 @@ async function fillLstng() {
     if (inp) {
       inp.focus(); await wait(200)
       setNativeValue(inp, (listing.title + ' | Top Zustand ✅').substring(0, 80))
+      sendProgress(20, 'Titel eingetragen')
       console.log('[eBay lstng] ✓ Titel')
     }
   } catch(e) { console.warn('[eBay lstng] Titel:', e.message) }
@@ -601,6 +607,7 @@ async function fillLstng() {
     } catch(e) { console.warn('[eBay] fillAspect', labelText, ':', e.message); return false }
   }
 
+  sendProgress(40, 'Zustand gesetzt')
   // Artikelmerkmale-Sektion scrollen
   const merkmalSection = Array.from(document.querySelectorAll('h2, h3, h4, div, section'))
     .find(el => { const t = el.textContent.trim(); return t === 'ARTIKELMERKMALE' || t === 'Artikelmerkmale' || t === 'Artikeldetails' })
@@ -619,6 +626,7 @@ async function fillLstng() {
 
   await wait(300)
 
+  sendProgress(60, 'Artikelmerkmale gesetzt')
   // 5. PREIS
   try {
     const priceInput = await waitForAny([
@@ -637,6 +645,7 @@ async function fillLstng() {
 
   await wait(400)
 
+  sendProgress(72, 'Preis eingetragen')
   // 6. BILDER – warte auf imageData vom Background-Loader (Race Condition Fix)
   // Background lädt Bilder parallel zum Tab-Öffnen → imageData kann noch [] sein
   updateStatus('Bilder werden geladen…')
@@ -648,6 +657,7 @@ async function fillLstng() {
       if (fresh?.imageData?.length) { imgData = fresh.imageData; break }
     }
   }
+  sendProgress(80, 'Bilder werden hochgeladen…')
   updateStatus('Bilder werden hochgeladen…')
   await wait(300)
   await uploadImages(imgData)
@@ -683,6 +693,7 @@ async function fillLstng() {
   // ── Auto-Submit ───────────────────────────────────────────────────────────
   await wait(1000)
   const isDraft = listing.status === 'entwurf'
+  sendProgress(93, isDraft ? 'Entwurf wird gespeichert…' : 'Wird eingestellt…')
   updateStatus(isDraft ? 'Entwurf wird gespeichert…' : 'Angebot wird eingestellt…')
   try {
     // Live-bestätigte eBay-Button-Texte (Stand 2025):

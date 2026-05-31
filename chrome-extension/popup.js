@@ -30,6 +30,37 @@ fetch(`${BASE_URL}/api/listings`, { credentials: 'include' })
     document.getElementById('statusSub').textContent  = 'Internetverbindung prüfen'
   })
 
+// ── Fortschritts-Anzeige ────────────────────────────────────────────────────
+const PLT_LABELS = { vinted: '🟢 Vinted', kleinanzeigen: '🟠 Kleinanzeigen', ebay: '🟡 eBay' }
+
+function renderProgress(prog) {
+  const section = document.getElementById('progressSection')
+  const cards   = document.getElementById('progressCards')
+  const entries = Object.entries(prog || {})
+  if (!entries.length) { section.style.display = 'none'; return }
+  section.style.display = 'block'
+  cards.innerHTML = entries.map(([plt, p]) => {
+    const cls  = p.done ? 'done' : p.error ? 'error' : ''
+    const pct  = Math.min(100, Math.round(p.percent || 0))
+    const label = PLT_LABELS[plt] || plt
+    return `
+      <div class="progress-card ${cls}">
+        <div class="progress-header">
+          <span class="progress-plt">${label}</span>
+          <span class="progress-pct">${pct}%</span>
+        </div>
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+        <div class="progress-step">${p.step || '…'}</div>
+      </div>`
+  }).join('')
+}
+
+function pollProgress() {
+  chrome.storage.local.get('crosspostProgress', r => renderProgress(r.crosspostProgress))
+}
+pollProgress()
+setInterval(pollProgress, 800)
+
 // Vinted Accounts
 function loadAccounts(cb) {
   chrome.storage.local.get(['vintedAccounts', 'activeVintedAccount'], r =>
