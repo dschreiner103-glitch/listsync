@@ -34,6 +34,7 @@ export default function Listings() {
   const [relistDays, setRelistDays]     = useState(5)
   const [mobileHelper, setMobileHelper] = useState(null) // { listing, platforms }
   const [extStatus, setExtStatus]       = useState(null)  // null | true | false
+  const [crosspostProgress, setCrosspostProgress] = useState({}) // { platform: { percent, step, done, error } }
   const [editForm, setEditForm]         = useState(null)  // { id, title, price, buyPrice, condition, description, status }
   const [editSaving, setEditSaving]     = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // listing id
@@ -69,6 +70,14 @@ export default function Listings() {
         window.removeEventListener('message', pongHandler)
         setExtStatus(prev => prev === null ? false : prev)
       }, 2000)
+
+      // Fortschritts-Updates von der Extension empfangen
+      const progressHandler = (e) => {
+        if (e.source !== window || e.data?.type !== 'CROSSPOST_PROGRESS') return
+        setCrosspostProgress(e.data.progress || {})
+      }
+      window.addEventListener('message', progressHandler)
+      return () => window.removeEventListener('message', progressHandler)
     }
   }, [])
 
@@ -339,6 +348,30 @@ export default function Listings() {
       <Sidebar activeCount={listings.filter(l => l.status === 'aktiv').length} />
       <main className="md:ml-60 ls-page-content">
         <div style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
+
+          {/* ── Crosspost-Fortschritt Banner ── */}
+          {Object.keys(crosspostProgress).length > 0 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '14px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>⚡ Crossposten läuft…</p>
+              {Object.entries(crosspostProgress).map(([plt, p]) => {
+                const pct   = Math.min(100, Math.round(p.percent || 0))
+                const label = { vinted: '🟢 Vinted', kleinanzeigen: '🟠 Kleinanzeigen', ebay: '🟡 eBay' }[plt] || plt
+                const color = p.error ? '#ef4444' : p.done ? '#22c55e' : '#6366f1'
+                return (
+                  <div key={plt}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)' }}>{label}</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color }}>{pct}%</span>
+                    </div>
+                    <div style={{ height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 99, transition: 'width .4s ease' }}/>
+                    </div>
+                    <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '3px 0 0' }}>{p.step || '…'}</p>
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>

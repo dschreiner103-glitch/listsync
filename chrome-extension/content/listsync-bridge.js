@@ -50,6 +50,13 @@ window.addEventListener('message', (event) => {
 // Background leitet das an diesen Bridge-Script weiter, der die ListSync-App per Fetch updatet.
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Fortschritts-Update → direkt an die App-Seite weiterleiten
+  if (msg.type === 'CROSSPOST_PROGRESS') {
+    window.postMessage({ type: 'CROSSPOST_PROGRESS', progress: msg.progress }, '*')
+    sendResponse({ ok: true })
+    return true
+  }
+
   if (msg.type !== 'LISTING_POSTED') return
 
   const { listingId, platform } = msg

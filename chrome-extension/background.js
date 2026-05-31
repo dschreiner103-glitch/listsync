@@ -62,6 +62,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const prog = r.crosspostProgress || {}
       prog[msg.platform] = { percent: msg.percent, step: msg.step, tabId, ts: Date.now() }
       chrome.storage.local.set({ crosspostProgress: prog })
+      // Auch an ListSync-App weiterleiten → zeigt Banner in der App
+      forwardToListSyncBridge({ type: 'CROSSPOST_PROGRESS', progress: prog })
     })
     sendResponse({ ok: true })
     return true
@@ -84,6 +86,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           const p = r2.crosspostProgress || {}
           delete p[msg.platform]
           chrome.storage.local.set({ crosspostProgress: p })
+          forwardToListSyncBridge({ type: 'CROSSPOST_PROGRESS', progress: p })
         })
       }, 8000)
     })
