@@ -96,12 +96,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         message: isDraft ? `"${title}" wurde als Entwurf gespeichert.` : `"${title}" wurde erfolgreich veröffentlicht.`,
         buttons: [{ title: 'Jetzt ansehen →' }],
       })
-      // Im Hintergrund-Modus Tab automatisch schließen
+      // Im Hintergrund-Modus Tab + minimiertes Fenster automatisch schließen
       if (bgMode && tabId) {
-        setTimeout(() => {
-          chrome.tabs.remove(tabId).catch(() => {})
+        setTimeout(async () => {
+          try {
+            const tab = await chrome.tabs.get(tabId)
+            if (tab.windowId) {
+              const win = await chrome.windows.get(tab.windowId)
+              if (win.state === 'minimized') {
+                await chrome.windows.remove(tab.windowId) // ganzes Fenster schließen
+              } else {
+                await chrome.tabs.remove(tabId)
+              }
+            }
+          } catch {}
           trackedTabs.delete(tabId)
-        }, 1500) // kurz warten damit der letzte Status-Update sichtbar ist
+        }, 1500)
       }
     })
 
@@ -234,20 +244,30 @@ async function handlePost(listing, platforms) {
   await Promise.all(tabPromises)
 }
 
+// Öffnet einen Tab — im Hintergrund-Modus in einem minimierten Fenster
+async function openInBackground(url, bgMode) {
+  if (!bgMode) {
+    return chrome.tabs.create({ url, active: true })
+  }
+  // Minimiertes Fenster → bleibt komplett unsichtbar, Chrome-Fenster kommt nicht nach vorne
+  const win = await chrome.windows.create({ url, state: 'minimized', focused: false })
+  return win.tabs?.[0] || null
+}
+
 async function openKleinanzeigenNewListing(bgMode = false) {
-  const tab = await chrome.tabs.create({ url: 'https://www.kleinanzeigen.de/p-anzeige-aufgeben.html', active: !bgMode })
+  const tab = await openInBackground('https://www.kleinanzeigen.de/p-anzeige-aufgeben.html', bgMode)
   console.log('[ListSync BG] ✓ Kleinanzeigen-Tab geöffnet (bgMode:', bgMode, ')')
   return tab
 }
 
 async function openEbayNewListing(listing, bgMode = false) {
-  const tab = await chrome.tabs.create({ url: 'https://www.ebay.de/sl/prelist/suggest', active: !bgMode })
+  const tab = await openInBackground('https://www.ebay.de/sl/prelist/suggest', bgMode)
   console.log('[ListSync BG] ✓ eBay-Tab geöffnet (bgMode:', bgMode, ')')
   return tab
 }
 
 async function openVintedNewListing(bgMode = false) {
-  const tab = await chrome.tabs.create({ url: 'https://www.vinted.de/items/new', active: !bgMode })
+  const tab = await openInBackground('https://www.vinted.de/items/new', bgMode)
   console.log('[ListSync BG] ✓ Vinted-Tab geöffnet (bgMode:', bgMode, ')')
   return tab
 }
