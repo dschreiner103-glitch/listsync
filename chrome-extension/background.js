@@ -247,13 +247,22 @@ async function handlePost(listing, platforms) {
   await Promise.all(tabPromises)
 }
 
-// Öffnet einen Tab — im Hintergrund-Modus in einem minimierten Fenster
+// Öffnet einen Tab — im Hintergrund-Modus unsichtbar
 async function openInBackground(url, bgMode) {
   if (!bgMode) {
     return chrome.tabs.create({ url, active: true })
   }
-  // Minimiertes Fenster → bleibt komplett unsichtbar, Chrome-Fenster kommt nicht nach vorne
-  const win = await chrome.windows.create({ url, state: 'minimized', focused: false })
+  // Schritt 1: Fenster off-screen erstellen (1x1px, links außerhalb des Bildschirms)
+  const win = await chrome.windows.create({
+    url,
+    focused: false,
+    left: -10000,
+    top: 0,
+    width: 1,
+    height: 1,
+  })
+  // Schritt 2: Sofort minimieren (macOS-Fix: create+update zuverlässiger als state:'minimized')
+  try { await chrome.windows.update(win.id, { state: 'minimized' }) } catch {}
   return win.tabs?.[0] || null
 }
 
