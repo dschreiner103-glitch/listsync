@@ -99,20 +99,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         message: isDraft ? `"${title}" wurde als Entwurf gespeichert.` : `"${title}" wurde erfolgreich veröffentlicht.`,
         buttons: [{ title: 'Jetzt ansehen →' }],
       })
-      // Im Hintergrund-Modus Tab + minimiertes Fenster automatisch schließen
+      // Im Hintergrund-Modus Tab automatisch schließen
       if (bgMode && tabId) {
         setTimeout(async () => {
-          try {
-            const tab = await chrome.tabs.get(tabId)
-            if (tab.windowId) {
-              const win = await chrome.windows.get(tab.windowId)
-              if (win.state === 'minimized') {
-                await chrome.windows.remove(tab.windowId) // ganzes Fenster schließen
-              } else {
-                await chrome.tabs.remove(tabId)
-              }
-            }
-          } catch {}
+          try { await chrome.tabs.remove(tabId) } catch {}
           trackedTabs.delete(tabId)
         }, 1500)
       }
@@ -201,6 +191,13 @@ const PLT_NAMES = { vinted: 'Vinted', kleinanzeigen: 'Kleinanzeigen', ebay: 'eBa
 async function handlePost(listing, platforms) {
   const bgMode = await isBackgroundMode()
 
+  // Im Hintergrund-Modus: aktuellen Tab merken um danach Fokus zurückzusetzen
+  if (bgMode) {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+    _focusTabId    = activeTab?.id    || null
+    _focusWindowId = activeTab?.windowId || null
+  }
+
   // 1. Listing sofort ohne Bilder speichern – Tab kann sofort öffnen
   await chrome.storage.local.set({ pendingListing: { ...listing, imageData: [] } })
 
@@ -247,23 +244,25 @@ async function handlePost(listing, platforms) {
   await Promise.all(tabPromises)
 }
 
-// Öffnet einen Tab — im Hintergrund-Modus unsichtbar
+// Merkt sich den aktuellen Tab vor dem Crosspost
+let _focusTabId = null
+let _focusWindowId = null
+
+// Öffnet einen Tab — im Hintergrund-Modus unsichtbar im gleichen Fenster
 async function openInBackground(url, bgMode) {
   if (!bgMode) {
     return chrome.tabs.create({ url, active: true })
   }
-  // Schritt 1: Fenster off-screen erstellen (1x1px, links außerhalb des Bildschirms)
-  const win = await chrome.windows.create({
-    url,
-    focused: false,
-    left: -10000,
-    top: 0,
-    width: 1,
-    height: 1,
-  })
-  // Schritt 2: Sofort minimieren (macOS-Fix: create+update zuverlässiger als state:'minimized')
-  try { await chrome.windows.update(win.id, { state: 'minimized' }) } catch {}
-  return win.tabs?.[0] || null
+  // Tab inaktiv öffnen + danach sofort Fokus auf ListSync-Tab zurück
+  const tab = await chrome.tabs.create({ url, active: false })
+  // Fokus sofort zurücksetzen damit der User nichts merkt
+  if (_focusTabId && _focusWindowId) {
+    try {
+      await chrome.tabs.update(_focusTabId, { active: true })
+      await chrome.windows.update(_focusWindowId, { focused: true })
+    } catch {}
+  }
+  return tab
 }
 
 async function openKleinanzeigenNewListing(bgMode = false) {
