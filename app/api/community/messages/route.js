@@ -63,6 +63,32 @@ export async function POST(req) {
       const rows = await prisma.$queryRawUnsafe(`SELECT id, channel, user_id, user_name, content, image_url, created_at FROM community_messages WHERE id = last_insert_rowid()`)
       msg = rows[0]
     }
+    // Parse @mentions and create notifications
+    try {
+      const mentions = [...(content?.matchAll(/@(\w+)/g) || [])].map(m => m[1].toLowerCase())
+      if (mentions.length > 0) {
+        const allUsers = isPostgres()
+          ? await prisma.$queryRawUnsafe(`SELECT id, name FROM "User"`)
+          : await prisma.$queryRawUnsafe(`SELECT id, name FROM User`)
+        for (const mentionName of mentions) {
+          const target = allUsers.find(u => (u.name||'').toLowerCase() === mentionName)
+          if (target && Number(target.id) !== userId) {
+            if (isPostgres()) {
+              await prisma.$executeRawUnsafe(
+                `INSERT INTO community_notifications (user_id, from_name, channel, message_id) VALUES ($1,$2,$3,$4)`,
+                Number(target.id), userName, channel, Number(msg.id)
+              )
+            } else {
+              await prisma.$executeRawUnsafe(
+                `INSERT INTO community_notifications (user_id, from_name, channel, message_id) VALUES (?,?,?,?)`,
+                Number(target.id), userName, channel, Number(msg.id)
+              )
+            }
+          }
+        }
+      }
+    } catch { /* non-critical */ }
+
     // XP +5 for sending a message
     try {
       if (isPostgres()) {

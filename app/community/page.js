@@ -104,11 +104,32 @@ export default function CommunityPage() {
   const [pendingImage, setPendingImage] = useState(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
   const [claimMsg, setClaimMsg] = useState('')
+  const [mentionSuggestions, setMentionSuggestions] = useState([])
+  const [mentionStart, setMentionStart] = useState(-1)
+  const [mentionIdx, setMentionIdx] = useState(0)
+  const [notifications, setNotifications] = useState({}) // { channel: count }
   const bottomRef  = useRef(null)
   const fileRef    = useRef(null)
   const inputRef   = useRef(null)
   const lastIdRef  = useRef(0)
   const myId = session?.user?.id ? Number(session.user.id) : null
+
+  // ── Notifications ──
+  const loadNotifications = useCallback(async () => {
+    const res = await fetch('/api/community/notifications')
+    if (res.ok) setNotifications(await res.json())
+  }, [])
+
+  useEffect(() => { loadNotifications() }, [loadNotifications])
+  useEffect(() => { const id = setInterval(loadNotifications, 10000); return () => clearInterval(id) }, [loadNotifications])
+
+  // Mark channel as read when switching
+  useEffect(() => {
+    if (notifications[channel]) {
+      fetch('/api/community/notifications', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ channel }) })
+      setNotifications(prev => ({ ...prev, [channel]: 0 }))
+    }
+  }, [channel])
 
   // ── Heartbeat (online status) ──
   useEffect(() => {
@@ -192,7 +213,45 @@ export default function CommunityPage() {
     } finally { setSending(false); inputRef.current?.focus() }
   }
 
-  const handleKeyDown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }
+  const handleInputChange = (e) => {
+    if (!writeAllowed) return
+    const val = e.target.value
+    setInput(val)
+    // Detect @mention being typed
+    const cursor = e.target.selectionStart
+    const before = val.slice(0, cursor)
+    const match = before.match(/@(\w*)$/)
+    if (match) {
+      const query = match[1].toLowerCase()
+      const filtered = users.filter(u => u.name.toLowerCase().includes(query) && u.id !== myId)
+      setMentionSuggestions(filtered.slice(0, 6))
+      setMentionStart(cursor - match[0].length)
+      setMentionIdx(0)
+    } else {
+      setMentionSuggestions([])
+      setMentionStart(-1)
+    }
+  }
+
+  const insertMention = (user) => {
+    const before = input.slice(0, mentionStart)
+    const after  = input.slice(inputRef.current?.selectionStart || mentionStart)
+    const newVal = `${before}@${user.name} ${after.replace(/^\w*/, '')}`
+    setInput(newVal)
+    setMentionSuggestions([])
+    setMentionStart(-1)
+    setTimeout(() => inputRef.current?.focus(), 10)
+  }
+
+  const handleKeyDown = e => {
+    if (mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIdx(i => Math.min(i+1, mentionSuggestions.length-1)); return }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setMentionIdx(i => Math.max(i-1, 0)); return }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(mentionSuggestions[mentionIdx]); return }
+      if (e.key === 'Escape') { setMentionSuggestions([]); return }
+    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
+  }
 
   const claimOwner = async () => {
     const res = await fetch('/api/community/claim-owner', { method:'POST' })
@@ -261,11 +320,15 @@ export default function CommunityPage() {
             <p style={{ fontSize:10.5, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.08em', padding:'12px 8px 4px', margin:0 }}>Channels</p>
             {CHANNELS.filter(c => !c.writeRoles).map(c => {
               const active = c.id === channel
+              const unread = notifications[c.id] || 0
               return (
                 <button key={c.id} onClick={() => setChannel(c.id)}
-                  style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'7px 10px', borderRadius:8, marginBottom:2, border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', background:active?'rgba(99,102,241,.12)':'transparent', color:active?'#6366f1':'var(--text-2)', fontWeight:active?700:500, fontSize:13, transition:'all .12s' }}>
+                  style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'7px 10px', borderRadius:8, marginBottom:2, border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', background:active?'rgba(99,102,241,.12)':'transparent', color:active?'#6366f1':'var(--text-2)', fontWeight:active||unread>0?700:500, fontSize:13, transition:'all .12s' }}>
                   <span style={{ fontSize:15 }}>{c.emoji}</span>
-                  <span># {c.label}</span>
+                  <span style={{ flex:1 }}># {c.label}</span>
+                  {unread > 0 && !active && (
+                    <span style={{ fontSize:10, fontWeight:800, background:'#ef4444', color:'#fff', borderRadius:10, padding:'1px 6px', flexShrink:0 }}>{unread}</span>
+                  )}
                 </button>
               )
             })}
@@ -359,12 +422,42 @@ export default function CommunityPage() {
                 <button onClick={()=>setPendingImage(null)} style={{ position:'absolute', top:-6, right:-6, width:22, height:22, borderRadius:'50%', background:'#ef4444', color:'#fff', border:'none', cursor:'pointer', fontSize:11, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
               </div>
             )}
+            {/* @Mention Autocomplete Dropdown */}
+            {mentionSuggestions.length > 0 && (
+              <div style={{ position:'relative', marginBottom:4 }}>
+                <div style={{ position:'absolute', bottom:'100%', left:44, right:44, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden', boxShadow:'0 -8px 24px rgba(0,0,0,.15)', zIndex:100 }}>
+                  {mentionSuggestions.map((u, i) => {
+                    const rank = getRank(u.xp)
+                    const role = ROLES[u.role] || ROLES.member
+                    return (
+                      <div key={u.id} onClick={() => insertMention(u)}
+                        style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 14px', cursor:'pointer', background: i === mentionIdx ? 'rgba(99,102,241,.1)' : 'transparent', borderLeft: i === mentionIdx ? '2px solid #6366f1' : '2px solid transparent', transition:'background .1s' }}
+                        onMouseEnter={() => setMentionIdx(i)}>
+                        <div style={{ width:28, height:28, borderRadius:8, background:avatarColor(String(u.id)), display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:'#fff', flexShrink:0 }}>
+                          {(u.name||'?').charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ flex:1 }}>
+                          <span style={{ fontSize:13, fontWeight:700, color:'var(--text-1)' }}>@{u.name}</span>
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                          {u.role !== 'member' && <span style={{ fontSize:10, color:role.color }}>{role.emoji}</span>}
+                          <span style={{ fontSize:10, color:rank.color }}>{rank.emoji} {rank.label}</span>
+                          {u.online && <div style={{ width:7, height:7, borderRadius:'50%', background:'#10b981' }}/>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <p style={{ fontSize:10, color:'var(--text-3)', padding:'4px 14px 6px', margin:0 }}>↑↓ navigieren · Enter/Tab einfügen · Esc schließen</p>
+                </div>
+              </div>
+            )}
+
             <div style={{ display:'flex', gap:8, alignItems:'flex-end' }}>
               <input ref={fileRef} type="file" accept="image/*" style={{ display:'none' }} onChange={handleImageUpload}/>
               <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{ width:36, height:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--modal-close)', color:'var(--text-2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:16 }}>
                 {uploading ? '⏳' : '📎'}
               </button>
-              <textarea ref={inputRef} value={input} onChange={e=>writeAllowed&&setInput(e.target.value)} onKeyDown={handleKeyDown} rows={1}
+              <textarea ref={inputRef} value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} rows={1}
                 disabled={!writeAllowed}
                 placeholder={writeAllowed ? `Nachricht an #${ch?.label}… (@name zum taggen)` : 'Kein Schreibrecht in diesem Channel'}
                 style={{ flex:1, padding:'9px 14px', border:'1px solid var(--border)', borderRadius:12, fontSize:14, background:'var(--input-bg)', color:'var(--text-1)', fontFamily:'inherit', resize:'none', lineHeight:1.5, maxHeight:120, overflowY:'auto' }}
