@@ -73,11 +73,20 @@ export async function PATCH(req, { params }) {
   if (data.lagerplatz    !== undefined) { rawUpdates.push('lagerplatz');     rawArgs.push(data.lagerplatz) }
 
   if (rawUpdates.length) {
-    const setParts = rawUpdates.map(f => `${f} = ?`).join(', ')
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Listing" SET ${setParts} WHERE id = ?`,
-      ...rawArgs, Number(params.id)
-    )
+    const isPostgres = !!process.env.DATABASE_URL?.startsWith('postgres')
+    if (isPostgres) {
+      const setParts = rawUpdates.map((f, i) => `${f} = $${i + 1}`).join(', ')
+      await prisma.$executeRawUnsafe(
+        `UPDATE "Listing" SET ${setParts} WHERE id = $${rawUpdates.length + 1}`,
+        ...rawArgs, Number(params.id)
+      )
+    } else {
+      const setParts = rawUpdates.map(f => `${f} = ?`).join(', ')
+      await prisma.$executeRawUnsafe(
+        `UPDATE "Listing" SET ${setParts} WHERE id = ?`,
+        ...rawArgs, Number(params.id)
+      )
+    }
   }
 
   return NextResponse.json({
