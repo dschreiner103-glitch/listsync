@@ -42,6 +42,9 @@ export default function Listings() {
   const [deleteConfirm, setDeleteConfirm] = useState(null) // listing id
   const [qrListing, setQrListing]         = useState(null) // listing for QR modal
   const [scoreListing, setScoreListing]   = useState(null) // listing for score modal
+  const [bulkSelected, setBulkSelected]   = useState(new Set()) // bulk selection
+  const [bulkMode, setBulkMode]           = useState(false)
+  const [bulkModal, setBulkModal]         = useState(false)
 
   useEffect(() => {
     fetch('/api/listings').then(r => r.json()).then(d => { setListings(Array.isArray(d) ? d : []); setLoading(false) })
@@ -397,6 +400,17 @@ export default function Listings() {
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: '#d97706' }} className="hidden sm:inline">Kein Extension</span>
                 </div>
               )}
+              {/* Bulk Mode Toggle */}
+              <button onClick={() => { setBulkMode(m => !m); setBulkSelected(new Set()) }}
+                style={{ padding:'8px 12px', borderRadius:12, border:`1px solid ${bulkMode?'#6366f1':'var(--border)'}`, background:bulkMode?'rgba(99,102,241,.1)':'var(--surface)', color:bulkMode?'#6366f1':'var(--text-2)', fontWeight:700, fontSize:12.5, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:5 }}>
+                {bulkMode ? `✓ ${bulkSelected.size} gewählt` : '☑ Auswählen'}
+              </button>
+              {bulkMode && bulkSelected.size > 0 && (
+                <button onClick={() => setBulkModal(true)}
+                  style={{ padding:'8px 14px', borderRadius:12, border:'none', background:'#6366f1', color:'#fff', fontWeight:700, fontSize:12.5, cursor:'pointer', fontFamily:'inherit' }}>
+                  🚀 Crossposten
+                </button>
+              )}
               {/* Sort */}
               <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                 style={{
@@ -528,7 +542,18 @@ export default function Listings() {
                 const imgs = Array.isArray(l.images) ? l.images : []
                 const aged = needsRelist(l)
                 return (
-                  <div key={l.id} style={cardStyle(aged)}>
+                  <div key={l.id} style={{ ...cardStyle(aged), outline: bulkSelected.has(l.id) ? '2px solid #6366f1' : 'none' }}
+                    onClick={bulkMode ? () => setBulkSelected(prev => { const n = new Set(prev); n.has(l.id) ? n.delete(l.id) : n.add(l.id); return n }) : undefined}
+                    >
+                    {/* Bulk checkbox */}
+                    {bulkMode && (
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
+                        <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${bulkSelected.has(l.id)?'#6366f1':'var(--border)'}`, background:bulkSelected.has(l.id)?'#6366f1':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          {bulkSelected.has(l.id) && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                        </div>
+                        <span style={{ fontSize:12, color:'var(--text-3)' }}>Auswählen</span>
+                      </div>
+                    )}
                     {/* Main row */}
                     <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                       {imgs.length > 0
@@ -928,6 +953,57 @@ export default function Listings() {
           onClose={() => setMobileHelper(null)}
         />
       )}
+
+      {/* Bulk Crosspost Modal */}
+      {bulkModal && (() => {
+        const selectedListings = listings.filter(l => bulkSelected.has(l.id))
+        const [bPlatforms, setBPlatforms] = [selPlatforms, setSelPlatforms]
+        return (
+          <div onClick={() => setBulkModal(false)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', borderRadius:24, padding:28, maxWidth:400, width:'100%', boxShadow:'0 24px 60px rgba(0,0,0,.3)' }}>
+              <p style={{ fontSize:17, fontWeight:800, color:'var(--text-1)', margin:'0 0 4px' }}>🚀 Bulk Crossposten</p>
+              <p style={{ fontSize:13, color:'var(--text-3)', margin:'0 0 20px' }}>{selectedListings.length} Listings ausgewählt</p>
+              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:20 }}>
+                {selectedListings.slice(0,5).map(l => (
+                  <div key={l.id} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', background:'var(--bg)', borderRadius:10 }}>
+                    {l.images?.[0] ? <img src={l.images[0]} alt="" style={{ width:32, height:32, borderRadius:8, objectFit:'cover' }}/> : <div style={{ width:32, height:32, borderRadius:8, background:CARD_COLORS[l.id%5], display:'flex', alignItems:'center', justifyContent:'center', fontSize:14 }}>{l.title.charAt(0)}</div>}
+                    <span style={{ fontSize:13, fontWeight:600, color:'var(--text-1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>{l.title}</span>
+                    <span style={{ fontSize:12, color:'var(--text-3)' }}>{fmt(l.price)}</span>
+                  </div>
+                ))}
+                {selectedListings.length > 5 && <p style={{ fontSize:12, color:'var(--text-3)', textAlign:'center', margin:0 }}>+ {selectedListings.length-5} weitere</p>}
+              </div>
+              <p style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', margin:'0 0 10px' }}>Plattformen:</p>
+              <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+                {Object.entries(PLATFORMS).map(([id,p]) => {
+                  const sel = bPlatforms.includes(id)
+                  return (
+                    <div key={id} onClick={() => setBPlatforms(prev => prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])}
+                      style={{ flex:1, padding:'10px 6px', borderRadius:12, border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,.08)':'var(--surface)', cursor:'pointer', textAlign:'center' }}>
+                      <div style={{ width:8, height:8, borderRadius:'50%', background:p.dot, margin:'0 auto 4px' }}/>
+                      <p style={{ fontSize:11, fontWeight:700, color:sel?'#6366f1':'var(--text-3)', margin:0 }}>{p.name}</p>
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ display:'flex', gap:10 }}>
+                <button onClick={() => setBulkModal(false)} style={{ flex:1, padding:'11px', borderRadius:12, border:'1px solid var(--border)', background:'var(--modal-close)', color:'var(--text-1)', fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>Abbrechen</button>
+                <button onClick={() => {
+                  if (bPlatforms.length === 0) return
+                  selectedListings.forEach(l => {
+                    window.postMessage({ type:'LISTSYNC_POST', listing:l, platforms:bPlatforms }, '*')
+                  })
+                  setBulkModal(false); setBulkMode(false); setBulkSelected(new Set())
+                  showToast(`🚀 ${selectedListings.length} Listings werden crossgepostet`)
+                }} disabled={bPlatforms.length===0}
+                  style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:bPlatforms.length===0?'var(--modal-close)':'#6366f1', color:bPlatforms.length===0?'var(--text-3)':'#fff', fontWeight:700, fontSize:13, cursor:bPlatforms.length===0?'default':'pointer', fontFamily:'inherit' }}>
+                  🚀 Alle crossposten
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Score Modal */}
       {scoreListing && (() => {
