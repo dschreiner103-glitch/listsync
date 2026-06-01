@@ -37,6 +37,7 @@ model Listing {
   taillenumfang String    @default("")
   kaCategory    String    @default("")
   ebayCategory  String    @default("")
+  lagerplatz    String    @default("")
   address       String    @default("")
   shipping      String    @default("[]")
   shipSize      String    @default("")
