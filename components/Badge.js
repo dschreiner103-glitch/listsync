@@ -20,7 +20,8 @@ export function StatusBadge({ status }) {
   const map = {
     aktiv:   { bg:'bg-green-100', text:'text-green-700', label:'Aktiv' },
     verkauft:{ bg:'bg-blue-100',  text:'text-blue-700',  label:'Verkauft' },
-    inaktiv: { bg:'bg-gray-100',  text:'text-gray-500',  label:'Inaktiv' }
+    inaktiv: { bg:'bg-gray-100',  text:'text-gray-500',  label:'Inaktiv' },
+    entwurf: { bg:'bg-amber-100', text:'text-amber-700', label:'Entwurf' }
   }
   const s = map[status] || map.inaktiv
   return <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${s.bg} ${s.text}`}>{s.label}</span>

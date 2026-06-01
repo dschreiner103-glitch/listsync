@@ -63,6 +63,24 @@ export async function POST(req) {
       const rows = await prisma.$queryRawUnsafe(`SELECT id, channel, user_id, user_name, content, image_url, created_at FROM community_messages WHERE id = last_insert_rowid()`)
       msg = rows[0]
     }
+    // XP +5 for sending a message
+    try {
+      if (isPostgres()) {
+        await prisma.$executeRawUnsafe(`
+          INSERT INTO community_profiles (user_id, xp, last_seen)
+          VALUES ($1, 5, CURRENT_TIMESTAMP)
+          ON CONFLICT (user_id) DO UPDATE SET xp = community_profiles.xp + 5, last_seen = CURRENT_TIMESTAMP
+        `, userId)
+      } else {
+        await prisma.$executeRawUnsafe(`
+          INSERT OR REPLACE INTO community_profiles (user_id, role, xp, last_seen)
+          VALUES (?, COALESCE((SELECT role FROM community_profiles WHERE user_id = ?), 'member'),
+                     COALESCE((SELECT xp FROM community_profiles WHERE user_id = ?), 0) + 5,
+                     CURRENT_TIMESTAMP)
+        `, userId, userId, userId)
+      }
+    } catch { /* non-critical */ }
+
     return NextResponse.json(msg)
   } catch (e) {
     console.error('community POST error:', e)
