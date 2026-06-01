@@ -143,6 +143,7 @@ export default function LandingPage() {
   const [statsRef, statsVis] = useReveal()
   const [featRef, featVis] = useReveal()
   const [pricRef, pricVis] = useReveal()
+  const [activeScreen, setActiveScreen] = useState('dashboard')
 
   return (
     <div style={{ background:'#060610', color:'#f1f5f9', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', overflowX:'hidden' }}>
@@ -219,56 +220,202 @@ export default function LandingPage() {
           </button>
         </div>
 
-        {/* 3D Mockup */}
-        <div ref={mockupTilt} style={{ marginTop:80, maxWidth:860, width:'100%', transition:'transform .15s ease', transformStyle:'preserve-3d', animation:'slide-up .8s ease .4s both' }}>
-          <div style={{ background:'linear-gradient(135deg,rgba(255,255,255,.06),rgba(255,255,255,.02))', border:'1px solid rgba(255,255,255,.1)', borderRadius:24, padding:3, boxShadow:'0 40px 120px rgba(0,0,0,.6), 0 0 60px rgba(99,102,241,.15)', position:'relative' }}>
+        {/* 3D Interactive Mockup */}
+        <div ref={mockupTilt} style={{ marginTop:80, maxWidth:900, width:'100%', transition:'transform .15s ease', transformStyle:'preserve-3d', animation:'slide-up .8s ease .4s both' }}>
+          <div style={{ background:'#111827', border:'1px solid rgba(255,255,255,.12)', borderRadius:20, overflow:'hidden', boxShadow:'0 40px 120px rgba(0,0,0,.7), 0 0 80px rgba(99,102,241,.12)' }}>
+
             {/* Window chrome */}
-            <div style={{ background:'rgba(255,255,255,.04)', borderRadius:'21px 21px 0 0', padding:'12px 18px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid rgba(255,255,255,.06)' }}>
+            <div style={{ background:'#0d1117', padding:'12px 18px', display:'flex', alignItems:'center', gap:8, borderBottom:'1px solid rgba(255,255,255,.06)' }}>
               <div style={{ width:12, height:12, borderRadius:'50%', background:'#ef4444' }}/>
               <div style={{ width:12, height:12, borderRadius:'50%', background:'#f59e0b' }}/>
               <div style={{ width:12, height:12, borderRadius:'50%', background:'#22c55e' }}/>
-              <div style={{ flex:1, background:'rgba(255,255,255,.05)', borderRadius:6, height:24, marginLeft:8, display:'flex', alignItems:'center', paddingLeft:10 }}>
-                <span style={{ fontSize:11, color:'#64748b' }}>project-dle5b.vercel.app</span>
+              <div style={{ flex:1, background:'rgba(255,255,255,.05)', borderRadius:6, height:22, marginLeft:8, display:'flex', alignItems:'center', paddingLeft:10 }}>
+                <span style={{ fontSize:11, color:'#4b5563' }}>project-dle5b.vercel.app/{activeScreen === 'dashboard' ? 'dashboard' : activeScreen}</span>
               </div>
             </div>
-            {/* Mock dashboard content */}
-            <div style={{ padding:20, display:'grid', gridTemplateColumns:'200px 1fr', gap:16, minHeight:300 }}>
-              {/* Sidebar mock */}
-              <div style={{ background:'rgba(0,0,0,.3)', borderRadius:14, padding:14, display:'flex', flexDirection:'column', gap:8 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                  <div style={{ width:26, height:26, borderRadius:7, background:'linear-gradient(135deg,#6366f1,#22c55e)' }}/>
-                  <span style={{ fontSize:12, fontWeight:800, color:'white' }}>ListSync</span>
+
+            {/* App layout */}
+            <div style={{ display:'grid', gridTemplateColumns:'210px 1fr', minHeight:380 }}>
+
+              {/* Sidebar — exactly like real app */}
+              <div style={{ background:'#111827', borderRight:'1px solid rgba(255,255,255,.06)', padding:'14px 10px', display:'flex', flexDirection:'column', gap:2 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', marginBottom:10 }}>
+                  <div style={{ width:28, height:28, borderRadius:8, background:'#22c55e', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:'#111827' }}>LS</div>
+                  <span style={{ fontSize:13, fontWeight:800, color:'#f9fafb' }}>ListSync</span>
+                  <span style={{ fontSize:9, color:'#22c55e', background:'rgba(34,197,94,.15)', padding:'1px 5px', borderRadius:10, marginLeft:'auto' }}>BETA</span>
                 </div>
-                {['Dashboard','Meine Listings','Lager','Community'].map((item, i) => (
-                  <div key={item} style={{ padding:'7px 10px', borderRadius:8, background: i===0 ? 'rgba(99,102,241,.2)' : 'transparent', fontSize:12, color: i===0 ? '#818cf8' : '#64748b', fontWeight: i===0 ? 700 : 500 }}>{item}</div>
+
+                {/* New Listing CTA */}
+                <div style={{ background:'#22c55e', borderRadius:9, padding:'8px 12px', display:'flex', alignItems:'center', gap:6, marginBottom:8, cursor:'pointer' }}
+                  onClick={() => router.push('/register')}>
+                  <span style={{ fontSize:14, color:'#111827', fontWeight:700 }}>+</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:'#111827' }}>Neues Listing</span>
+                </div>
+
+                <p style={{ fontSize:10, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:'.08em', padding:'6px 10px 3px', margin:0 }}>Navigation</p>
+                {[
+                  { id:'dashboard', label:'Dashboard',       icon:'⊞' },
+                  { id:'listings',  label:'Meine Listings',  icon:'≡' },
+                  { id:'lager',     label:'Lager',           icon:'▦' },
+                ].map(item => (
+                  <div key={item.id} onClick={() => setActiveScreen(item.id)}
+                    style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8, cursor:'pointer',
+                      background: activeScreen===item.id ? 'rgba(255,255,255,.07)' : 'transparent',
+                      color: activeScreen===item.id ? '#f9fafb' : '#6b7280',
+                      fontWeight: activeScreen===item.id ? 600 : 500, fontSize:13,
+                      transition:'all .12s' }}>
+                    <span style={{ fontSize:15 }}>{item.icon}</span>
+                    {item.label}
+                    {activeScreen===item.id && <span style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:'#22c55e' }}/>}
+                  </div>
+                ))}
+
+                <p style={{ fontSize:10, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:'.08em', padding:'10px 10px 3px', margin:0 }}>Community</p>
+                {[
+                  { id:'community', label:'Community', icon:'◉' },
+                ].map(item => (
+                  <div key={item.id} onClick={() => setActiveScreen(item.id)}
+                    style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:8, cursor:'pointer',
+                      background: activeScreen===item.id ? 'rgba(255,255,255,.07)' : 'transparent',
+                      color: activeScreen===item.id ? '#f9fafb' : '#6b7280',
+                      fontWeight: activeScreen===item.id ? 600 : 500, fontSize:13 }}>
+                    <span style={{ fontSize:15 }}>{item.icon}</span>
+                    {item.label}
+                    {activeScreen===item.id && <span style={{ marginLeft:'auto', width:6, height:6, borderRadius:'50%', background:'#22c55e' }}/>}
+                  </div>
                 ))}
               </div>
-              {/* Main mock */}
-              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
-                  {[['💰','1.240 €','Einnahmen'],['📈','340 €','Gewinn'],['🎯','87%','Monatsziel']].map(([ic,v,l]) => (
-                    <div key={l} style={{ background:'rgba(255,255,255,.04)', borderRadius:12, padding:12 }}>
-                      <span style={{ fontSize:18 }}>{ic}</span>
-                      <p style={{ fontSize:18, fontWeight:800, color:'white', margin:'6px 0 2px' }}>{v}</p>
-                      <p style={{ fontSize:11, color:'#64748b', margin:0 }}>{l}</p>
+
+              {/* Main content — switches per screen */}
+              <div style={{ background:'#0d1117', padding:16, overflow:'hidden' }}>
+
+                {/* DASHBOARD */}
+                {activeScreen === 'dashboard' && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    <p style={{ fontSize:16, fontWeight:800, color:'#f9fafb', margin:0 }}>Dashboard</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
+                      {[['💰','1.240 €','Einnahmen','#3b82f6'],['📈','340 €','Gewinn','#22c55e'],['🎯','87%','Monatsziel','#f59e0b']].map(([ic,v,l,c]) => (
+                        <div key={l} style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:14, padding:'14px 14px' }}>
+                          <span style={{ fontSize:20 }}>{ic}</span>
+                          <p style={{ fontSize:20, fontWeight:800, color:'#f1f5f9', margin:'8px 0 2px', letterSpacing:'-0.02em' }}>{v}</p>
+                          <p style={{ fontSize:11, color:'#6b7280', margin:0 }}>{l}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div style={{ background:'rgba(255,255,255,.04)', borderRadius:12, padding:12, flex:1 }}>
-                  <p style={{ fontSize:11, color:'#64748b', margin:'0 0 10px', fontWeight:600 }}>AKTIVE LISTINGS</p>
-                  {['Nike Air Max 90 | 89€','Vintage Levi\'s 501 | 45€','Adidas Hoodie | 35€'].map(item => (
-                    <div key={item} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
-                      <div style={{ width:28, height:28, borderRadius:7, background:'rgba(99,102,241,.2)' }}/>
-                      <span style={{ fontSize:12, color:'#cbd5e1', flex:1 }}>{item}</span>
-                      <span style={{ fontSize:10, color:'#22c55e', fontWeight:700, background:'rgba(34,197,94,.1)', padding:'2px 7px', borderRadius:20 }}>Aktiv</span>
+                    <div style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:14, padding:14 }}>
+                      <p style={{ fontSize:11, color:'#6b7280', fontWeight:700, textTransform:'uppercase', margin:'0 0 10px', letterSpacing:'.06em' }}>Aktive Listings</p>
+                      {[['Nike Air Max 90','89€','Vinted'],["Vintage Levi's 501",'45€','KA'],['Adidas Hoodie','35€','eBay']].map(([t,p,pl]) => (
+                        <div key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
+                          <div style={{ width:30, height:30, borderRadius:8, background:'rgba(99,102,241,.2)', flexShrink:0 }}/>
+                          <span style={{ fontSize:12, color:'#e2e8f0', flex:1 }}>{t}</span>
+                          <span style={{ fontSize:11, color:'#9ca3af' }}>{pl}</span>
+                          <span style={{ fontSize:11, fontWeight:700, color:'#f1f5f9' }}>{p}</span>
+                          <span style={{ fontSize:10, color:'#22c55e', fontWeight:700, background:'rgba(34,197,94,.1)', padding:'2px 7px', borderRadius:20 }}>Aktiv</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+
+                {/* LISTINGS */}
+                {activeScreen === 'listings' && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <p style={{ fontSize:16, fontWeight:800, color:'#f9fafb', margin:0 }}>Meine Listings</p>
+                      <span style={{ fontSize:11, color:'#818cf8', background:'rgba(99,102,241,.1)', padding:'3px 10px', borderRadius:20, fontWeight:700 }}>12 Artikel</span>
+                    </div>
+                    {[
+                      { t:'Nike Air Max 90 Weiß Gr. 42', p:'89 €', s:'Aktiv', sc:82, img:'#6366f1' },
+                      { t:"Vintage Levi's 501 W32 L32", p:'45 €', s:'Aktiv', sc:74, img:'#8b5cf6' },
+                      { t:'Adidas Originals Hoodie M', p:'35 €', s:'Aktiv', sc:55, img:'#ec4899' },
+                      { t:'Ralph Lauren Polo Shirt L', p:'28 €', s:'Entwurf', sc:40, img:'#f59e0b' },
+                    ].map(item => (
+                      <div key={item.t} style={{ display:'flex', alignItems:'center', gap:10, background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:14, padding:'10px 12px' }}>
+                        <div style={{ width:40, height:40, borderRadius:10, background:`${item.img}33`, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:800, color:item.img }}>{item.t.charAt(0)}</div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ fontSize:12.5, fontWeight:700, color:'#f1f5f9', margin:'0 0 3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.t}</p>
+                          <span style={{ fontSize:10, fontWeight:700, color: item.s==='Aktiv'?'#10b981':'#f59e0b', background: item.s==='Aktiv'?'rgba(16,185,129,.1)':'rgba(245,158,11,.1)', padding:'1px 6px', borderRadius:6 }}>{item.s}</span>
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ fontSize:11, fontWeight:800, color: item.sc>=70?'#10b981':item.sc>=50?'#f59e0b':'#ef4444', background: `${item.sc>=70?'#10b981':item.sc>=50?'#f59e0b':'#ef4444'}18`, padding:'2px 7px', borderRadius:8 }}>{item.sc}</span>
+                          <span style={{ fontSize:13, fontWeight:800, color:'#f1f5f9' }}>{item.p}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* LAGER */}
+                {activeScreen === 'lager' && (
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    <p style={{ fontSize:16, fontWeight:800, color:'#f9fafb', margin:0 }}>📦 Lager</p>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8 }}>
+                      {[['Regal A','3 Boxen','12 Artikel','#6366f1'],['Regal B','2 Boxen','8 Artikel','#8b5cf6'],['Unsortiert','1 Box','5 Artikel','#6b7280']].map(([n,b,a,c]) => (
+                        <div key={n} style={{ cursor:'pointer', transition:'transform .15s' }} onMouseEnter={e=>e.currentTarget.style.transform='translateY(-3px)'} onMouseLeave={e=>e.currentTarget.style.transform='none'}>
+                          <div style={{ height:8, background:`${c}55`, borderRadius:'6px 6px 0 0', border:`1px solid ${c}44`, borderBottom:'none' }}/>
+                          <div style={{ background:`${c}12`, border:`1px solid ${c}33`, borderRadius:'0 0 12px 12px', padding:'10px 12px' }}>
+                            <p style={{ fontSize:14, fontWeight:800, color:'#f1f5f9', margin:'0 0 2px' }}>{n}</p>
+                            <p style={{ fontSize:11, color:'#6b7280', margin:0 }}>{b} · {a}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:14, padding:12 }}>
+                      <p style={{ fontSize:11, color:'#6b7280', fontWeight:700, margin:'0 0 8px' }}>REGAL A → BOX 1</p>
+                      {[['Nike Air Max 90','Fach 1'],["Levi's 501",'Fach 1'],['Adidas Hoodie','Fach 2']].map(([t,f]) => (
+                        <div key={t} style={{ display:'flex', alignItems:'center', gap:8, padding:'5px 0', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
+                          <div style={{ width:26, height:26, borderRadius:7, background:'rgba(99,102,241,.2)' }}/>
+                          <span style={{ fontSize:12, color:'#e2e8f0', flex:1 }}>{t}</span>
+                          <span style={{ fontSize:10, color:'#6b7280' }}>{f}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* COMMUNITY */}
+                {activeScreen === 'community' && (
+                  <div style={{ display:'grid', gridTemplateColumns:'140px 1fr', gap:10, height:'100%' }}>
+                    <div style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:12, padding:10 }}>
+                      <p style={{ fontSize:9, fontWeight:700, color:'#4b5563', textTransform:'uppercase', letterSpacing:'.07em', margin:'0 0 6px' }}>Channels</p>
+                      {[['💬','allgemein',true],['🛍️','verkauf',false],['✅','legit-check',false],['📢','ankündigungen',false]].map(([e,l,a]) => (
+                        <div key={l} style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 7px', borderRadius:6, background:a?'rgba(99,102,241,.12)':'transparent', color:a?'#818cf8':'#6b7280', fontSize:11, fontWeight:a?700:500, marginBottom:2 }}>
+                          <span>{e}</span># {l}
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                      {[
+                        { u:'Denny', r:'👑 Owner', t:'Hat jemand Erfahrung mit Vinted-Preisgestaltung?', c:'#6366f1' },
+                        { u:'Max', r:'🔥 Active', t:'@Denny ja, unter 10€ verkauft sich viel schneller!', c:'#8b5cf6' },
+                        { u:'Sarah', r:'⭐ Regular', t:'Legit check bitte 👆 ist das original?', c:'#ec4899' },
+                      ].map(msg => (
+                        <div key={msg.u} style={{ display:'flex', gap:8 }}>
+                          <div style={{ width:28, height:28, borderRadius:8, background:`${msg.c}33`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:800, color:msg.c, flexShrink:0 }}>{msg.u.charAt(0)}</div>
+                          <div>
+                            <div style={{ display:'flex', gap:6, alignItems:'center', marginBottom:3 }}>
+                              <span style={{ fontSize:12, fontWeight:700, color:'#f1f5f9' }}>{msg.u}</span>
+                              <span style={{ fontSize:9, color:msg.c, background:`${msg.c}18`, padding:'1px 5px', borderRadius:4, fontWeight:700 }}>{msg.r}</span>
+                            </div>
+                            <p style={{ fontSize:12, color:'#9ca3af', margin:0, lineHeight:1.4 }}>{msg.t}</p>
+                          </div>
+                        </div>
+                      ))}
+                      <div style={{ display:'flex', gap:8, marginTop:'auto', alignItems:'center' }}>
+                        <div style={{ flex:1, background:'#1f2937', borderRadius:8, padding:'7px 12px', fontSize:12, color:'#4b5563' }}>Nachricht schreiben…</div>
+                        <div style={{ width:28, height:28, borderRadius:8, background:'#6366f1', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          <span style={{ fontSize:14, color:'white' }}>↑</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           </div>
           {/* Reflection */}
-          <div style={{ height:60, background:'linear-gradient(to bottom,rgba(99,102,241,.1),transparent)', borderRadius:'0 0 24px 24px', transform:'scaleY(-1)', opacity:.3, marginTop:-1 }}/>
+          <div style={{ height:50, background:'linear-gradient(to bottom,rgba(99,102,241,.08),transparent)', transform:'scaleY(-1)', opacity:.25, marginTop:-1, borderRadius:'0 0 20px 20px' }}/>
         </div>
       </section>
 
