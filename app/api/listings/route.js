@@ -65,6 +65,7 @@ export async function POST(req) {
         shipping:    JSON.stringify(data.shipping || []),
         shipSize:    data.shipSize || '',
         address:     data.address  || '',
+        status:      ['entwurf','aktiv','inaktiv','verkauft'].includes(data.status) ? data.status : 'aktiv',
         platforms:   JSON.stringify(data.platforms || []),
         images:      JSON.stringify(data.images    || []),
         userId:      Number(session.user.id),
@@ -77,8 +78,9 @@ export async function POST(req) {
     const taillenumfang = data.taillenumfang || ''
     const kaCategory    = data.kaCategory    || ''
     const ebayCategory  = data.ebayCategory  || ''
-    await prisma.$executeRaw`UPDATE "Listing" SET material = ${material}, stil = ${stil}, beinform = ${beinform}, taillenumfang = ${taillenumfang}, "kaCategory" = ${kaCategory}, "ebayCategory" = ${ebayCategory} WHERE id = ${listing.id}`
-    return NextResponse.json({ ...parseListing(listing), material, stil, beinform, taillenumfang, kaCategory, ebayCategory }, { status: 201 })
+    const lagerplatz    = data.lagerplatz    || ''
+    await prisma.$executeRaw`UPDATE "Listing" SET material = ${material}, stil = ${stil}, beinform = ${beinform}, taillenumfang = ${taillenumfang}, "kaCategory" = ${kaCategory}, "ebayCategory" = ${ebayCategory}, lagerplatz = ${lagerplatz} WHERE id = ${listing.id}`
+    return NextResponse.json({ ...parseListing(listing), material, stil, beinform, taillenumfang, kaCategory, ebayCategory, lagerplatz }, { status: 201 })
   } catch(e) {
     console.error('[API POST /listings]', e.message)
     return NextResponse.json({ error: e.message }, { status: 500 })

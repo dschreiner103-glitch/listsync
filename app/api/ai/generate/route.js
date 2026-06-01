@@ -12,8 +12,8 @@ export async function POST(req) {
     return NextResponse.json({ error: 'Stichpunkte fehlen' }, { status: 400 })
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
-  if (!apiKey) return NextResponse.json({ error: 'GEMINI_API_KEY nicht konfiguriert' }, { status: 500 })
+  const apiKey = process.env.GROQ_API_KEY
+  if (!apiKey) return NextResponse.json({ error: 'GROQ_API_KEY nicht konfiguriert' }, { status: 500 })
 
   const context = [
     category && `Kategorie: ${category}`,
@@ -87,38 +87,43 @@ Antworte NUR als valides JSON in exakt diesem Format (kein Markdown, keine Erkl�
 }`
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 1024,
-          },
-        }),
-      }
-    )
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 1500,
+        response_format: { type: 'json_object' },
+      }),
+    })
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      console.error('Gemini error:', err)
+      console.error('Groq error:', err)
       return NextResponse.json({ error: 'KI-Fehler: ' + (err?.error?.message || res.status) }, { status: 500 })
     }
 
     const data = await res.json()
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const text = data?.choices?.[0]?.message?.content || ''
+    console.log('GROQ RAW:', text)
 
-    // Strip markdown code fences if present
-    const cleaned = text.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim()
+    // Extract JSON from response — strip markdown fences or surrounding text
+    let cleaned = text.trim()
+    const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
+    if (fenceMatch) cleaned = fenceMatch[1].trim()
+    const braceMatch = cleaned.match(/\{[\s\S]*\}/)
+    if (braceMatch) cleaned = braceMatch[0]
 
     let parsed
     try {
       parsed = JSON.parse(cleaned)
     } catch {
-      console.error('JSON parse failed:', cleaned)
+      console.error('JSON parse failed, raw text:', text)
       return NextResponse.json({ error: 'KI hat ungültiges Format zurückgegeben' }, { status: 500 })
     }
 

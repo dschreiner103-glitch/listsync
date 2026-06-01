@@ -115,7 +115,7 @@ export default function NewListing() {
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
     condition:'Sehr gut', category:'',
-    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', kaCategory:'', ebayCategory:'', shipping:[], shipSize:'',
+    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', kaCategory:'', ebayCategory:'', lagerplatz:'', shipping:[], shipSize:'',
     platforms:['vinted','kleinanzeigen','ebay'],
     address:''
   })
@@ -463,6 +463,12 @@ export default function NewListing() {
                       {MATERIALS.map(m=><option key={m}>{m}</option>)}
                     </select>
                   </div>
+                </div>
+
+                <div>
+                  <label style={lbl}>📦 Lagerplatz <span style={{ fontWeight:400, color:'var(--text-3)' }}>(optional)</span></label>
+                  <input value={form.lagerplatz} onChange={e=>set('lagerplatz',e.target.value)}
+                    placeholder="z.B. Box A1, Schrank 2, Regal B" style={inp}/>
                 </div>
 
                 {/* ─ eBay-Merkmale ─ */}
