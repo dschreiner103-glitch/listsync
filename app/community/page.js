@@ -61,13 +61,22 @@ function formatTime(ts) {
   return d.toLocaleDateString('de', { day:'2-digit', month:'2-digit' }) + ' ' + d.toLocaleTimeString('de', { hour:'2-digit', minute:'2-digit' })
 }
 
-function renderContent(text) {
+function renderContent(text, users, onMentionClick) {
   if (!text) return null
-  return text.split(/(@\w+)/g).map((p, i) =>
-    p.startsWith('@')
-      ? <span key={i} style={{ color:'#818cf8', fontWeight:700, background:'rgba(99,102,241,.1)', borderRadius:4, padding:'1px 3px' }}>{p}</span>
-      : p
-  )
+  return text.split(/(@\w+)/g).map((p, i) => {
+    if (!p.startsWith('@')) return p
+    const name = p.slice(1).toLowerCase()
+    const user = users?.find(u => u.name.toLowerCase() === name)
+    return (
+      <span key={i}
+        onClick={() => user && onMentionClick?.(user)}
+        style={{ color:'#818cf8', fontWeight:700, background:'rgba(99,102,241,.1)', borderRadius:4, padding:'1px 5px', cursor:user?'pointer':'default', transition:'background .1s' }}
+        onMouseEnter={e => user && (e.target.style.background='rgba(99,102,241,.22)')}
+        onMouseLeave={e => (e.target.style.background='rgba(99,102,241,.1)')}>
+        {p}
+      </span>
+    )
+  })
 }
 
 // ── Role Badge ────────────────────────────────────────────────────────
@@ -108,6 +117,7 @@ export default function CommunityPage() {
   const [mentionStart, setMentionStart] = useState(-1)
   const [mentionIdx, setMentionIdx] = useState(0)
   const [notifications, setNotifications] = useState({}) // { channel: count }
+  const [profileUser, setProfileUser] = useState(null) // user to show profile for
   const bottomRef  = useRef(null)
   const fileRef    = useRef(null)
   const inputRef   = useRef(null)
@@ -261,7 +271,10 @@ export default function CommunityPage() {
   }
 
   const ch = CHANNELS.find(c => c.id === channel)
-  const writeAllowed = ch ? canWrite(ch, myProfile?.role || 'member') : true
+  // writeRoles only restrict specific channels (e.g. announcements)
+  // If myProfile not loaded yet, assume member (can write in normal channels)
+  const userRole = myProfile?.role || 'member'
+  const writeAllowed = ch ? canWrite(ch, userRole) : true
   const onlineUsers  = users.filter(u => u.online).sort((a,b) => {
     const roleOrder = { owner:0, admin:1, mod:2, vip:3, member:4 }
     return (roleOrder[a.role]||4) - (roleOrder[b.role]||4) || b.xp - a.xp
@@ -400,7 +413,7 @@ export default function CommunityPage() {
                         <span style={{ fontSize:11, color:'var(--text-3)' }}>{formatTime(msg.created_at)}</span>
                       </div>
                     )}
-                    {msg.content && <p style={{ fontSize:14, color:'var(--text-1)', margin:0, lineHeight:1.55, wordBreak:'break-word', whiteSpace:'pre-wrap' }}>{renderContent(msg.content)}</p>}
+                    {msg.content && <p style={{ fontSize:14, color:'var(--text-1)', margin:0, lineHeight:1.55, wordBreak:'break-word', whiteSpace:'pre-wrap' }}>{renderContent(msg.content, users, setProfileUser)}</p>}
                     {msg.image_url && <img src={msg.image_url} alt="" style={{ maxWidth:320, maxHeight:300, borderRadius:12, marginTop:msg.content?6:0, display:'block', cursor:'pointer', border:'1px solid var(--border)' }} onClick={()=>window.open(msg.image_url,'_blank')}/>}
                   </div>
                 </div>
@@ -531,6 +544,52 @@ export default function CommunityPage() {
 
       </main>
       <MobileNav/>
+
+      {/* Profile Modal — on @mention click */}
+      {profileUser && (() => {
+        const rank = getRank(profileUser.xp)
+        const role = ROLES[profileUser.role] || ROLES.member
+        const next = xpToNextRank(profileUser.xp)
+        return (
+          <div onClick={() => setProfileUser(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', borderRadius:24, padding:28, maxWidth:320, width:'100%', boxShadow:'0 24px 60px rgba(0,0,0,.3)' }}>
+              {/* Banner */}
+              <div style={{ height:60, borderRadius:14, background:`linear-gradient(135deg, ${rank.color}44, ${rank.color}22)`, marginBottom:-20, border:`1px solid ${rank.color}33` }}/>
+              {/* Avatar */}
+              <div style={{ display:'flex', alignItems:'flex-end', gap:12, marginBottom:16 }}>
+                <div style={{ width:64, height:64, borderRadius:16, background:avatarColor(String(profileUser.id)), display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, fontWeight:800, color:'#fff', border:'4px solid var(--surface)', flexShrink:0 }}>
+                  {(profileUser.name||'?').charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex:1, paddingBottom:4 }}>
+                  <p style={{ fontSize:16, fontWeight:800, color:'var(--text-1)', margin:'0 0 4px' }}>{profileUser.name}</p>
+                  <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                    {profileUser.role !== 'member' && (
+                      <span style={{ fontSize:11, fontWeight:700, color:role.color, background:role.bg, padding:'2px 8px', borderRadius:6 }}>{role.emoji} {role.label}</span>
+                    )}
+                    <span style={{ fontSize:11, fontWeight:700, color:rank.color, background:`${rank.color}18`, padding:'2px 8px', borderRadius:6 }}>{rank.emoji} {rank.label}</span>
+                  </div>
+                </div>
+                <div style={{ width:12, height:12, borderRadius:'50%', background: profileUser.online ? '#10b981' : '#6b7280', border:'2px solid var(--surface)', marginBottom:4 }}/>
+              </div>
+              {/* XP Bar */}
+              <div style={{ background:'var(--bg)', borderRadius:12, padding:'12px 14px', marginBottom:8 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                  <span style={{ fontSize:12, color:'var(--text-2)', fontWeight:600 }}>XP</span>
+                  <span style={{ fontSize:12, fontWeight:800, color:rank.color }}>{profileUser.xp} XP</span>
+                </div>
+                <div style={{ height:6, background:'var(--border)', borderRadius:3, overflow:'hidden' }}>
+                  {next
+                    ? <div style={{ height:'100%', width:`${next.progress}%`, background:rank.color, borderRadius:3, transition:'width .5s' }}/>
+                    : <div style={{ height:'100%', width:'100%', background:'#f59e0b', borderRadius:3 }}/>
+                  }
+                </div>
+                {next && <p style={{ fontSize:10, color:'var(--text-3)', margin:'4px 0 0' }}>Nächster Rang bei {next.needed} XP</p>}
+              </div>
+              <button onClick={() => setProfileUser(null)} style={{ width:'100%', padding:'11px', borderRadius:12, border:'none', background:'#6366f1', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>Schließen</button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Leaderboard Modal */}
       {showLeaderboard && (
