@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "cp prisma/schema.production.prisma prisma/schema.prisma && npx prisma generate && next build",
+    "build": "cp prisma/schema.production.prisma prisma/schema.tmp.prisma && npx prisma generate --schema=prisma/schema.tmp.prisma && next build",
     "start": "next start",
     "postinstall": "prisma generate",
     "db:setup": "prisma generate && prisma db push"

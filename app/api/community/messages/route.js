@@ -65,7 +65,8 @@ export async function POST(req) {
     }
     // Parse @mentions and create notifications
     try {
-      const mentions = [...(content?.matchAll(/@(\w+)/g) || [])].map(m => m[1].toLowerCase())
+      // Underscores in mentions represent spaces (e.g. @Demo_User → Demo User)
+      const mentions = [...(content?.matchAll(/@(\w+)/g) || [])].map(m => m[1].replace(/_/g, ' ').toLowerCase())
       if (mentions.length > 0) {
         const allUsers = isPostgres()
           ? await prisma.$queryRawUnsafe(`SELECT id, name FROM "User"`)

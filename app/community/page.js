@@ -65,15 +65,18 @@ function renderContent(text, users, onMentionClick) {
   if (!text) return null
   return text.split(/(@\w+)/g).map((p, i) => {
     if (!p.startsWith('@')) return p
-    const name = p.slice(1).toLowerCase()
-    const user = users?.find(u => u.name.toLowerCase() === name)
+    // Normalize: underscores → spaces for matching
+    const normalized = p.slice(1).replace(/_/g, ' ').toLowerCase()
+    const user = users?.find(u => u.name.toLowerCase() === normalized)
+    // Display: show @Name with spaces restored
+    const display = '@' + p.slice(1).replace(/_/g, ' ')
     return (
       <span key={i}
         onClick={() => user && onMentionClick?.(user)}
         style={{ color:'#818cf8', fontWeight:700, background:'rgba(99,102,241,.1)', borderRadius:4, padding:'1px 5px', cursor:user?'pointer':'default', transition:'background .1s' }}
         onMouseEnter={e => user && (e.target.style.background='rgba(99,102,241,.22)')}
         onMouseLeave={e => (e.target.style.background='rgba(99,102,241,.1)')}>
-        {p}
+        {display}
       </span>
     )
   })
@@ -246,7 +249,9 @@ export default function CommunityPage() {
   const insertMention = (user) => {
     const before = input.slice(0, mentionStart)
     const after  = input.slice(inputRef.current?.selectionStart || mentionStart)
-    const newVal = `${before}@${user.name} ${after.replace(/^\w*/, '')}`
+    // Replace spaces with underscores so @\w+ regex matches the full name
+    const tag = '@' + user.name.replace(/\s+/g, '_')
+    const newVal = `${before}${tag} ${after.replace(/^\w*/, '')}`
     setInput(newVal)
     setMentionSuggestions([])
     setMentionStart(-1)
