@@ -5,6 +5,7 @@ import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, StatusBadge, PLATFORMS, CONDITIONS, fmt, profit, CARD_COLORS } from '@/components/Badge'
+import { calcScore, scoreColor, scoreLabel } from '@/lib/score'
 
 // ── Icon helper ───────────────────────────────────────────────────────────────
 function Ic({ children, size = 16, sw = 2 }) {
@@ -40,6 +41,7 @@ export default function Listings() {
   const [editSaving, setEditSaving]     = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // listing id
   const [qrListing, setQrListing]         = useState(null) // listing for QR modal
+  const [scoreListing, setScoreListing]   = useState(null) // listing for score modal
 
   useEffect(() => {
     fetch('/api/listings').then(r => r.json()).then(d => { setListings(Array.isArray(d) ? d : []); setLoading(false) })
@@ -543,6 +545,13 @@ export default function Listings() {
                           <p style={{ fontWeight: 700, color: 'var(--text-1)', fontSize: 14, margin: 0, lineHeight: 1.3 }}>{l.title}</p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                             <p style={{ fontWeight: 800, color: 'var(--text-1)', fontSize: 15, margin: 0 }}>{fmt(l.price)}</p>
+                            {(() => { const { score } = calcScore(l); const c = scoreColor(score); return (
+                              <button onClick={() => setScoreListing(l)}
+                                style={{ height:28, padding:'0 7px', borderRadius:8, border:`1px solid ${c}44`, background:`${c}15`, display:'flex', alignItems:'center', gap:3, cursor:'pointer', flexShrink:0 }}
+                                title="Listing Score">
+                                <span style={{ fontSize:11, fontWeight:800, color:c }}>{score}</span>
+                              </button>
+                            )})()}
                             <button onClick={() => setQrListing(l)}
                               style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--modal-close)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0 }}
                               title="QR-Code">
@@ -919,6 +928,70 @@ export default function Listings() {
           onClose={() => setMobileHelper(null)}
         />
       )}
+
+      {/* Score Modal */}
+      {scoreListing && (() => {
+        const { score, checks, improvements } = calcScore(scoreListing)
+        const c = scoreColor(score)
+        const lbl = scoreLabel(score)
+        const circumference = 2 * Math.PI * 28
+        const offset = circumference - (score / 100) * circumference
+        return (
+          <div onClick={() => setScoreListing(null)} style={{ position:'fixed', inset:0, background:'rgba(0,0,0,.6)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:'var(--surface)', borderRadius:24, padding:28, maxWidth:400, width:'100%', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 24px 60px rgba(0,0,0,.3)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20 }}>
+                {/* Circle score */}
+                <svg width="72" height="72" style={{ flexShrink:0 }}>
+                  <circle cx="36" cy="36" r="28" fill="none" stroke="var(--border)" strokeWidth="6"/>
+                  <circle cx="36" cy="36" r="28" fill="none" stroke={c} strokeWidth="6"
+                    strokeDasharray={circumference} strokeDashoffset={offset}
+                    strokeLinecap="round" transform="rotate(-90 36 36)" style={{ transition:'stroke-dashoffset .6s' }}/>
+                  <text x="36" y="40" textAnchor="middle" fontSize="16" fontWeight="800" fill={c}>{score}</text>
+                </svg>
+                <div>
+                  <p style={{ fontSize:18, fontWeight:800, color:'var(--text-1)', margin:'0 0 3px' }}>{scoreListing.title.slice(0,35)}{scoreListing.title.length>35?'…':''}</p>
+                  <span style={{ fontSize:12, fontWeight:700, color:c, background:`${c}18`, padding:'2px 10px', borderRadius:20 }}>{lbl} · {score}/100</span>
+                </div>
+              </div>
+
+              {/* Improvements */}
+              {improvements.length > 0 && (
+                <div style={{ background:'rgba(239,68,68,.06)', border:'1px solid rgba(239,68,68,.15)', borderRadius:14, padding:'12px 14px', marginBottom:16 }}>
+                  <p style={{ fontSize:12, fontWeight:800, color:'#ef4444', textTransform:'uppercase', letterSpacing:'.06em', margin:'0 0 8px' }}>💡 Top-Verbesserungen</p>
+                  {improvements.map((imp,i) => (
+                    <div key={i} style={{ display:'flex', gap:8, marginBottom:i<improvements.length-1?6:0 }}>
+                      <span style={{ fontSize:13, flexShrink:0 }}>→</span>
+                      <p style={{ fontSize:13, color:'var(--text-1)', margin:0 }}>{imp.tip}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* All checks */}
+              <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+                {checks.map(ch => (
+                  <div key={ch.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 12px', borderRadius:10, background: ch.ok ? 'rgba(16,185,129,.06)' : 'var(--bg)', border:`1px solid ${ch.ok?'rgba(16,185,129,.15)':'var(--border)'}` }}>
+                    <span style={{ fontSize:14, flexShrink:0 }}>{ch.ok ? '✅' : '❌'}</span>
+                    <span style={{ fontSize:12.5, color: ch.ok ? '#10b981' : 'var(--text-2)', flex:1 }}>{ch.label}</span>
+                    <span style={{ fontSize:11, fontWeight:700, color: ch.ok ? '#10b981' : 'var(--text-3)' }}>+{ch.pts}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ display:'flex', gap:10, marginTop:18 }}>
+                <button onClick={() => { setScoreListing(null); openEdit(scoreListing) }}
+                  style={{ flex:1, padding:'10px', borderRadius:12, border:'none', background:'#6366f1', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+                  ✏️ Verbessern
+                </button>
+                <button onClick={() => setScoreListing(null)}
+                  style={{ padding:'10px 16px', borderRadius:12, border:'1px solid var(--border)', background:'var(--modal-close)', color:'var(--text-1)', fontWeight:600, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+                  Schließen
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* QR Modal */}
       {qrListing && (() => {

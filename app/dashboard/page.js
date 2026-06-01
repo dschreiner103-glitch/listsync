@@ -455,6 +455,81 @@ export default function Dashboard() {
             )}
           </Card>
 
+          {/* ── Insights: Was verkauft sich am besten ── */}
+          {!loading && sold.length > 0 && (() => {
+            // Top Kategorien
+            const catMap = {}
+            sold.forEach(l => {
+              const cat = (l.category || 'Sonstiges').split(' – ')[0]
+              if (!catMap[cat]) catMap[cat] = { count:0, revenue:0, profit:0 }
+              catMap[cat].count++
+              catMap[cat].revenue += l.price || 0
+              catMap[cat].profit  += (l.price||0) - (l.buyPrice||0)
+            })
+            const topCats = Object.entries(catMap).sort((a,b) => b[1].revenue - a[1].revenue).slice(0,4)
+
+            // Bester Wochentag
+            const dayMap = { 0:'So',1:'Mo',2:'Di',3:'Mi',4:'Do',5:'Fr',6:'Sa' }
+            const dayCount = Array(7).fill(0)
+            sold.forEach(l => { dayCount[new Date(l.createdAt).getDay()]++ })
+            const bestDay = dayCount.indexOf(Math.max(...dayCount))
+            const bestDayCount = dayCount[bestDay]
+
+            // Bester Monat
+            const monthMap = {}
+            sold.forEach(l => {
+              const m = new Date(l.createdAt).toLocaleString('de', { month:'short', year:'numeric' })
+              if (!monthMap[m]) monthMap[m] = 0
+              monthMap[m]++
+            })
+            const bestMonth = Object.entries(monthMap).sort((a,b) => b[1]-a[1])[0]
+
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                <Card>
+                  <STitle>📊 Was verkauft sich am besten</STitle>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:10, marginBottom:16 }}>
+                    <div style={{ background:'var(--bg)', borderRadius:12, padding:'12px 14px' }}>
+                      <p style={{ fontSize:11, color:'var(--text-3)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.06em', margin:'0 0 4px' }}>Bester Wochentag</p>
+                      <p style={{ fontSize:20, fontWeight:800, color:'var(--text-1)', margin:'0 0 2px' }}>{dayMap[bestDay]}</p>
+                      <p style={{ fontSize:11, color:'var(--text-3)', margin:0 }}>{bestDayCount} Verkauf{bestDayCount!==1?'e':''}</p>
+                    </div>
+                    <div style={{ background:'var(--bg)', borderRadius:12, padding:'12px 14px' }}>
+                      <p style={{ fontSize:11, color:'var(--text-3)', fontWeight:600, textTransform:'uppercase', letterSpacing:'.06em', margin:'0 0 4px' }}>Bester Monat</p>
+                      <p style={{ fontSize:20, fontWeight:800, color:'var(--text-1)', margin:'0 0 2px' }}>{bestMonth?.[0] || '–'}</p>
+                      <p style={{ fontSize:11, color:'var(--text-3)', margin:0 }}>{bestMonth?.[1] || 0} Verkäufe</p>
+                    </div>
+                  </div>
+                  <p style={{ fontSize:11, color:'var(--text-3)', fontWeight:700, textTransform:'uppercase', letterSpacing:'.07em', margin:'0 0 8px' }}>Top-Kategorien</p>
+                  <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                    {topCats.map(([cat, data], i) => {
+                      const maxRev = topCats[0][1].revenue
+                      const colors = ['#6366f1','#8b5cf6','#3b82f6','#10b981']
+                      return (
+                        <div key={cat}>
+                          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                              <span style={{ fontSize:12, fontWeight:700, color:colors[i], background:`${colors[i]}18`, padding:'1px 8px', borderRadius:20 }}>{i+1}</span>
+                              <span style={{ fontSize:13, fontWeight:600, color:'var(--text-1)' }}>{cat}</span>
+                            </div>
+                            <div style={{ display:'flex', gap:10 }}>
+                              <span style={{ fontSize:12, color:'var(--text-3)' }}>{data.count}×</span>
+                              <span style={{ fontSize:12.5, fontWeight:700, color:'var(--text-1)' }}>{fmt(data.revenue)}</span>
+                              <span style={{ fontSize:12, color:'#10b981', fontWeight:600 }}>+{fmt(data.profit)}</span>
+                            </div>
+                          </div>
+                          <div style={{ height:4, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
+                            <div style={{ height:'100%', width:`${(data.revenue/maxRev)*100}%`, background:colors[i], borderRadius:2, transition:'width .5s' }}/>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </Card>
+              </div>
+            )
+          })()}
+
           {/* ── Recent listings ── */}
           {listings.length > 0 && (
             <Card>
