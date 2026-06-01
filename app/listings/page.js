@@ -19,6 +19,7 @@ const ICONS = {
   close:    <Ic size={15} sw={2.5}><path d="M18 6L6 18M6 6l12 12"/></Ic>,
   edit:     <Ic size={13} sw={2}><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></Ic>,
   trash:    <Ic size={13} sw={2}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></Ic>,
+  qr:       <Ic size={13} sw={2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M17 20h3M20 17v3"/></Ic>,
 }
 
 export default function Listings() {
@@ -38,6 +39,7 @@ export default function Listings() {
   const [editForm, setEditForm]         = useState(null)  // { id, title, price, buyPrice, condition, description, status }
   const [editSaving, setEditSaving]     = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null) // listing id
+  const [qrListing, setQrListing]         = useState(null) // listing for QR modal
 
   useEffect(() => {
     fetch('/api/listings').then(r => r.json()).then(d => { setListings(Array.isArray(d) ? d : []); setLoading(false) })
@@ -541,6 +543,11 @@ export default function Listings() {
                           <p style={{ fontWeight: 700, color: 'var(--text-1)', fontSize: 14, margin: 0, lineHeight: 1.3 }}>{l.title}</p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                             <p style={{ fontWeight: 800, color: 'var(--text-1)', fontSize: 15, margin: 0 }}>{fmt(l.price)}</p>
+                            <button onClick={() => setQrListing(l)}
+                              style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--modal-close)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0 }}
+                              title="QR-Code">
+                              {ICONS.qr}
+                            </button>
                             <button onClick={() => openEdit(l)}
                               style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--modal-close)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-3)', flexShrink: 0 }}
                               title="Bearbeiten">
@@ -912,6 +919,31 @@ export default function Listings() {
           onClose={() => setMobileHelper(null)}
         />
       )}
+
+      {/* QR Modal */}
+      {qrListing && (() => {
+        const qrData = qrListing.lagerplatz
+          ? `${qrListing.title}\nLager: ${qrListing.lagerplatz}\nPreis: ${fmt(qrListing.price)}`
+          : `${qrListing.title}\nPreis: ${fmt(qrListing.price)}`
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrData)}&bgcolor=ffffff&color=111827&margin=10`
+        return (
+          <div onClick={() => setQrListing(null)} style={{ position:'fixed',inset:0,background:'rgba(0,0,0,.6)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:20 }}>
+            <div onClick={e=>e.stopPropagation()} style={{ background:'var(--surface)',borderRadius:24,padding:28,maxWidth:340,width:'100%',textAlign:'center',boxShadow:'0 24px 60px rgba(0,0,0,.3)' }}>
+              <p style={{ fontSize:16,fontWeight:800,color:'var(--text-1)',margin:'0 0 2px' }}>QR-Code</p>
+              <p style={{ fontSize:12,color:'var(--text-3)',margin:'0 0 4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{qrListing.title}</p>
+              {qrListing.lagerplatz
+                ? <p style={{ fontSize:12,fontWeight:700,color:'#6366f1',margin:'0 0 16px' }}>📦 {qrListing.lagerplatz}</p>
+                : <p style={{ fontSize:11,color:'var(--text-3)',margin:'0 0 16px' }}>Kein Lagerplatz — im <span style={{ color:'#6366f1',cursor:'pointer' }} onClick={()=>{ setQrListing(null); window.location.href='/lager' }}>Lager</span> zuweisen</p>
+              }
+              <img src={qrUrl} alt="" style={{ width:220,height:220,borderRadius:12,border:'1px solid var(--border)',marginBottom:16 }}/>
+              <div style={{ display:'flex',gap:10 }}>
+                <button onClick={()=>window.open(qrUrl,'_blank')} style={{ flex:1,padding:'10px',borderRadius:12,border:'1px solid var(--border)',background:'var(--modal-close)',color:'var(--text-1)',fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>🖨️ Drucken</button>
+                <button onClick={()=>setQrListing(null)} style={{ flex:1,padding:'10px',borderRadius:12,border:'none',background:'#6366f1',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>Schließen</button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </div>
   )
 }

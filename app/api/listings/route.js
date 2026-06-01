@@ -16,11 +16,21 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
-  const listings = await prisma.listing.findMany({
-    where:   { userId: Number(session.user.id) },
-    orderBy: { createdAt: 'desc' },
-  })
-  return NextResponse.json(listings.map(parseListing))
+  await ensureMigrated()
+  const userId = Number(session.user.id)
+  const isPostgres = !!process.env.DATABASE_URL?.startsWith('postgres')
+
+  const rows = isPostgres
+    ? await prisma.$queryRawUnsafe(`SELECT * FROM "Listing" WHERE "userId" = $1 ORDER BY "createdAt" DESC`, userId)
+    : await prisma.$queryRawUnsafe(`SELECT * FROM "Listing" WHERE userId = ? ORDER BY createdAt DESC`, userId)
+
+  return NextResponse.json(rows.map(l => ({
+    ...parseListing(l),
+    lagerplatz: l.lagerplatz || '',
+    material:   l.material   || '',
+    kaCategory: l.kaCategory || '',
+    ebayCategory: l.ebayCategory || '',
+  })))
 }
 
 export async function DELETE(req) {
