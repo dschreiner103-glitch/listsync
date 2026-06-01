@@ -161,6 +161,36 @@ export default function LandingPage() {
         .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 40px rgba(99,102,241,.5) }
         .btn-ghost { background:rgba(255,255,255,.06); color:#f1f5f9; border:1px solid rgba(255,255,255,.12); padding:14px 28px; border-radius:14px; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; transition:all .2s }
         .btn-ghost:hover { background:rgba(255,255,255,.1); transform:translateY(-2px) }
+
+        /* ── Mobile ── */
+        .nav-links-desktop { display:flex }
+        .nav-btns-desktop { display:flex }
+        .stats-grid { display:grid; grid-template-columns:repeat(4,1fr) }
+        .mockup-wrap { display:block }
+        .mockup-sidebar { display:flex }
+        .features-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)) }
+        .steps-grid { display:grid; grid-template-columns:repeat(3,1fr) }
+        .pricing-grid { display:grid; grid-template-columns:1fr 1fr }
+        .footer-inner { display:flex }
+
+        @media (max-width: 768px) {
+          .nav-links-desktop { display:none !important }
+          .nav-btns-desktop { gap:6px !important }
+          .nav-btns-desktop .btn-ghost { display:none }
+          .nav-btns-desktop .btn-primary { padding:9px 16px !important; font-size:13px !important }
+          nav { padding:12px 16px !important }
+          .stats-grid { grid-template-columns:repeat(2,1fr) !important }
+          .mockup-sidebar { display:none !important }
+          .mockup-wrap { grid-template-columns:1fr !important }
+          .features-grid { grid-template-columns:1fr !important }
+          .steps-grid { grid-template-columns:1fr !important; gap:24px !important }
+          .pricing-grid { grid-template-columns:1fr !important }
+          .footer-inner { flex-direction:column; align-items:center; gap:12px !important }
+          .hero-section { padding:100px 16px 60px !important }
+          .hero-btns { flex-direction:column; align-items:stretch !important }
+          .hero-btns button { width:100% }
+          .section-pad { padding:60px 16px !important }
+        }
       `}</style>
 
       {/* ── Nav ── */}
@@ -170,19 +200,19 @@ export default function LandingPage() {
           <span style={{ fontWeight:800, fontSize:17, letterSpacing:'-0.03em', color:'white' }}>ListSync</span>
           <span style={{ fontSize:10, fontWeight:700, color:'#22c55e', background:'rgba(34,197,94,.15)', padding:'2px 7px', borderRadius:20, border:'1px solid rgba(34,197,94,.3)' }}>BETA</span>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:32 }}>
+        <div className="nav-links-desktop" style={{ alignItems:'center', gap:32 }}>
           <a href="#features" className="nav-link">Features</a>
           <a href="#pricing" className="nav-link">Preise</a>
           <a href="#community" className="nav-link">Community</a>
         </div>
-        <div style={{ display:'flex', gap:10 }}>
+        <div className="nav-btns-desktop" style={{ gap:10 }}>
           <button onClick={() => router.push('/login')} className="btn-ghost" style={{ padding:'10px 20px', fontSize:14 }}>Einloggen</button>
           <button onClick={() => router.push('/register')} className="btn-primary" style={{ padding:'10px 20px', fontSize:14 }}>Kostenlos starten →</button>
         </div>
       </nav>
 
       {/* ── Hero ── */}
-      <section ref={heroRef} style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'120px 24px 80px', position:'relative', overflow:'hidden' }}>
+      <section ref={heroRef} className="hero-section" style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'120px 24px 80px', position:'relative', overflow:'hidden' }}>
 
         {/* Background orbs */}
         <Orb size={600} x={10}  y={10}  color="#6366f1" dur={12} />
@@ -211,7 +241,7 @@ export default function LandingPage() {
           KI schreibt deine Listings. Einmal anlegen, automatisch auf Vinted, Kleinanzeigen und eBay posten. Lager verwalten. Community. Alles in einem.
         </p>
 
-        <div style={{ display:'flex', gap:14, justifyContent:'center', flexWrap:'wrap', animation:'slide-up .7s ease .3s both' }}>
+        <div className="hero-btns" style={{ display:'flex', gap:14, justifyContent:'center', flexWrap:'wrap', animation:'slide-up .7s ease .3s both', width:'100%', maxWidth:400 }}>
           <button onClick={() => router.push('/register')} className="btn-primary" style={{ fontSize:16, padding:'16px 36px' }}>
             Kostenlos starten →
           </button>
@@ -235,10 +265,10 @@ export default function LandingPage() {
             </div>
 
             {/* App layout */}
-            <div style={{ display:'grid', gridTemplateColumns:'210px 1fr', minHeight:380 }}>
+            <div className="mockup-wrap" style={{ display:'grid', gridTemplateColumns:'210px 1fr', minHeight:380 }}>
 
               {/* Sidebar — exactly like real app */}
-              <div style={{ background:'#111827', borderRight:'1px solid rgba(255,255,255,.06)', padding:'14px 10px', display:'flex', flexDirection:'column', gap:2 }}>
+              <div className="mockup-sidebar" style={{ background:'#111827', borderRight:'1px solid rgba(255,255,255,.06)', padding:'14px 10px', flexDirection:'column', gap:2 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 10px', marginBottom:10 }}>
                   <div style={{ width:28, height:28, borderRadius:8, background:'#22c55e', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:900, color:'#111827' }}>LS</div>
                   <span style={{ fontSize:13, fontWeight:800, color:'#f9fafb' }}>ListSync</span>
@@ -421,7 +451,7 @@ export default function LandingPage() {
 
       {/* ── Stats ── */}
       <section ref={statsRef} style={{ padding:'60px 24px', borderTop:'1px solid rgba(255,255,255,.06)', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
-        <div style={{ maxWidth:900, margin:'0 auto', display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:24, textAlign:'center' }}>
+        <div className="stats-grid" style={{ maxWidth:900, margin:'0 auto', gap:24, textAlign:'center' }}>
           {[
             { val:12000, suf:'+', label:'Listings erstellt' },
             { val:3,     suf:'',  label:'Plattformen' },
@@ -439,7 +469,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ── */}
-      <section id="features" ref={featRef} style={{ padding:'100px 24px', maxWidth:1100, margin:'0 auto' }}>
+      <section id="features" ref={featRef} className="section-pad" style={{ padding:'100px 24px', maxWidth:1100, margin:'0 auto' }}>
         <div style={{ textAlign:'center', marginBottom:64, opacity:featVis?1:0, transform:featVis?'translateY(0)':'translateY(30px)', transition:'all .6s ease' }}>
           <span style={{ fontSize:12, fontWeight:800, color:'#6366f1', textTransform:'uppercase', letterSpacing:'.12em' }}>Features</span>
           <h2 style={{ fontSize:'clamp(28px,5vw,54px)', fontWeight:900, color:'white', letterSpacing:'-0.03em', margin:'12px 0 16px' }}>
@@ -449,7 +479,7 @@ export default function LandingPage() {
             Kein Tool-Dschungel mehr. ListSync ersetzt fünf verschiedene Apps.
           </p>
         </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(300px,1fr))', gap:20 }}>
+        <div className="features-grid" style={{ gap:20 }}>
           {FEATURES.map(f => <FeatureCard key={f.title} {...f}/>)}
         </div>
       </section>
@@ -459,7 +489,7 @@ export default function LandingPage() {
         <div style={{ maxWidth:900, margin:'0 auto', textAlign:'center' }}>
           <span style={{ fontSize:12, fontWeight:800, color:'#22c55e', textTransform:'uppercase', letterSpacing:'.12em' }}>So einfach</span>
           <h2 style={{ fontSize:'clamp(28px,5vw,54px)', fontWeight:900, color:'white', letterSpacing:'-0.03em', margin:'12px 0 60px' }}>3 Schritte zum Verkauf</h2>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:40 }}>
+          <div className="steps-grid" style={{ gap:40 }}>
             {[
               { n:'01', icon:'📸', title:'Foto machen', desc:'Produkt fotografieren, in ListSync hochladen.' },
               { n:'02', icon:'✨', title:'KI übernimmt', desc:'Titel, Beschreibung & Hashtags automatisch generiert.' },
@@ -483,7 +513,7 @@ export default function LandingPage() {
           <h2 style={{ fontSize:'clamp(28px,5vw,54px)', fontWeight:900, color:'white', letterSpacing:'-0.03em', margin:'12px 0 48px' }}>
             Starte kostenlos
           </h2>
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20, textAlign:'left' }}>
+          <div className="pricing-grid" style={{ gap:20, textAlign:'left' }}>
             {/* Free */}
             <PricingCard vis={pricVis} delay={0} router={router}
               label="Free" price="0€" sub="Für immer kostenlos"
@@ -515,7 +545,8 @@ export default function LandingPage() {
       </section>
 
       {/* ── Footer ── */}
-      <footer style={{ padding:'32px 40px', borderTop:'1px solid rgba(255,255,255,.06)', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
+      <footer style={{ padding:'32px 20px', borderTop:'1px solid rgba(255,255,255,.06)' }}>
+      <div className="footer-inner" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:12 }}>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
           <div style={{ width:24, height:24, borderRadius:7, background:'linear-gradient(135deg,#6366f1,#22c55e)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, fontWeight:900, color:'white' }}>LS</div>
           <span style={{ fontSize:13, fontWeight:700, color:'#64748b' }}>ListSync © 2025</span>
@@ -523,6 +554,7 @@ export default function LandingPage() {
         <div style={{ display:'flex', gap:24 }}>
           {['Impressum','Datenschutz','AGB'].map(l => <a key={l} href="#" className="nav-link" style={{ fontSize:12 }}>{l}</a>)}
         </div>
+      </div>
       </footer>
     </div>
   )
