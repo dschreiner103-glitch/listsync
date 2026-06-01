@@ -384,12 +384,12 @@ export default function LagerPage() {
                   )
                 })()}
                 {/* Add new Regal hint */}
-                <div onClick={()=>setAssign({ id:'__new__', title:'Neues Listing', lagerplatz:'' })}
+                <div onClick={()=>router.push('/new')}
                   style={{ cursor:'pointer',width:150,border:'2px dashed var(--border)',borderRadius:14,padding:'40px 16px',textAlign:'center',color:'var(--text-3)',transition:'all .15s' }}
                   onMouseEnter={e=>{e.currentTarget.style.borderColor='#6366f1';e.currentTarget.style.color='#6366f1'}}
                   onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)'}}>
                   <p style={{ fontSize:24,margin:'0 0 6px' }}>+</p>
-                  <p style={{ fontSize:12,fontWeight:600,margin:0 }}>Neues Regal</p>
+                  <p style={{ fontSize:12,fontWeight:600,margin:0 }}>Neues Listing</p>
                 </div>
               </div>
             </div>
