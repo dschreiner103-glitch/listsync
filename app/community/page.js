@@ -6,12 +6,18 @@ import MobileNav from '@/components/MobileNav'
 
 // ── Config ────────────────────────────────────────────────────────────
 const CHANNELS = [
-  { id: 'allgemein',   emoji: '💬', label: 'allgemein',   desc: 'Allgemeiner Chat' },
-  { id: 'verkauf',     emoji: '🛍️', label: 'verkauf',     desc: 'Deals & Verkaufstipps' },
-  { id: 'legit-check', emoji: '✅', label: 'legit-check', desc: 'Echtheitsprüfung' },
-  { id: 'feedback',    emoji: '💡', label: 'feedback',    desc: 'Feedback & Wünsche' },
-  { id: 'optimierung', emoji: '🚀', label: 'optimierung', desc: 'Listing-Optimierung' },
+  { id: 'ankuendigungen', emoji: '📢', label: 'ankündigungen', desc: 'Offizielle Ankündigungen', writeRoles: ['owner','admin'] },
+  { id: 'allgemein',      emoji: '💬', label: 'allgemein',     desc: 'Allgemeiner Chat' },
+  { id: 'verkauf',        emoji: '🛍️', label: 'verkauf',       desc: 'Deals & Verkaufstipps' },
+  { id: 'legit-check',    emoji: '✅', label: 'legit-check',   desc: 'Echtheitsprüfung' },
+  { id: 'feedback',       emoji: '💡', label: 'feedback',      desc: 'Feedback & Wünsche' },
+  { id: 'optimierung',    emoji: '🚀', label: 'optimierung',   desc: 'Listing-Optimierung' },
 ]
+
+function canWrite(channel, role) {
+  if (!channel.writeRoles) return true
+  return channel.writeRoles.includes(role)
+}
 
 const ROLES = {
   owner:  { label: 'Owner',  color: '#f59e0b', bg: 'rgba(245,158,11,.15)',  emoji: '👑' },
@@ -97,6 +103,7 @@ export default function CommunityPage() {
   const [uploading, setUploading] = useState(false)
   const [pendingImage, setPendingImage] = useState(null)
   const [showLeaderboard, setShowLeaderboard] = useState(false)
+  const [claimMsg, setClaimMsg] = useState('')
   const bottomRef  = useRef(null)
   const fileRef    = useRef(null)
   const inputRef   = useRef(null)
@@ -187,7 +194,15 @@ export default function CommunityPage() {
 
   const handleKeyDown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }
 
+  const claimOwner = async () => {
+    const res = await fetch('/api/community/claim-owner', { method:'POST' })
+    const data = await res.json()
+    setClaimMsg(data.message || data.error || '')
+    if (res.ok) await loadUsers()
+  }
+
   const ch = CHANNELS.find(c => c.id === channel)
+  const writeAllowed = ch ? canWrite(ch, myProfile?.role || 'member') : true
   const onlineUsers  = users.filter(u => u.online).sort((a,b) => {
     const roleOrder = { owner:0, admin:1, mod:2, vip:3, member:4 }
     return (roleOrder[a.role]||4) - (roleOrder[b.role]||4) || b.xp - a.xp
@@ -229,8 +244,22 @@ export default function CommunityPage() {
           </div>
 
           <div style={{ padding:'8px 8px', flex:1, overflowY:'auto' }}>
-            <p style={{ fontSize:10.5, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.08em', padding:'8px 8px 4px', margin:0 }}>Channels</p>
-            {CHANNELS.map(c => {
+            {/* Announcements */}
+            <p style={{ fontSize:10.5, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.08em', padding:'8px 8px 4px', margin:0 }}>Info</p>
+            {CHANNELS.filter(c => c.writeRoles).map(c => {
+              const active = c.id === channel
+              return (
+                <button key={c.id} onClick={() => setChannel(c.id)}
+                  style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'7px 10px', borderRadius:8, marginBottom:2, border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', background:active?'rgba(245,158,11,.12)':'transparent', color:active?'#f59e0b':'var(--text-2)', fontWeight:active?700:500, fontSize:13, transition:'all .12s' }}>
+                  <span style={{ fontSize:15 }}>{c.emoji}</span>
+                  <span># {c.label}</span>
+                </button>
+              )
+            })}
+
+            {/* Regular channels */}
+            <p style={{ fontSize:10.5, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.08em', padding:'12px 8px 4px', margin:0 }}>Channels</p>
+            {CHANNELS.filter(c => !c.writeRoles).map(c => {
               const active = c.id === channel
               return (
                 <button key={c.id} onClick={() => setChannel(c.id)}
@@ -240,11 +269,24 @@ export default function CommunityPage() {
                 </button>
               )
             })}
+
+            {/* Leaderboard + Owner claim */}
+            <p style={{ fontSize:10.5, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.08em', padding:'12px 8px 4px', margin:0 }}>Mehr</p>
             <button onClick={() => setShowLeaderboard(true)}
               style={{ display:'flex', alignItems:'center', gap:8, width:'100%', padding:'7px 10px', borderRadius:8, marginBottom:2, border:'none', cursor:'pointer', textAlign:'left', fontFamily:'inherit', background:'transparent', color:'var(--text-2)', fontWeight:500, fontSize:13, transition:'all .12s' }}>
               <span style={{ fontSize:15 }}>🏆</span>
               <span># leaderboard</span>
             </button>
+            {!users.some(u => u.role === 'owner') && (
+              <div style={{ margin:'8px 4px 0', padding:'10px', background:'rgba(245,158,11,.1)', border:'1px solid rgba(245,158,11,.3)', borderRadius:10 }}>
+                <p style={{ fontSize:11, color:'#f59e0b', fontWeight:700, margin:'0 0 6px' }}>👑 Kein Owner</p>
+                <button onClick={claimOwner}
+                  style={{ width:'100%', padding:'6px', borderRadius:8, border:'none', background:'rgba(245,158,11,.2)', color:'#f59e0b', fontWeight:700, fontSize:11, cursor:'pointer', fontFamily:'inherit' }}>
+                  Owner beanspruchen
+                </button>
+                {claimMsg && <p style={{ fontSize:10, color:'#f59e0b', margin:'4px 0 0' }}>{claimMsg}</p>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -306,6 +348,11 @@ export default function CommunityPage() {
 
           {/* Input */}
           <div style={{ padding:'12px 16px', borderTop:'1px solid var(--border)', background:'var(--surface)', flexShrink:0 }}>
+            {!writeAllowed && (
+              <div style={{ textAlign:'center', padding:'12px', background:'rgba(245,158,11,.08)', border:'1px solid rgba(245,158,11,.2)', borderRadius:12, marginBottom:8 }}>
+                <p style={{ fontSize:12, color:'#f59e0b', fontWeight:600, margin:0 }}>📢 Nur Owner & Admins können hier schreiben</p>
+              </div>
+            )}
             {pendingImage && (
               <div style={{ marginBottom:8, position:'relative', display:'inline-block' }}>
                 <img src={pendingImage.preview} alt="" style={{ height:80, borderRadius:10, border:'1px solid var(--border)' }}/>
@@ -317,11 +364,12 @@ export default function CommunityPage() {
               <button onClick={()=>fileRef.current?.click()} disabled={uploading} style={{ width:36, height:36, borderRadius:10, border:'1px solid var(--border)', background:'var(--modal-close)', color:'var(--text-2)', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontSize:16 }}>
                 {uploading ? '⏳' : '📎'}
               </button>
-              <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleKeyDown} rows={1}
-                placeholder={`Nachricht an #${ch?.label}… (@name zum taggen)`}
+              <textarea ref={inputRef} value={input} onChange={e=>writeAllowed&&setInput(e.target.value)} onKeyDown={handleKeyDown} rows={1}
+                disabled={!writeAllowed}
+                placeholder={writeAllowed ? `Nachricht an #${ch?.label}… (@name zum taggen)` : 'Kein Schreibrecht in diesem Channel'}
                 style={{ flex:1, padding:'9px 14px', border:'1px solid var(--border)', borderRadius:12, fontSize:14, background:'var(--input-bg)', color:'var(--text-1)', fontFamily:'inherit', resize:'none', lineHeight:1.5, maxHeight:120, overflowY:'auto' }}
                 onInput={e=>{e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'}}/>
-              <button onClick={send} disabled={sending||(!input.trim()&&!pendingImage)}
+              <button onClick={send} disabled={!writeAllowed||sending||(!input.trim()&&!pendingImage)}
                 style={{ width:36, height:36, borderRadius:10, border:'none', flexShrink:0, background:sending||(!input.trim()&&!pendingImage)?'var(--modal-close)':'#6366f1', color:sending||(!input.trim()&&!pendingImage)?'var(--text-3)':'#fff', cursor:sending||(!input.trim()&&!pendingImage)?'default':'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .15s' }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
               </button>
