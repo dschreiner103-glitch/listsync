@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import { PLATFORMS } from '@/components/Badge'
@@ -34,6 +35,12 @@ const inputStyle = {
   boxSizing: 'border-box', transition: 'border-color .15s, box-shadow .15s',
 }
 
+const PLAN_LABELS = {
+  free:     { label: 'Free',     color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
+  pro:      { label: 'Pro',      color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
+  lifetime: { label: 'Lifetime', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
+}
+
 export default function Settings() {
   const [goals, setGoals]           = useState({ day: 0, month: 0 })
   const [relistDays, setRelistDays] = useState(5)
@@ -43,6 +50,10 @@ export default function Settings() {
   const [creds, setCreds]           = useState({ apiKey: '', username: '', password: '' })
   const [toast, setToast]           = useState(null)
   const [saving, setSaving]         = useState(false)
+  const [plan, setPlan]             = useState(null)
+  const [portalLoading, setPortalLoading] = useState(false)
+
+  const router = useRouter()
 
   useEffect(() => {
     fetch('/api/settings').then(r=>r.json()).then(s=>{
@@ -55,6 +66,7 @@ export default function Settings() {
       list.forEach(p => { map[p.platform] = p })
       setPlatforms(map)
     })
+    fetch('/api/subscription').then(r=>r.json()).then(d => setPlan(d.plan || 'free')).catch(()=>setPlan('free'))
   }, [])
 
   const showToast = (msg, type = 'success') => {
@@ -73,6 +85,17 @@ export default function Settings() {
       showToast('✅ Einstellungen gespeichert!')
     } catch { showToast('Fehler beim Speichern', 'error') }
     finally { setSaving(false) }
+  }
+
+  const openPortal = async () => {
+    setPortalLoading(true)
+    try {
+      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+      else showToast(data.error || 'Fehler', 'error')
+    } catch { showToast('Verbindungsfehler', 'error') }
+    finally { setPortalLoading(false) }
   }
 
   const openModal = (id) => {
@@ -121,6 +144,48 @@ export default function Settings() {
             <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Einstellungen</h1>
             <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>App-Konfiguration und Geschäftsinfos</p>
           </div>
+
+          {/* ── Plan ── */}
+          {plan !== null && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '20px 20px 22px' }}>
+              <h2 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 16px' }}>Dein Plan</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{
+                  fontSize: 13, fontWeight: 700, padding: '5px 14px', borderRadius: 20,
+                  background: PLAN_LABELS[plan]?.bg,
+                  color: PLAN_LABELS[plan]?.color,
+                }}>
+                  {PLAN_LABELS[plan]?.label || plan}
+                </span>
+                {plan === 'free' && (
+                  <button onClick={() => router.push('/pricing')} style={{
+                    padding: '8px 18px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                    background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff',
+                    fontSize: 13, fontWeight: 700,
+                  }}>
+                    Auf Pro upgraden
+                  </button>
+                )}
+                {plan === 'pro' && (
+                  <button onClick={openPortal} disabled={portalLoading} style={{
+                    padding: '8px 18px', borderRadius: 12, border: '1px solid var(--border)',
+                    cursor: 'pointer', background: 'var(--surface)', color: 'var(--text-1)',
+                    fontSize: 13, fontWeight: 600,
+                  }}>
+                    {portalLoading ? 'Laden…' : 'Abo verwalten'}
+                  </button>
+                )}
+                {plan === 'lifetime' && (
+                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>Lifetime — kein Abo nötig</span>
+                )}
+              </div>
+              {plan === 'free' && (
+                <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '12px 0 0' }}>
+                  Free Plan: max. 5 Listings, 1 Plattform pro Crosspost.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* ── Business info ── */}
           <Section title="🏪 Geschäftsinfo">

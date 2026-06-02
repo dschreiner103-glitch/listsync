@@ -2,6 +2,7 @@ import { prisma, ensureMigrated } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getUserPlan, PLANS } from '@/lib/stripe'
 
 function parseListing(l) {
   return {
@@ -56,6 +57,15 @@ export async function POST(req) {
   await ensureMigrated()
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
+
+  const plan = await getUserPlan(session.user.id)
+  const maxListings = PLANS[plan].maxListings
+  if (maxListings !== null) {
+    const count = await prisma.listing.count({ where: { userId: Number(session.user.id) } })
+    if (count >= maxListings) {
+      return NextResponse.json({ error: `Free Plan: maximal ${maxListings} Listings. Upgrade auf Pro für unlimitierte Listings.`, upgrade: true }, { status: 403 })
+    }
+  }
 
   const data = await req.json()
   try {
