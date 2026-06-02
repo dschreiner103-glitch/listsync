@@ -1,6 +1,6 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 
@@ -75,8 +75,17 @@ function Check({ ok }) {
 
 export default function Pricing() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [loading, setLoading] = useState(null)
   const [error, setError] = useState('')
+
+  // Auto-start checkout if ?plan=pro or ?plan=lifetime is in the URL (set after login redirect)
+  useEffect(() => {
+    const plan = searchParams.get('plan')
+    if (plan === 'pro' || plan === 'lifetime') {
+      handleUpgrade(plan)
+    }
+  }, [])
 
   async function handleUpgrade(planId) {
     if (planId === 'free') return
@@ -90,7 +99,10 @@ export default function Pricing() {
       })
       const data = await res.json()
       if (!res.ok) {
-        if (res.status === 401) { router.push('/login'); return }
+        if (res.status === 401) {
+          router.push(`/login?callbackUrl=/pricing?plan=${planId}`)
+          return
+        }
         setError(data.error || 'Fehler beim Checkout')
         return
       }

@@ -529,13 +529,13 @@ export default function LandingPage() {
               label="Pro — 9,99€/Monat" price="9,99€" sub="Monatlich kündbar"
               included={['Unlimitierte Listings','Alle 3 Plattformen','Bulk Crossposten','KI-Assistent','Vollständige Analytics','Priority Support']}
               excluded={[]}
-              cta="Pro starten →" ctaStyle="primary" ctaHref="/pricing" highlight={true}/>
+              cta="Pro starten →" ctaStyle="primary" ctaHref="/pricing?plan=pro" highlight={true}/>
             {/* Lifetime */}
             <PricingCard vis={pricVis} delay={0.2} router={router}
               label="Lifetime — Einmalig" price="79€" sub="Für immer Pro — kein Abo"
               included={['Alles aus Pro','Einmalige Zahlung','Alle zukünftigen Features','Keine Abo-Gebühren']}
               excluded={[]}
-              cta="Lifetime holen →" ctaStyle="gold" ctaHref="/pricing" highlight={false}/>
+              cta="Lifetime holen →" ctaStyle="gold" ctaHref="/pricing?plan=lifetime" highlight={false}/>
           </div>
         </div>
       </section>
