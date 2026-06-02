@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { stripe } from '@/lib/stripe'
+import { getStripe } from '@/lib/stripe'
 import { prisma, ensureMigrated } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 
@@ -22,7 +22,7 @@ export async function POST() {
   }
 
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
-  const portalSession = await stripe.billingPortal.sessions.create({
+  const portalSession = await getStripe().billingPortal.sessions.create({
     customer: customerId,
     return_url: `${baseUrl}/settings`,
   })

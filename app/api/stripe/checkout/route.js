@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { stripe, PLANS } from '@/lib/stripe'
+import { getStripe, PLANS } from '@/lib/stripe'
 import { prisma, ensureMigrated } from '@/lib/prisma'
 import { NextResponse } from 'next/server'
 
@@ -25,7 +25,7 @@ export async function POST(req) {
 
   let customerId = user.stripe_customer_id
   if (!customerId) {
-    const customer = await stripe.customers.create({
+    const customer = await getStripe().customers.create({
       email: user.email,
       name: user.name || user.email,
       metadata: { userId: String(userId) },
@@ -41,7 +41,7 @@ export async function POST(req) {
   const planConfig = PLANS[plan]
   const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
 
-  const checkoutSession = await stripe.checkout.sessions.create({
+  const checkoutSession = await getStripe().checkout.sessions.create({
     customer: customerId,
     payment_method_types: ['card'],
     mode: plan === 'lifetime' ? 'payment' : 'subscription',
