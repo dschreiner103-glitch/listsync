@@ -90,10 +90,11 @@ function PricingCard({ vis, delay, router, label, price, sub, included, excluded
       boxShadow: highlight ? '0 0 60px rgba(99,102,241,.15)' : 'none',
     }}>
       {highlight && <div style={{ position:'absolute', top:-12, left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', borderRadius:99, padding:'4px 14px', fontSize:11, fontWeight:800, color:'white', whiteSpace:'nowrap' }}>BELIEBTESTE WAHL</div>}
+      {ctaStyle === 'gold' && <div style={{ position:'absolute', top:-12, left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#d97706,#f59e0b)', borderRadius:99, padding:'4px 14px', fontSize:11, fontWeight:800, color:'white', whiteSpace:'nowrap' }}>BESTES ANGEBOT</div>}
       <p style={{ fontSize:12, fontWeight:700, color:highlight?'#818cf8':'#64748b', textTransform:'uppercase', letterSpacing:'.1em', margin:'0 0 12px' }}>{label}</p>
       <div style={{ display:'flex', alignItems:'baseline', gap:6, marginBottom:4 }}>
         <p style={{ fontSize:42, fontWeight:900, color:'white', margin:0, letterSpacing:'-0.03em' }}>{price}</p>
-        {highlight && <span style={{ fontSize:14, color:'#64748b' }}>/Monat</span>}
+        {highlight && <span style={{ fontSize:14, color:'#64748b' }}>/Mo</span>}
       </div>
       <p style={{ fontSize:13, color:'#64748b', margin:'0 0 28px' }}>{sub}</p>
       <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:28 }}>
@@ -108,8 +109,8 @@ function PricingCard({ vis, delay, router, label, price, sub, included, excluded
           </div>
         ))}
       </div>
-      <button onClick={() => router.push('/register')}
-        className={ctaStyle === 'primary' ? 'btn-primary' : 'btn-ghost'}
+      <button onClick={() => router.push(ctaHref || '/register')}
+        className={ctaStyle === 'primary' ? 'btn-primary' : ctaStyle === 'gold' ? 'btn-gold' : 'btn-ghost'}
         style={{ width:'100%', textAlign:'center' }}>{cta}</button>
     </div>
   )
@@ -161,6 +162,8 @@ export default function LandingPage() {
         .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 40px rgba(99,102,241,.5) }
         .btn-ghost { background:rgba(255,255,255,.06); color:#f1f5f9; border:1px solid rgba(255,255,255,.12); padding:14px 28px; border-radius:14px; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; transition:all .2s }
         .btn-ghost:hover { background:rgba(255,255,255,.1); transform:translateY(-2px) }
+        .btn-gold { background:linear-gradient(135deg,#d97706,#f59e0b); color:white; border:none; padding:14px 28px; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; box-shadow:0 0 30px rgba(245,158,11,.3) }
+        .btn-gold:hover { transform:translateY(-2px); box-shadow:0 8px 40px rgba(245,158,11,.5) }
 
         /* ── Mobile ── */
         .nav-links-desktop { display:flex }
@@ -170,7 +173,7 @@ export default function LandingPage() {
         .mockup-sidebar { display:flex }
         .features-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)) }
         .steps-grid { display:grid; grid-template-columns:repeat(3,1fr) }
-        .pricing-grid { display:grid; grid-template-columns:1fr 1fr }
+        .pricing-grid { display:grid; grid-template-columns:1fr 1fr 1fr }
         .footer-inner { display:flex }
 
         @media (max-width: 768px) {
@@ -508,24 +511,31 @@ export default function LandingPage() {
 
       {/* ── Pricing ── */}
       <section id="pricing" ref={pricRef} style={{ padding:'100px 24px' }}>
-        <div style={{ maxWidth:800, margin:'0 auto', textAlign:'center' }}>
+        <div style={{ maxWidth:1100, margin:'0 auto', textAlign:'center' }}>
           <span style={{ fontSize:12, fontWeight:800, color:'#8b5cf6', textTransform:'uppercase', letterSpacing:'.12em' }}>Preise</span>
-          <h2 style={{ fontSize:'clamp(28px,5vw,54px)', fontWeight:900, color:'white', letterSpacing:'-0.03em', margin:'12px 0 48px' }}>
-            Starte kostenlos
+          <h2 style={{ fontSize:'clamp(28px,5vw,54px)', fontWeight:900, color:'white', letterSpacing:'-0.03em', margin:'12px 0 16px' }}>
+            Wähle deinen Plan
           </h2>
+          <p style={{ fontSize:16, color:'#64748b', margin:'0 0 48px' }}>Starte kostenlos — upgrade wenn du bereit bist.</p>
           <div className="pricing-grid" style={{ gap:20, textAlign:'left' }}>
             {/* Free */}
             <PricingCard vis={pricVis} delay={0} router={router}
               label="Free" price="0€" sub="Für immer kostenlos"
-              included={['Bis zu 20 Listings','Lager & QR-Codes','Community Zugang','Basis Dashboard']}
-              excluded={['KI-Assistent','Bulk Crossposten','Automatisierungen']}
-              cta="Kostenlos starten" ctaStyle="ghost" highlight={false}/>
+              included={['5 Listings','Lager & QR-Codes','Community Zugang','Basis Dashboard']}
+              excluded={['KI-Assistent','Bulk Crossposten','Alle 3 Plattformen']}
+              cta="Kostenlos starten" ctaStyle="ghost" ctaHref="/register" highlight={false}/>
             {/* Pro */}
-            <PricingCard vis={pricVis} delay={0.15} router={router}
-              label="Pro" price="9,99€" sub="Alles was Reseller brauchen"
-              included={['Unbegrenzte Listings','KI-Assistent','Bulk Crossposten','Automatisierungen','Erweiterte Analytics','Priority Support']}
+            <PricingCard vis={pricVis} delay={0.1} router={router}
+              label="Pro — 9,99€/Monat" price="9,99€" sub="Monatlich kündbar"
+              included={['Unlimitierte Listings','Alle 3 Plattformen','Bulk Crossposten','KI-Assistent','Vollständige Analytics','Priority Support']}
               excluded={[]}
-              cta="Pro starten →" ctaStyle="primary" highlight={true}/>
+              cta="Pro starten →" ctaStyle="primary" ctaHref="/pricing" highlight={true}/>
+            {/* Lifetime */}
+            <PricingCard vis={pricVis} delay={0.2} router={router}
+              label="Lifetime — Einmalig" price="79€" sub="Für immer Pro — kein Abo"
+              included={['Alles aus Pro','Einmalige Zahlung','Alle zukünftigen Features','Keine Abo-Gebühren']}
+              excluded={[]}
+              cta="Lifetime holen →" ctaStyle="gold" ctaHref="/pricing" highlight={false}/>
           </div>
         </div>
       </section>
