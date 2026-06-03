@@ -505,16 +505,14 @@ async function runOrdersSync(activeVintedAccount) {
     }
   })
 
-  // Benutzernamen für Profilseite holen
-  setSyncStatus('Ermittle Profilseite…')
-  const userData = await callVintedAPI('/api/v2/users/current')
-  const username = userData?.user?.login || userData?.login || userData?.current_user?.login
-  console.log('[ListSync] Username:', username)
+  // User-ID für Profilseite holen (URL: vinted.de/member/{userId})
+  setSyncStatus('Ermittle User-ID…')
+  const userId = await getCurrentUserId()
+  console.log('[ListSync] User-ID für Profil:', userId)
 
-  if (!username) {
-    setSyncStatus('⚠️ Profilseite nicht gefunden – nur Verkäufe werden importiert')
+  if (!userId) {
+    setSyncStatus('⚠️ User-ID nicht gefunden – nur Verkäufe werden importiert')
     await wait(1000)
-    // Direkt senden ohne aktive Listings
     chrome.runtime.sendMessage({
       type: 'VINTED_SYNC_DATA',
       data: { sales, purchases: [], listings: [], account: activeVintedAccount || 'Hauptaccount' }
@@ -528,14 +526,14 @@ async function runOrdersSync(activeVintedAccount) {
 
   // Verkäufe zwischenspeichern, dann zu Profil navigieren
   await chrome.storage.local.set({
-    syncSoldData:    sales,
-    syncAccount:     activeVintedAccount || 'Hauptaccount',
-    syncPhase:       'profile',
+    syncSoldData: sales,
+    syncAccount:  activeVintedAccount || 'Hauptaccount',
+    syncPhase:    'profile',
   })
 
-  setSyncStatus(`2/2 Wechsle zu Profil (${username})…`)
+  setSyncStatus(`2/2 Wechsle zu Profil (ID: ${userId})…`)
   await wait(800)
-  window.location.href = `https://www.vinted.de/member/${username}`
+  window.location.href = `https://www.vinted.de/member/${userId}`
 }
 
 // ── Phase 2: Profil → aktive Listings scrapen ─────────────────────────────────
