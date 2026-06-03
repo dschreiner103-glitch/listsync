@@ -23,6 +23,48 @@ const ICONS = {
   qr:       <Ic size={13} sw={2}><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M17 20h3M20 17v3"/></Ic>,
 }
 
+// ── Lagerplatz-Feld mit Autocomplete ─────────────────────────────────────────
+function LagerplatzInput({ value, onChange, allPlätze }) {
+  const [suggestions, setSuggestions] = useState([])
+  const [showSug, setShowSug] = useState(false)
+
+  const handleChange = (v) => {
+    onChange(v)
+    const filtered = v.length >= 1
+      ? allPlätze.filter(p => p.toLowerCase().includes(v.toLowerCase()) && p !== v)
+      : allPlätze
+    setSuggestions(filtered.slice(0, 5))
+    setShowSug(filtered.length > 0)
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Lagerplatz</label>
+      <input
+        value={value || ''}
+        onChange={e => handleChange(e.target.value)}
+        onFocus={() => { setSuggestions((value ? allPlätze.filter(p=>p.toLowerCase().includes((value||'').toLowerCase())) : allPlätze).slice(0,5)); setShowSug(allPlätze.length > 0) }}
+        onBlur={() => setTimeout(() => setShowSug(false), 150)}
+        placeholder="z.B. Box A1"
+        autoComplete="off"
+        style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
+      />
+      {showSug && suggestions.length > 0 && (
+        <div style={{ position:'absolute', top:'100%', left:0, right:0, zIndex:30, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:10, boxShadow:'0 8px 24px rgba(0,0,0,0.12)', marginTop:3, overflow:'hidden' }}>
+          {suggestions.map(s => (
+            <div key={s} onMouseDown={() => { onChange(s); setShowSug(false) }}
+              style={{ padding:'9px 12px', fontSize:13, color:'var(--text-1)', cursor:'pointer', fontWeight:600 }}
+              onMouseEnter={e => e.currentTarget.style.background='var(--row-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+              📦 {s}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Listings() {
   const router = useRouter()
   const [listings, setListings]         = useState([])
@@ -45,9 +87,15 @@ export default function Listings() {
   const [bulkSelected, setBulkSelected]   = useState(new Set()) // bulk selection
   const [bulkMode, setBulkMode]           = useState(false)
   const [bulkModal, setBulkModal]         = useState(false)
+  const [allPlätze, setAllPlätze]         = useState([])
 
   useEffect(() => {
-    fetch('/api/listings').then(r => r.json()).then(d => { setListings(Array.isArray(d) ? d : []); setLoading(false) })
+    fetch('/api/listings').then(r => r.json()).then(d => {
+      const ls = Array.isArray(d) ? d : []
+      setListings(ls)
+      setAllPlätze([...new Set(ls.map(l => l.lagerplatz).filter(Boolean))].sort())
+      setLoading(false)
+    })
     fetch('/api/settings').then(r => r.json()).then(s => { if (s.relistDays) setRelistDays(s.relistDays) })
     // Show success toast if redirected from /new
     const justCreated = sessionStorage.getItem('ls_just_created')
@@ -147,7 +195,7 @@ export default function Listings() {
   }
 
   const openEdit = (l) => {
-    setEditForm({ id: l.id, title: l.title, price: String(l.price||''), buyPrice: String(l.buyPrice||''), condition: l.condition||'', description: l.description||'', status: l.status, stil: l.stil||'', beinform: l.beinform||'', taillenumfang: l.taillenumfang||'' })
+    setEditForm({ id: l.id, title: l.title, price: String(l.price||''), buyPrice: String(l.buyPrice||''), condition: l.condition||'', description: l.description||'', status: l.status, stil: l.stil||'', beinform: l.beinform||'', taillenumfang: l.taillenumfang||'', lagerplatz: l.lagerplatz||'' })
   }
 
   const saveEdit = async () => {
@@ -905,6 +953,12 @@ export default function Listings() {
               <textarea rows={3} value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
                 style={{ width: '100%', padding: '11px 13px', border: '1px solid var(--border)', borderRadius: 11, background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 13.5, fontFamily: 'inherit', boxSizing: 'border-box', resize: 'vertical' }} />
             </div>
+            {/* Lagerplatz */}
+            <LagerplatzInput
+              value={editForm.lagerplatz || ''}
+              onChange={v => setEditForm(f => ({ ...f, lagerplatz: v }))}
+              allPlätze={allPlätze}
+            />
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 18 }}>
             <button onClick={() => {

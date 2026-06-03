@@ -97,6 +97,67 @@ function suggestKALeaf(category) {
   return CAT_TO_KA_LEAF_SUGGEST[last] || ''
 }
 
+// ── Lagerplatz-Feld mit Autocomplete aus bestehenden Plätzen ──────────────────
+function LagerplatzField({ value, onChange, inputStyle }) {
+  const [suggestions, setSuggestions] = useState([])
+  const [showSug, setShowSug] = useState(false)
+  const [allPlätze, setAllPlätze] = useState([])
+
+  useEffect(() => {
+    fetch('/api/listings').then(r => r.json()).then(ls => {
+      if (!Array.isArray(ls)) return
+      const unique = [...new Set(ls.map(l => l.lagerplatz).filter(Boolean))].sort()
+      setAllPlätze(unique)
+    }).catch(() => {})
+  }, [])
+
+  const handleChange = (v) => {
+    onChange(v)
+    if (v.length >= 1) {
+      const filtered = allPlätze.filter(p => p.toLowerCase().includes(v.toLowerCase()) && p !== v)
+      setSuggestions(filtered.slice(0, 6))
+      setShowSug(filtered.length > 0)
+    } else {
+      setShowSug(allPlätze.length > 0)
+      setSuggestions(allPlätze.slice(0, 6))
+    }
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: 'var(--text-2)', marginBottom: 6 }}>
+        📦 Lagerplatz <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(optional)</span>
+      </label>
+      <input
+        value={value}
+        onChange={e => handleChange(e.target.value)}
+        onFocus={() => { if (allPlätze.length > 0 || value.length >= 1) { setSuggestions((value ? allPlätze.filter(p=>p.toLowerCase().includes(value.toLowerCase())) : allPlätze).slice(0,6)); setShowSug(true) } }}
+        onBlur={() => setTimeout(() => setShowSug(false), 150)}
+        placeholder="z.B. Box A1, Schrank 2, Regal B"
+        style={inputStyle}
+        autoComplete="off"
+      />
+      {showSug && suggestions.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 20,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+          marginTop: 4, overflow: 'hidden',
+        }}>
+          {suggestions.map(s => (
+            <div key={s} onMouseDown={() => { onChange(s); setShowSug(false) }}
+              style={{ padding: '10px 14px', fontSize: 13.5, fontWeight: 600, color: 'var(--text-1)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--row-hover)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <span style={{ fontSize: 14 }}>📦</span> {s}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function NewListing() {
   const router  = useRouter()
   const fileRef = useRef(null)
@@ -556,11 +617,7 @@ export default function NewListing() {
                   </div>
                 </div>
 
-                <div>
-                  <label style={lbl}>📦 Lagerplatz <span style={{ fontWeight:400, color:'var(--text-3)' }}>(optional)</span></label>
-                  <input value={form.lagerplatz} onChange={e=>set('lagerplatz',e.target.value)}
-                    placeholder="z.B. Box A1, Schrank 2, Regal B" style={inp}/>
-                </div>
+                <LagerplatzField value={form.lagerplatz} onChange={v=>set('lagerplatz',v)} inputStyle={inp} />
 
                 {/* ─ eBay-Merkmale ─ */}
                 <div style={{ display:'flex', alignItems:'center', gap:10, margin:'4px 0' }}>
