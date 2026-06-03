@@ -50,11 +50,11 @@ JSON mit diesen 4 Feldern:
 {
   "title": "SEO-Titel 70-80 Zeichen, so viele Suchbegriffe wie möglich für maximale Auffindbarkeit: [Marke] [Artikelname] [Farbe] [Größe] [Material] [Stil/Zustand]. Nutze die 80 Zeichen möglichst aus, aber NIEMALS über 80 Zeichen und kein Wort abschneiden.",
   "intro": "2-3 konkrete ehrliche Sätze über diesen spezifischen Artikel: Zustand, Besonderheiten, Tragezustand. Kein Marketing-Blabla.",
-  "hashtags": ["mindestens100", "eintraege", "nurDasWort", "ohne#"],
+  "hashtags": ["mindestens45", "artikelspezifische", "eintraege", "nurDasWort", "ohne#"],
   "keywords": ["15", "suchbegriffe", "ohne#"]
 }
 
-FÜR hashtags-Array — PFLICHT: mindestens 100 Einträge, nur das Wort ohne #:
+FÜR hashtags-Array — PFLICHT: mindestens 45 ARTIKELSPEZIFISCHE Einträge, nur das Wort ohne #:
 Artikel-spezifisch (min. 6): Marke, Typ, Farbe, Größe, Material
 Brand-Variationen (min. 5): z.B. NikeHoodie NikeStyle NikeVintage NikeFleece NikeOutfit
 Stil & Ära (alle verwenden): vintage vintagestyle y2k y2kvintage y2kfashion 90s 90svintage 90sstyle 2000s 00s retro archive pashastyle oldmoney preppy streetwear streetstyle urbanstyle hiphop
@@ -106,29 +106,24 @@ ${contextTags ? `Kontext (ALLE verwenden): ${contextTags}` : ''}`
     const intro    = (parsed.intro    || '').trim()
     const itemName = [brand, parsed.title?.split(' ').slice(1, 3).join(' ')].filter(Boolean).join(' ') || 'Artikel'
 
-    // ── Hashtags: AI-Tags + breiter Reichweiten-Pool, dedupliziert ──
-    const GENERIC_TAGS = [
-      'fashion','mode','outfit','ootd','style','styleinspo','outfitinspo','trend','trending','viral',
-      'fyp','foryou','foryoupage','explore','musthave','sale','deal','schnäppchen','günstig','angebot',
-      'secondhand','vintage','thrift','thrifted','thrifting','preloved','preowned','nachhaltig','slowfashion','sustainable',
-      'kleiderschrank','ausmisten','closetclearout','neu','top','original','rare','limited','exclusive','unique',
-      'cool','clean','cleanfit','aesthetic','vibes','look','lookbook','dripcheck','drip','fresh',
-      'streetwear','streetstyle','casual','classy','elegant','basic','oversized','y2k','90s','2000s',
-      'retro','urban','boho','minimalist','designer','brand','luxus','premium','qualität','geschenk',
-      'geschenkidee','gift','summer','winter','herbst','frühling','sommeroutfit','winteroutfit','layering','everyday',
-      'herren','damen','unisex','kids','shopping','onlineshopping','vintedfinds','vintedde','vinted','kleinanzeigen',
-      'ebay','ebayfinds','follow','followme','like','share','must','newin','dailylook','fashionista',
+    // ── Hashtags: erst artikelspezifische (KI), dann meistgesuchte SEO-Tags,
+    //    dedupliziert und auf insgesamt 70 begrenzt ──
+    const TOP_SEO_TAGS = [   // nach Such-Reichweite sortiert (meistgesucht zuerst)
+      'fashion','mode','outfit','ootd','style','vintage','secondhand','sale','trend','fyp',
+      'viral','foryou','musthave','streetwear','y2k','thrift','preloved','nachhaltig','deal','schnäppchen',
+      'günstig','aesthetic','vinted','vintedde','ebay','kleinanzeigen','outfitinspo','styleinspo','trending','newin',
+      'designer','brand','retro','oversized','casual','look','lookbook','shopping','dailylook','fashionista',
     ]
-    const rawTags = [
-      ...(Array.isArray(parsed.hashtags) ? parsed.hashtags : []),
-      ...GENERIC_TAGS,
-    ].map(h => String(h).replace(/^#/, '').replace(/\s+/g, '').trim()).filter(Boolean)
+    const articleTags = Array.isArray(parsed.hashtags) ? parsed.hashtags : []
+    const rawTags = [...articleTags, ...TOP_SEO_TAGS]
+      .map(h => String(h).replace(/^#/, '').replace(/\s+/g, '').trim()).filter(Boolean)
 
     const seen = new Set()
     const tags = []
     for (const t of rawTags) {
       const key = t.toLowerCase()
       if (!seen.has(key)) { seen.add(key); tags.push(t) }
+      if (tags.length >= 70) break   // max. 70 Hashtags
     }
     const hashStr = tags.map(t => `#${t}`).join(' ')
 
