@@ -152,7 +152,7 @@ async function fetchAllPurchases(userId) {
   return []
 }
 
-// Versucht Bestelldaten mit Datum über die Vinted-API zu holen
+// Holt ALLE Bestelldaten mit Datum (alle Seiten) und baut eine Map daraus
 async function fetchOrderDates() {
   const endpoints = [
     '/api/v2/my_orders?order_type=sold&per_page=100',
@@ -160,27 +160,46 @@ async function fetchOrderDates() {
     '/api/v2/transactions?as=seller&per_page=100',
     '/api/v2/transactions?type=sell&per_page=100',
   ]
-  for (const ep of endpoints) {
-    const data = await callVintedAPI(ep)
-    const orders = data?.orders || data?.transactions || data?.my_orders || []
-    if (orders.length > 0) {
-      console.log('[ListSync] Order-Datum-Endpunkt:', ep, 'Ergebnis:', orders[0])
-      // Baue Map: vintedId/title → Datum
-      const map = {}
-      for (const o of orders) {
-        const item = o.item || o
-        const orderId  = String(o.id || '')
-        const itemId   = String(item.id || o.item_id || '')
-        const title    = (item.title || o.item_title || '').toLowerCase().trim()
-        const date = parseDate(o, SALE_DATE_FIELDS) || parseDate(item, SALE_DATE_FIELDS)
-        // Beides als Key speichern: Order-ID und Item-ID können verschieden sein
-        if (orderId) map[orderId] = date
-        if (itemId && itemId !== orderId) map[itemId] = date
-        if (title) map[title] = date
-        console.log('[ListSync DATE]', { orderId, itemId, title: title.slice(0,30), date })
-      }
-      return map
+
+  for (const baseEp of endpoints) {
+    // Teste Endpunkt mit Seite 1
+    const first = await callVintedAPI(`${baseEp}&page=1`)
+    const firstOrders = first?.orders || first?.transactions || first?.my_orders || []
+    if (firstOrders.length === 0) continue
+
+    console.log('[ListSync] Order-Datum-Endpunkt:', baseEp, '– erste Seite:', firstOrders.length)
+
+    // Alle Seiten laden
+    const allOrders = [...firstOrders]
+    let page = 2
+    while (firstOrders.length >= 100) {
+      setSyncStatus(`Lade Verkaufsdaten… Seite ${page}`)
+      const next = await callVintedAPI(`${baseEp}&page=${page}`)
+      const batch = next?.orders || next?.transactions || next?.my_orders || []
+      if (!batch.length) break
+      allOrders.push(...batch)
+      if (batch.length < 100) break
+      page++
+      await wait(400)
     }
+
+    console.log('[ListSync] Gesamt Order-Daten:', allOrders.length)
+
+    // Map aufbauen: alle möglichen Keys → Datum
+    const map = {}
+    for (const o of allOrders) {
+      const item    = o.item || o
+      const orderId = String(o.id || '')
+      const itemId  = String(item.id || o.item_id || '')
+      const title   = (item.title || o.item_title || '').toLowerCase().trim()
+      const date    = parseDate(o, SALE_DATE_FIELDS) || parseDate(item, SALE_DATE_FIELDS)
+      if (orderId) map[orderId] = date
+      if (itemId && itemId !== orderId) map[itemId] = date
+      if (title) map[title] = date
+    }
+
+    console.log('[ListSync] Datums-Map:', Object.keys(map).length, 'Einträge')
+    return map
   }
   return {}
 }
