@@ -70,6 +70,34 @@ function PricingContent() {
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(null)
   const [error, setError] = useState('')
+  const [code, setCode] = useState('')
+  const [codeMsg, setCodeMsg] = useState(null)   // { ok:bool, text:string }
+  const [redeeming, setRedeeming] = useState(false)
+
+  async function handleRedeem() {
+    if (!code.trim()) return
+    setRedeeming(true)
+    setCodeMsg(null)
+    try {
+      const res = await fetch('/api/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (res.status === 401) { router.push('/register'); return }
+        setCodeMsg({ ok: false, text: data.error || 'Code ungültig.' })
+        return
+      }
+      setCodeMsg({ ok: true, text: '✓ Code eingelöst! Du wirst weitergeleitet…' })
+      setTimeout(() => router.push('/dashboard'), 900)
+    } catch {
+      setCodeMsg({ ok: false, text: 'Verbindungsfehler. Bitte erneut versuchen.' })
+    } finally {
+      setRedeeming(false)
+    }
+  }
 
   async function handleSelect(planId) {
     setError('')
@@ -138,7 +166,7 @@ function PricingContent() {
             <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
           </svg>
           <p style={{ margin: 0, fontSize: 14.5, color: '#fbbf24', fontWeight: 500, textAlign: 'center' }}>
-            Bitte wähle einen Plan um auf dein Dashboard zuzugreifen.
+            Bitte wähle einen Plan oder löse einen Code ein, um auf dein Dashboard zuzugreifen.
           </p>
         </div>
 
@@ -216,6 +244,49 @@ function PricingContent() {
               </button>
             </div>
           ))}
+        </div>
+
+        {/* Aktivierungscode */}
+        <div style={{
+          maxWidth: 520, margin: '48px auto 0',
+          border: '1.5px dashed rgba(255,255,255,0.14)', borderRadius: 20,
+          padding: '30px 28px', textAlign: 'center',
+        }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ margin: '0 auto 12px', display: 'block' }}>
+            <path d="M3 9a2 2 0 012-2h14a2 2 0 012 2v1a2 2 0 000 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1a2 2 0 000-4V9z" /><path d="M13 5v2M13 17v2M13 11v2" />
+          </svg>
+          <p style={{ fontSize: 17, fontWeight: 800, color: '#fff', margin: '0 0 6px' }}>Hast du einen Aktivierungscode?</p>
+          <p style={{ fontSize: 13.5, color: '#94a3b8', margin: '0 0 20px' }}>Beta-User und Community-Mitglieder können hier ihren Code einlösen</p>
+
+          <div style={{ display: 'flex', gap: 10, maxWidth: 400, margin: '0 auto', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <input
+              value={code}
+              onChange={e => { setCode(e.target.value); setCodeMsg(null) }}
+              onKeyDown={e => { if (e.key === 'Enter') handleRedeem() }}
+              placeholder="LISTSYNC-XXXX-XXXX"
+              style={{
+                flex: 1, minWidth: 180, padding: '12px 16px', borderRadius: 11,
+                background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.14)',
+                color: '#fff', fontSize: 14.5, fontFamily: 'inherit', textAlign: 'center',
+                letterSpacing: '0.05em', textTransform: 'uppercase',
+              }}
+            />
+            <button onClick={handleRedeem} disabled={redeeming || !code.trim()}
+              style={{
+                padding: '12px 24px', borderRadius: 11, border: 'none',
+                background: '#fff', color: '#07070f', fontSize: 14.5, fontWeight: 700,
+                cursor: redeeming || !code.trim() ? 'default' : 'pointer', fontFamily: 'inherit',
+                opacity: redeeming || !code.trim() ? 0.5 : 1,
+              }}>
+              {redeeming ? '…' : 'Einlösen'}
+            </button>
+          </div>
+
+          {codeMsg && (
+            <p style={{ margin: '14px 0 0', fontSize: 13.5, fontWeight: 600, color: codeMsg.ok ? '#22c55e' : '#f87171' }}>
+              {codeMsg.text}
+            </p>
+          )}
         </div>
 
         {/* Footer note */}
