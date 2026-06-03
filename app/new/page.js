@@ -747,7 +747,7 @@ export default function NewListing() {
                         style={{ padding:'13px', borderRadius:13, border:'none', cursor:(tryon.loading||!tryon.piece||!tryon.model)?'default':'pointer',
                           background:(tryon.loading||!tryon.piece||!tryon.model)?'var(--border)':'linear-gradient(135deg,#6366f1,#8b5cf6)',
                           color:(tryon.loading||!tryon.piece||!tryon.model)?'var(--text-3)':'#fff', fontSize:14.5, fontWeight:700, fontFamily:'inherit' }}>
-                        {tryon.loading ? '🪄 Generiere… (kann ~20s dauern)' : '🪄 Anprobe generieren'}
+                        {tryon.loading ? '🪄 Generiere… (gratis, kann 30–60s + Warteschlange dauern)' : '🪄 Anprobe generieren'}
                       </button>
                     )}
 
