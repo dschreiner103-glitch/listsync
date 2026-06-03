@@ -79,7 +79,7 @@ export async function POST(req) {
       garmentBlob,
       desc || 'a clothing item',
       true,   // Auto-Maskierung
-      false,  // Auto-Crop
+      true,   // Auto-Crop & Resize (robuster bei beliebigem Seitenverhältnis)
       30,     // Denoise-Steps
       42,     // Seed
     ])

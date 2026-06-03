@@ -253,7 +253,7 @@ export default function NewListing() {
     try {
       const res = await fetch('/api/ai/tryon', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ piece: tryon.piece, model: tryon.model }),
+        body: JSON.stringify({ piece: tryon.piece, model: tryon.model, desc: form.title || form.category || 'a clothing item' }),
       })
       const data = await res.json()
       if (!res.ok) { setT({ error: data.error || 'Generierung fehlgeschlagen', loading:false }); return }
