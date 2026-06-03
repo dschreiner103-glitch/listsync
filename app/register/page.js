@@ -33,7 +33,7 @@ export default function RegisterPage() {
     const login = await signIn('credentials', { redirect: false, email, password })
     setLoading(false)
     if (login?.error) router.push('/login')
-    else router.push('/dashboard')
+    else router.push('/pricing')   // Nach Registrierung → Preis-Seite zum Plan wählen
   }
 
   const inputStyle = {
