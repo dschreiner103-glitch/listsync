@@ -78,7 +78,7 @@ function Orb({ size, x, y, color, dur }) {
 }
 
 // ── Pricing Card ─────────────────────────────────────────────────────
-function PricingCard({ vis, delay, router, label, price, sub, included, excluded, cta, ctaStyle, highlight }) {
+function PricingCard({ vis, delay, router, label, price, sub, included, excluded, cta, ctaStyle, ctaHref, highlight }) {
   const tilt = useTilt(6)
   return (
     <div ref={tilt} style={{
