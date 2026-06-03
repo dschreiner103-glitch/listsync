@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
-import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, fmt } from '@/components/Badge'
+import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, seoTitle, fmt } from '@/components/Badge'
 import CategoryPicker from '@/components/CategoryPicker'
 
 // eBay-Unterkategorie-Optionen je Hauptkategorie
@@ -338,12 +338,26 @@ export default function NewListing() {
               {/* ─ Essential ─ */}
               <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
                 <div>
-                  <label style={lbl}>Titel *</label>
+                  <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:0 }}>
+                    <label style={lbl}>Titel *</label>
+                    <button type="button"
+                      onClick={() => set('title', seoTitle({ title: form.title, brand: form.brand, color: form.color, size: form.size, material: form.material, condition: form.condition, category: form.category }))}
+                      disabled={!form.title.trim()}
+                      title="Titel mit Suchbegriffen anreichern (max. 80 Zeichen)"
+                      style={{
+                        display:'flex', alignItems:'center', gap:5, padding:'5px 11px', borderRadius:9,
+                        border:'1px solid rgba(99,102,241,0.3)', background:'rgba(99,102,241,0.08)',
+                        color:'#6366f1', fontSize:12, fontWeight:700, cursor: form.title.trim()?'pointer':'not-allowed',
+                        opacity: form.title.trim()?1:0.5, fontFamily:'inherit',
+                      }}>
+                      ✨ SEO-optimieren
+                    </button>
+                  </div>
                   <input value={form.title} onChange={e=>set('title',e.target.value)}
                     placeholder="z.B. Nike Air Force 1 Weiß Gr. 43" style={errors.title?inpErr:inp} maxLength={80}/>
                   {errors.title
                     ? <p style={{ color:'#ef4444', fontSize:12, margin:'4px 0 0' }}>{errors.title}</p>
-                    : <p style={{ fontSize:12, color: form.title.length>65?'#f59e0b':'var(--text-3)', margin:'4px 0 0', fontWeight: form.title.length>65?700:400 }}>{form.title.length}/80 Zeichen</p>
+                    : <p style={{ fontSize:12, color: form.title.length>65?'#f59e0b':'var(--text-3)', margin:'4px 0 0', fontWeight: form.title.length>65?700:400 }}>{form.title.length}/80 Zeichen — Marke, Farbe, Größe & Keywords = bessere Auffindbarkeit</p>
                   }
                 </div>
 

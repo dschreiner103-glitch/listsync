@@ -177,11 +177,86 @@ export const SHIP_SIZES = [
 
 export const CARD_COLORS = ['#e0e7ff','#fef3c7','#d1fae5','#fce7f3','#f0fdf4']
 
+// Schneidet auf max Zeichen — aber an Wortgrenze, ohne Wörter zu zerhacken.
+export function clampWords(s, max = 80) {
+  s = (s || '').trim()
+  if (s.length <= max) return s
+  let cut = s.slice(0, max)
+  if (s[max] !== ' ') {
+    const i = cut.lastIndexOf(' ')
+    if (i > max * 0.5) cut = cut.slice(0, i)
+  }
+  return cut.trim()
+}
+
+// Kurzform des Zustands als Such-Keyword
+function conditionKeyword(c = '') {
+  const x = c.toLowerCase()
+  if (x.includes('neu mit etikett')) return 'Neu mit Etikett'
+  if (x.includes('neu'))             return 'Neu'
+  if (x.includes('sehr gut'))        return 'Top Zustand'
+  if (x.includes('gut'))             return 'guter Zustand'
+  return ''
+}
+
+// Kategorie → ein paar relevante Such-Keywords
+function categoryKeywords(cat = '') {
+  const x = cat.toLowerCase()
+  const out = []
+  if (x.includes('herren')) out.push('Herren')
+  if (x.includes('damen'))  out.push('Damen')
+  if (x.includes('kinder')) out.push('Kinder')
+  if (x.includes('schuh') || x.includes('sneaker')) out.push('Sneaker', 'Schuhe')
+  if (x.includes('jacke') || x.includes('mantel'))  out.push('Jacke')
+  if (x.includes('hose') || x.includes('jeans'))    out.push('Hose')
+  if (x.includes('pullover') || x.includes('strick')) out.push('Pullover')
+  if (x.includes('hoodie') || x.includes('sweat'))  out.push('Hoodie')
+  if (x.includes('shirt'))  out.push('Shirt')
+  if (x.includes('kleid'))  out.push('Kleid')
+  if (x.includes('tasche') || x.includes('bag'))    out.push('Tasche')
+  return out
+}
+
+// ── SEO-Titel ─────────────────────────────────────────────────────────────────
+// Reichert einen Titel mit Suchbegriffen an (Marke, Farbe, Größe, Material,
+// Zustand, Kategorie + Vintage/Original). Max 80 Zeichen, ohne Wörter zu zerhacken,
+// ohne Dopplungen. `f` = { title, brand, color, size, material, condition, category }
+export function seoTitle(f = {}, max = 80) {
+  const base = (f.title || '').trim()
+
+  // Marke nach vorne, falls noch nicht enthalten
+  let acc = base
+  if (f.brand && !base.toLowerCase().includes(f.brand.toLowerCase())) {
+    acc = (f.brand + ' ' + base).trim()
+  }
+
+  const has = w => acc.toLowerCase().includes(String(w).toLowerCase())
+
+  const candidates = [
+    f.color,
+    f.size ? `Gr. ${f.size}` : '',
+    f.material,
+    ...categoryKeywords(f.category),
+    conditionKeyword(f.condition),
+    'Vintage',
+    'Original',
+  ]
+
+  for (const c of candidates) {
+    if (!c) continue
+    if (has(c)) continue
+    const next = (acc ? acc + ' ' + c : c).trim()
+    if (next.length <= max) acc = next
+  }
+
+  return clampWords(acc, max)
+}
+
 export function optimizeTitle(t, id) {
   if (!t) return ''
-  if (id === 'ebay')          return (t + ' | Top Zustand ✅').substring(0, 80)
-  if (id === 'vinted')        return t.length > 60 ? t.substring(0,57)+'…' : t
-  if (id === 'kleinanzeigen') return t + ' (VHB)'
+  if (id === 'ebay')          return clampWords(t + ' | Top Zustand ✅', 80)
+  if (id === 'vinted')        return t.length > 60 ? clampWords(t, 59) + '…' : t
+  if (id === 'kleinanzeigen') return clampWords(t + ' (VHB)', 80)
   return t
 }
 

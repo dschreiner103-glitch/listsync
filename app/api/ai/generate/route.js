@@ -6,7 +6,7 @@ export async function POST(req) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { bulletPoints, category, brand, condition, price, size, color } = await req.json()
+  const { bulletPoints, category, brand, condition, price, size, color, material } = await req.json()
 
   if (!bulletPoints?.trim()) {
     return NextResponse.json({ error: 'Stichpunkte fehlen' }, { status: 400 })
@@ -16,75 +16,55 @@ export async function POST(req) {
   if (!apiKey) return NextResponse.json({ error: 'GROQ_API_KEY nicht konfiguriert' }, { status: 500 })
 
   const context = [
-    category && `Kategorie: ${category}`,
-    brand && `Marke: ${brand}`,
+    category  && `Kategorie: ${category}`,
+    brand     && `Marke: ${brand}`,
     condition && `Zustand: ${condition}`,
-    size && `Größe: ${size}`,
-    color && `Farbe: ${color}`,
-    price && `Preis: ${price}€`,
+    size      && `Größe: ${size}`,
+    color     && `Farbe: ${color}`,
+    material  && `Material: ${material}`,
+    price     && `Preis: ${price}€`,
   ].filter(Boolean).join('\n')
 
-  const prompt = `Du bist ein Experte für Reselling auf deutschen Plattformen (Vinted, Kleinanzeigen, eBay).
+  const cat = (category || '').toLowerCase()
+  const br  = (brand || '').toLowerCase()
+  const isHerren = cat.includes('herren')
+  const isDamen  = cat.includes('damen')
+  const isSchuhe = cat.includes('schuh') || cat.includes('sneaker')
+  const isJacke  = cat.includes('jacke') || cat.includes('mantel')
 
-Erstelle auf Basis der folgenden Stichpunkte einen SEO-optimierten Titel, eine Beschreibung im exakten Stil des Verkäufers und passende Keywords.
+  // Kontext-Hashtags ohne #-Zeichen (werden als Array übergeben)
+  const contextTags = [
+    isHerren ? 'herrenmode herrenstyle menswear mensfashion männermode herren herrenvintage' : '',
+    isDamen  ? 'damenmode damenstyle womenswear womenstyle girloutfit damen damenvintage' : '',
+    isSchuhe ? 'sneakerhead sneakers kicks trainers schuhe sneakerstyle footwear' : '',
+    isJacke  ? 'jacket outerwear coat winterjacke jacke jackenoutfit' : '',
+    br       ? `${br} ${br}style ${br}vintage ${br}outfit ${br}fashion ${br}secondhand ${br}brand` : '',
+  ].filter(Boolean).join(' ')
 
-${context ? `Artikel-Details:\n${context}\n` : ''}
-Stichpunkte des Verkäufers:
-${bulletPoints}
+  const prompt = `Du bist Reselling-Experte. Antworte NUR als valides JSON ohne Markdown.
 
-TITEL-REGELN:
-- Maximal 70 Zeichen
-- Format: [Marke] [Artikelname] [Farbe/Stil] [Größe] — wichtigste Keywords vorne
-- Klar, konkret, keine Füllwörter
+${context ? `Artikel:\n${context}\n` : ''}Stichpunkte: ${bulletPoints}
 
-BESCHREIBUNGS-REGELN:
-Schreibe die Beschreibung exakt in diesem Format und Stil:
+JSON mit diesen 4 Feldern:
 
-Zum Artikel :
-
-Size : [Größe falls bekannt, sonst leer lassen]
-Maße: [Breit] cm Breit [Lang] cm Lang
-Zustand: [Zustand]
-
-🍍Verfügbar
-
-Versende Innerhalb 24h📦
-❕Am Liebsten Hermes ❕
-Jedoch Sind Alle Versandoptionen Offen
-
-Ich nehme alle gängigen Zahlungsarten an ✅
-
-
-Per Fragen Gerne Melden🙋🏽
-
-
-[20-35 passende Hashtags basierend auf dem Artikel — mix aus spezifischen (Marke, Stil, Artikel) und allgemeinen (vintage, streetwear, y2k etc.) Tags, auf Deutsch und Englisch, mit # davor, durch Leerzeichen getrennt]
-
-Hiermit würde ich dir gerne folgenden Artikel vorstellen:
-
-Ein hochwertiges Piece in [Zustand]. [1-2 Sätze über den Artikel: Material, Besonderheiten, Tragezustand — konkret und ehrlich, keine leeren Floskeln].
-
-Name: [Artikelname]
-Größe: [Größe]
-Versand: Innerhalb 24h
-
-Bei Fragen gerne schreiben
-
-Schneller Versand & faire Preise | Bei ernsthaftem Interesse gerne anschreiben
-
-[weitere 15-25 spezifische Hashtags zum Artikel]
-
-KEYWORD-REGELN:
-- 10-15 kurze deutsche und englische Suchbegriffe die Käufer auf Vinted/eBay/Kleinanzeigen wirklich eintippen
-- Mix aus Marke, Artikeltyp, Stil, Größe
-- Keine #-Zeichen bei den Keywords
-
-Antworte NUR als valides JSON in exakt diesem Format (kein Markdown, keine Erklärung):
 {
-  "title": "...",
-  "description": "...",
-  "keywords": ["...", "..."]
-}`
+  "title": "SEO-Titel 70-80 Zeichen, so viele Suchbegriffe wie möglich für maximale Auffindbarkeit: [Marke] [Artikelname] [Farbe] [Größe] [Material] [Stil/Zustand]. Nutze die 80 Zeichen möglichst aus, aber NIEMALS über 80 Zeichen und kein Wort abschneiden.",
+  "intro": "2-3 konkrete ehrliche Sätze über diesen spezifischen Artikel: Zustand, Besonderheiten, Tragezustand. Kein Marketing-Blabla.",
+  "hashtags": ["mindestens70", "eintraege", "nurDasWort", "ohne#"],
+  "keywords": ["15", "suchbegriffe", "ohne#"]
+}
+
+FÜR hashtags-Array — PFLICHT: mindestens 70 Einträge, nur das Wort ohne #:
+Artikel-spezifisch (min. 6): Marke, Typ, Farbe, Größe, Material
+Brand-Variationen (min. 5): z.B. NikeHoodie NikeStyle NikeVintage NikeFleece NikeOutfit
+Stil & Ära (alle verwenden): vintage vintagestyle y2k y2kvintage y2kfashion 90s 90svintage 90sstyle 2000s 00s retro archive pashastyle oldmoney preppy streetwear streetstyle urbanstyle hiphop
+Fit & Schnitt: oversized regularfit baggy relaxedfit casualchic casual basicstyle minimal cleanstyle zeitlos klassisch modern
+Material & Qualität: premium highquality luxus luxuryvibes cozy soft baumwolle cotton fleece wool warm
+Saison: winterstyle herbstoutfit winteroutfit frühlingsstyle layering kuscheligwarm coldweatherfit
+Plattform & Nachhaltigkeit: secondhand thrifted thrifting vintedde nachhaltig slowfashion upcycling preowned reselling
+Fashion allgemein: fashion outfit ootd style musthave rare trend aesthetic inspo look wiwt fashionstyle
+Community: findoftheday bestdeal günstig topzustand angebot
+${contextTags ? `Kontext (ALLE verwenden): ${contextTags}` : ''}`
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -96,23 +76,20 @@ Antworte NUR als valides JSON in exakt diesem Format (kein Markdown, keine Erkl�
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 1500,
+        temperature: 0.75,
+        max_tokens: 2500,
         response_format: { type: 'json_object' },
       }),
     })
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      console.error('Groq error:', err)
       return NextResponse.json({ error: 'KI-Fehler: ' + (err?.error?.message || res.status) }, { status: 500 })
     }
 
     const data = await res.json()
     const text = data?.choices?.[0]?.message?.content || ''
-    console.log('GROQ RAW:', text)
 
-    // Extract JSON from response — strip markdown fences or surrounding text
     let cleaned = text.trim()
     const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/)
     if (fenceMatch) cleaned = fenceMatch[1].trim()
@@ -123,17 +100,68 @@ Antworte NUR als valides JSON in exakt diesem Format (kein Markdown, keine Erkl�
     try {
       parsed = JSON.parse(cleaned)
     } catch {
-      console.error('JSON parse failed, raw text:', text)
       return NextResponse.json({ error: 'KI hat ungültiges Format zurückgegeben' }, { status: 500 })
     }
 
+    const intro    = (parsed.intro    || '').trim()
+    const hashArr  = Array.isArray(parsed.hashtags) ? parsed.hashtags : []
+    const hashStr  = hashArr.map(h => `#${h.replace(/^#/, '')}`).join(' ')
+    const itemName = [brand, parsed.title?.split(' ').slice(1, 3).join(' ')].filter(Boolean).join(' ') || 'Artikel'
+
+    // Beschreibung server-seitig aus festem Template + AI-Intro + AI-Hashtags zusammenbauen
+    const description = [
+      '✨ Hiermit würde ich dir gerne folgenden Artikel vorstellen: ✨',
+      '',
+      intro,
+      '',
+      `📌 Name: ${itemName}`,
+      `✏️ Größe: ${size || '–'}`,
+      '📦 Versand: Innerhalb 24h',
+      '💬 Bei Fragen gerne schreiben',
+      '🔄 Schneller Versand & faire Preise',
+      '',
+      'Zum Artikel :',
+      '',
+      `Size : ${size || '–'}`,
+      `Maße: – cm Breit – cm Lang`,
+      `Zustand: ${condition || '–'}`,
+      '',
+      '🍍Verfügbar',
+      '',
+      'Versende Innerhalb 24h📦',
+      '❕Am Liebsten Hermes ❕',
+      'Jedoch Sind Alle Versandoptionen Offen',
+      '',
+      'Ich nehme alle gängigen Zahlungsarten an ✅',
+      '',
+      '',
+      'Per Fragen Gerne Melden🙋🏽',
+      '',
+      '',
+      'Bei Fragen oder ernsthaftem Interesse gerne anschreiben 🤙',
+      '',
+      hashStr,
+    ].join('\n')
+
+    // Wortsicher auf 80 Zeichen kürzen (kein abgehacktes Wort)
+    const clamp80 = (s) => {
+      s = (s || '').trim()
+      if (s.length <= 80) return s
+      let cut = s.slice(0, 80)
+      if (s[80] !== ' ') {
+        const i = cut.lastIndexOf(' ')
+        if (i > 40) cut = cut.slice(0, i)
+      }
+      return cut.trim()
+    }
+
     return NextResponse.json({
-      title: parsed.title || '',
-      description: parsed.description || '',
-      keywords: Array.isArray(parsed.keywords) ? parsed.keywords : [],
+      title:        clamp80(parsed.title || ''),
+      description,
+      keywords:     Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 15) : [],
+      hashtagCount: hashArr.length,
     })
   } catch (e) {
-    console.error('AI generate error:', e)
     return NextResponse.json({ error: 'Netzwerkfehler zur KI' }, { status: 500 })
   }
 }
