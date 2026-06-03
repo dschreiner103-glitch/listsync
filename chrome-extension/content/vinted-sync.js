@@ -344,7 +344,7 @@ function normalizeActive(item) {
     buyPrice:    0,
     status:      'aktiv',
     platforms:   ['vinted'],
-    images:      item.photos?.map(p => p.url || p.full_size_url || p.src || p.full_size) || [],
+    images:      item.photos?.map(p => p.full_size_url || p.url || p.full_size || p.src || p.thumbnail || '').filter(Boolean) || [],
     brand:       item.brand?.title || item.brand_title || '',
     size:        item.size?.title  || item.size_title  || '',
     color:       item.color?.title || item.color_title || '',
@@ -362,6 +362,19 @@ async function clickAbgeschlossen() {
   const btn = allBtns.find(el => el.textContent.trim() === 'Abgeschlossen')
   if (btn) { btn.click(); await wait(2000); return true }
   return false
+}
+
+// Versucht Thumbnail-URL auf volle Auflösung hochzuskalieren
+function upscaleVintedImg(url) {
+  if (!url || url.startsWith('data:')) return url
+  // Vinted: .../thumbs/... oder size params ersetzen
+  return url
+    .replace(/\/thumbs\//, '/full/')
+    .replace(/\/(thumb|small|tiny)\//, '/full/')
+    .replace(/[?&](w|width)=\d+/g, '')
+    .replace(/[?&](h|height)=\d+/g, '')
+    .replace(/[?&]size=\d+/g, '')
+    .replace(/\?$/, '')
 }
 
 function scrapeOrderCards() {
@@ -388,7 +401,13 @@ function scrapeOrderCards() {
     if (!card || seen.has(card)) continue
     seen.add(card)
 
-    const img = card.querySelector('img')?.src || ''
+    // Bild: versuche srcset für höhere Auflösung, dann src
+    const imgEl = card.querySelector('img')
+    const srcset = imgEl?.srcset || imgEl?.getAttribute('srcset') || ''
+    const bestSrc = srcset
+      ? srcset.split(',').map(s => s.trim().split(' ')).sort((a,b) => parseFloat(b[1]||0) - parseFloat(a[1]||0))[0]?.[0]
+      : null
+    const img = upscaleVintedImg(bestSrc || imgEl?.src || '')
     const priceMatch = card.textContent.match(/(\d+[,.]\d+)\s*€/)
     const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0
 

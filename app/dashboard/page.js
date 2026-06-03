@@ -660,6 +660,53 @@ export default function Dashboard() {
             )
           })()}
 
+          {/* ── Einkaufsempfehlung (Wann wieder kaufen?) ── */}
+          {!loading && sold.length >= 3 && (() => {
+            const catData = {}
+            sold.forEach(l => {
+              const cat = (l.category || 'Sonstiges').split(' – ')[0]
+              if (!catData[cat]) catData[cat] = { sold: 0, active: 0, avgPrice: 0, prices: [] }
+              catData[cat].sold++
+              catData[cat].prices.push(l.price || 0)
+            })
+            active.forEach(l => {
+              const cat = (l.category || 'Sonstiges').split(' – ')[0]
+              if (catData[cat]) catData[cat].active++
+            })
+            Object.values(catData).forEach(d => {
+              d.avgPrice = d.prices.length > 0 ? Math.round(d.prices.reduce((a,b)=>a+b,0)/d.prices.length) : 0
+            })
+            const recs = Object.entries(catData)
+              .filter(([,d]) => d.sold >= 2 && d.active <= 1)
+              .sort((a,b) => b[1].sold - a[1].sold)
+              .slice(0, 4)
+
+            if (recs.length === 0) return null
+            return (
+              <Card>
+                <STitle>🛒 Einkaufsempfehlung</STitle>
+                <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '-10px 0 14px', lineHeight: 1.5 }}>
+                  Diese Kategorien verkaufen sich gut — der Lagerbestand ist niedrig.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {recs.map(([cat, d]) => (
+                    <div key={cat} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 12, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                      <div>
+                        <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', margin: '0 0 2px' }}>{cat}</p>
+                        <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
+                          {d.sold}× verkauft · Ø {fmt(d.avgPrice)} · noch {d.active} aktiv
+                        </p>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)', whiteSpace: 'nowrap' }}>
+                        Nachkaufen
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )
+          })()}
+
           {/* ── CTA row ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <button onClick={() => router.push('/new')}
