@@ -152,6 +152,28 @@ async function fetchAllPurchases(userId) {
   return []
 }
 
+async function fetchAllActive(userId) {
+  const endpoints = userId ? [
+    `/api/v2/users/${userId}/items?item_statuses[]=1`,
+    `/api/v2/users/${userId}/items?statuses[]=1`,
+    `/api/v2/users/${userId}/items?status[]=active`,
+    `/api/v2/users/${userId}/items`,
+  ] : []
+  endpoints.push(
+    '/api/v2/items?item_statuses[]=1&owned=1',
+    '/api/v2/items?owned=1',
+  )
+  for (const ep of endpoints) {
+    setSyncStatus(`Lade aktive Listings… (${ep.split('?')[0].split('/').pop()})`)
+    const test = await callVintedAPI(`${ep}${ep.includes('?')?'&':'?'}page=1&per_page=1`)
+    if (test && (test.items?.length >= 0 || test.total_items >= 0)) {
+      console.log('[ListSync] Aktive-Listings-Endpunkt:', ep)
+      return fetchAll(ep, 'Aktive Listings')
+    }
+  }
+  return []
+}
+
 // Fallback: scrape DOM if API doesn't work
 function scrapeSoldDOM() {
   const cards = document.querySelectorAll('[data-testid*="item-"], [class*="ItemCard"], [class*="item-card"]')
@@ -259,6 +281,23 @@ function normalizePurchase(item) {
   }
 }
 
+function normalizeActive(item) {
+  return {
+    title:       item.title || item.name || '(kein Titel)',
+    price:       parseFloat(item.price_numeric || item.price_amount?.amount || item.price || 0),
+    buyPrice:    0,
+    status:      'aktiv',
+    platforms:   ['vinted'],
+    images:      item.photos?.map(p => p.url || p.full_size_url || p.src || p.full_size) || [],
+    brand:       item.brand?.title || item.brand_title || '',
+    size:        item.size?.title  || item.size_title  || '',
+    color:       item.color?.title || item.color_title || '',
+    condition:   item.item_condition?.title || item.condition_title || item.status?.title || 'Gut',
+    description: item.description || '',
+    vintedId:    String(item.id || ''),
+  }
+}
+
 // ── Main sync ─────────────────────────────────────────────────────────────────
 
 async function runSync() {
@@ -270,21 +309,18 @@ async function runSync() {
   showSyncBanner(`Verbinde mit Vinted${activeVintedAccount ? ' (' + activeVintedAccount + ')' : ''}…`)
   await wait(1000)
 
-  // Try API first
+  // Schritt 1: User-ID ermitteln (wichtig für userId-basierte Endpunkte)
+  setSyncStatus('Ermittle Vinted-Account…')
+  const userId = await getCurrentUserId()
+  console.log('[ListSync] User-ID:', userId)
+
+  // Schritt 2: Verkäufe laden
   setSyncStatus('Lade Verkäufe…')
-  let rawSales = await fetchAllSales()
-
-  // DEBUG: erstes Item in der Konsole ausgeben damit wir die Felder sehen
+  let rawSales = await fetchAllSales(userId)
   if (rawSales.length > 0) {
-    console.log('[ListSync DEBUG] Erstes Verkauf-Item von Vinted API:', JSON.stringify(rawSales[0], null, 2))
-    console.log('[ListSync DEBUG] Alle Keys:', Object.keys(rawSales[0]))
+    console.log('[ListSync DEBUG] Erstes Verkauf-Item:', JSON.stringify(rawSales[0], null, 2))
   }
-
   let sales = rawSales.map(normalizeSale)
-
-  setSyncStatus('Lade Einkäufe…')
-  let rawPurchases = await fetchAllPurchases()
-  let purchases = rawPurchases.map(normalizePurchase)
 
   // Fallback: DOM scraping for sales if API returned nothing
   if (!sales.length) {
@@ -299,7 +335,18 @@ async function runSync() {
     }))
   }
 
-  setSyncStatus(`${sales.length} Verkäufe, ${purchases.length} Einkäufe gefunden – importiere…`)
+  // Schritt 3: Aktive Listings laden
+  setSyncStatus('Lade aktive Listings…')
+  let rawActive = await fetchAllActive(userId)
+  let listings = rawActive.map(normalizeActive)
+  console.log('[ListSync] Aktive Listings:', listings.length)
+
+  // Schritt 4: Einkäufe laden
+  setSyncStatus('Lade Einkäufe…')
+  let rawPurchases = await fetchAllPurchases(userId)
+  let purchases = rawPurchases.map(normalizePurchase)
+
+  setSyncStatus(`${sales.length} Verkäufe, ${listings.length} aktive, ${purchases.length} Einkäufe – importiere…`)
   await wait(500)
 
   // Send to background.js → /api/import
@@ -308,11 +355,12 @@ async function runSync() {
     data: {
       sales,
       purchases,
+      listings,
       account: activeVintedAccount || 'Hauptaccount',
     }
   }, response => {
     if (response?.ok) {
-      setSyncStatus(`✅ ${sales.length} Verkäufe & ${purchases.length} Einkäufe importiert!`)
+      setSyncStatus(`✅ ${sales.length} Verkäufe, ${listings.length} aktive Listings & ${purchases.length} Einkäufe importiert!`)
       const banner = document.getElementById('ls-sync-banner')
       if (banner) banner.style.background = '#16a34a'
     } else {

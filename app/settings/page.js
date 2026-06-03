@@ -52,6 +52,8 @@ export default function Settings() {
   const [saving, setSaving]         = useState(false)
   const [plan, setPlan]             = useState(null)
   const [portalLoading, setPortalLoading] = useState(false)
+  const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
+  const [deletingAll, setDeletingAll] = useState(false)
 
   const router = useRouter()
 
@@ -120,6 +122,21 @@ export default function Settings() {
       setModal(null)
       showToast(`✅ ${PLATFORMS[id].name} verbunden!`)
     } catch { showToast('Fehler beim Verbinden', 'error') }
+  }
+
+  const deleteAllListings = async () => {
+    setDeletingAll(true)
+    try {
+      const res = await fetch('/api/listings', { method: 'DELETE' })
+      const data = await res.json()
+      if (data.ok) {
+        showToast(`✅ ${data.deleted} Listings gelöscht`)
+        setConfirmDeleteAll(false)
+      } else {
+        showToast('Fehler beim Löschen', 'error')
+      }
+    } catch { showToast('Verbindungsfehler', 'error') }
+    finally { setDeletingAll(false) }
   }
 
   const disconnectPlatform = async (id) => {
@@ -338,6 +355,21 @@ export default function Settings() {
             </button>
           </Section>
 
+          {/* ── Danger Zone ── */}
+          <div style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 20, padding: '20px 20px 22px' }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: '#ef4444', margin: '0 0 6px' }}>Gefahrenzone</h2>
+            <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '0 0 14px', lineHeight: 1.5 }}>
+              Diese Aktionen können nicht rückgängig gemacht werden.
+            </p>
+            <button onClick={() => setConfirmDeleteAll(true)} style={{
+              padding: '11px 20px', borderRadius: 12, border: '1px solid rgba(239,68,68,0.3)',
+              background: 'rgba(239,68,68,0.07)', color: '#ef4444',
+              fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            }}>
+              Alle Listings löschen
+            </button>
+          </div>
+
           {/* ── Save button ── */}
           <button onClick={saveSettings} disabled={saving}
             className="ls-btn-primary"
@@ -411,6 +443,45 @@ export default function Settings() {
                 className="ls-btn-primary"
                 style={{ flex: 1, padding: '12px', borderRadius: 13, fontSize: 14 }}>
                 Verbinden
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm Delete All Modal ── */}
+      {confirmDeleteAll && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50, padding: '16px',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)',
+        }}
+          className="md:items-center"
+          onClick={e => { if (e.target === e.currentTarget) setConfirmDeleteAll(false) }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 24, width: '100%', maxWidth: 400,
+            padding: '24px', boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+              </div>
+              <div>
+                <h3 style={{ fontSize: 16, fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>Alle Listings löschen?</h3>
+                <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '2px 0 0' }}>Diese Aktion kann nicht rückgängig gemacht werden.</p>
+              </div>
+            </div>
+            <p style={{ fontSize: 13.5, color: 'var(--text-2)', lineHeight: 1.6, margin: '0 0 20px' }}>
+              Alle deine Listings werden dauerhaft aus ListSync gelöscht. Deine Artikel auf Vinted, Kleinanzeigen und eBay bleiben unberührt.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmDeleteAll(false)}
+                style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Abbrechen
+              </button>
+              <button onClick={deleteAllListings} disabled={deletingAll}
+                style={{ flex: 1, padding: '13px', borderRadius: 13, border: 'none', background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit', opacity: deletingAll ? 0.7 : 1 }}>
+                {deletingAll ? 'Löschen…' : 'Ja, alles löschen'}
               </button>
             </div>
           </div>

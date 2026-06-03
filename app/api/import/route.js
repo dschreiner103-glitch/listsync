@@ -9,7 +9,7 @@ export async function POST(req) {
     if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
     const userId = Number(session.user.id)
 
-    const { sales = [], purchases = [], account = '' } = await req.json()
+    const { sales = [], purchases = [], listings = [], account = '' } = await req.json()
 
     let created = 0
     let skipped = 0
@@ -73,6 +73,35 @@ export async function POST(req) {
           category:    'Sonstiges',
           createdAt:   item.boughtAt ? new Date(item.boughtAt) : undefined,
           updatedAt:   item.boughtAt ? new Date(item.boughtAt) : undefined,
+        }
+      })
+      created++
+    }
+
+    // Import active listings (status: aktiv)
+    for (const item of listings) {
+      if (item.vintedId) {
+        const exists = await prisma.listing.findFirst({
+          where: { userId, description: { contains: `vintedId:${item.vintedId}` } }
+        })
+        if (exists) { skipped++; continue }
+      }
+
+      await prisma.listing.create({
+        data: {
+          userId,
+          title:       (item.title || '').substring(0, 200),
+          description: (item.description || '') + (item.vintedId ? `\n[vintedId:${item.vintedId}]` : ''),
+          price:       Number(item.price) || 0,
+          buyPrice:    Number(item.buyPrice) || 0,
+          status:      'aktiv',
+          platforms:   JSON.stringify(['vinted']),
+          images:      JSON.stringify((item.images || []).slice(0, 8)),
+          brand:       item.brand || '',
+          size:        item.size  || '',
+          color:       item.color || '',
+          condition:   item.condition || 'Gut',
+          category:    'Sonstiges',
         }
       })
       created++
