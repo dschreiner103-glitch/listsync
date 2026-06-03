@@ -152,6 +152,36 @@ async function fetchAllPurchases(userId) {
   return []
 }
 
+// Versucht Bestelldaten mit Datum über die Vinted-API zu holen
+async function fetchOrderDates() {
+  const endpoints = [
+    '/api/v2/my_orders?order_type=sold&per_page=100',
+    '/api/v2/my_orders?status=5&per_page=100',
+    '/api/v2/transactions?as=seller&per_page=100',
+    '/api/v2/transactions?type=sell&per_page=100',
+  ]
+  for (const ep of endpoints) {
+    const data = await callVintedAPI(ep)
+    const orders = data?.orders || data?.transactions || data?.my_orders || []
+    if (orders.length > 0) {
+      console.log('[ListSync] Order-Datum-Endpunkt:', ep, 'Ergebnis:', orders[0])
+      // Baue Map: vintedId/title → Datum
+      const map = {}
+      for (const o of orders) {
+        const item = o.item || o
+        const id = String(item.id || o.item_id || o.id || '')
+        const title = (item.title || o.item_title || '').toLowerCase().trim()
+        // Datum aus allen möglichen Feldern
+        const date = parseDate(o, SALE_DATE_FIELDS) || parseDate(item, SALE_DATE_FIELDS)
+        if (id) map[id] = date
+        if (title) map[title] = date
+      }
+      return map
+    }
+  }
+  return {}
+}
+
 async function fetchAllActive(userId) {
   const endpoints = userId ? [
     `/api/v2/users/${userId}/items?item_statuses[]=1`,
@@ -395,22 +425,30 @@ async function runOrdersSync(activeVintedAccount) {
   const rawSales = await scrapeAllOrdersWithScroll()
   console.log('[ListSync] DOM Verkäufe:', rawSales.length, rawSales[0])
 
-  // Normalize
-  const sales = rawSales.map(item => ({
-    title:       item.title,
-    price:       item.price,
-    buyPrice:    0,
-    status:      'verkauft',
-    platforms:   ['vinted'],
-    images:      item.images,
-    brand:       '',
-    size:        '',
-    color:       '',
-    condition:   'Gut',
-    description: '',
-    soldAt:      item.soldAt,
-    vintedId:    item.vintedId,
-  }))
+  // API-Datums-Lookup parallel holen
+  setSyncStatus('Hole Verkaufsdaten…')
+  const dateMap = await fetchOrderDates()
+  console.log('[ListSync] Datums-Map:', Object.keys(dateMap).length, 'Einträge')
+
+  // Normalize + Datum aus API-Map einsetzen falls DOM kein Datum hatte
+  const sales = rawSales.map(item => {
+    const dateFromApi = dateMap[item.vintedId] || dateMap[item.title.toLowerCase().trim()]
+    return {
+      title:       item.title,
+      price:       item.price,
+      buyPrice:    0,
+      status:      'verkauft',
+      platforms:   ['vinted'],
+      images:      item.images,
+      brand:       '',
+      size:        '',
+      color:       '',
+      condition:   'Gut',
+      description: '',
+      soldAt:      item.soldAt || dateFromApi || null,
+      vintedId:    item.vintedId,
+    }
+  })
 
   // Also fetch active listings from API
   setSyncStatus('Lade aktive Listings…')
