@@ -169,12 +169,15 @@ async function fetchOrderDates() {
       const map = {}
       for (const o of orders) {
         const item = o.item || o
-        const id = String(item.id || o.item_id || o.id || '')
-        const title = (item.title || o.item_title || '').toLowerCase().trim()
-        // Datum aus allen möglichen Feldern
+        const orderId  = String(o.id || '')
+        const itemId   = String(item.id || o.item_id || '')
+        const title    = (item.title || o.item_title || '').toLowerCase().trim()
         const date = parseDate(o, SALE_DATE_FIELDS) || parseDate(item, SALE_DATE_FIELDS)
-        if (id) map[id] = date
+        // Beides als Key speichern: Order-ID und Item-ID können verschieden sein
+        if (orderId) map[orderId] = date
+        if (itemId && itemId !== orderId) map[itemId] = date
         if (title) map[title] = date
+        console.log('[ListSync DATE]', { orderId, itemId, title: title.slice(0,30), date })
       }
       return map
     }
@@ -388,9 +391,10 @@ function scrapeOrderCards() {
     const timeEl = card.querySelector('time')
     const soldAt = timeEl?.getAttribute('datetime') || timeEl?.dateTime || null
 
-    // VintedId from link href e.g. /orders/12345
+    // VintedId from link href e.g. /orders/12345 or /my_orders/12345
     const link = card.querySelector('a[href*="/orders/"], a[href*="/my_orders/"]')
-    const vintedId = link?.href?.match(/\/(\d+)/)?.[1] || ''
+    const vintedId = link?.href?.match(/\/(\d+)(?:\/|$)/)?.[1] || ''
+    console.log('[ListSync DOM]', { title: title.slice(0,30), vintedId, linkHref: link?.href })
 
     results.push({ title, price, images: img ? [img] : [], soldAt, vintedId, status: 'verkauft' })
   }
