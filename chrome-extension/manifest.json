@@ -36,7 +36,8 @@
         "https://www.vinted.de/?*",
         "https://www.vinted.de/catalog*",
         "https://www.vinted.de/member*",
-        "https://www.vinted.de/my_orders*"
+        "https://www.vinted.de/my_orders*",
+        "https://www.vinted.de/member/*"
       ],
       "js": ["content/vinted-sync.js"],
       "run_at": "document_idle"

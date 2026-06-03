@@ -477,59 +477,149 @@ async function scrapeAllOrdersWithScroll() {
   return scrapeOrderCards()
 }
 
-async function runOrdersSync(activeVintedAccount) {
-  showSyncBanner('Lese abgeschlossene Verkäufe…')
+// ── Phase 1: my_orders → Verkäufe scrapen, dann zu Profil navigieren ─────────
 
-  // Click "Abgeschlossen" tab
+async function runOrdersSync(activeVintedAccount) {
+  showSyncBanner('1/2 Lade abgeschlossene Verkäufe…')
+
   setSyncStatus('Klicke "Abgeschlossen"…')
   const clicked = await clickAbgeschlossen()
   if (!clicked) setSyncStatus('Tab nicht gefunden – lese alle Bestellungen…')
 
-  // Scrape all completed sales
   setSyncStatus('Scrape Verkäufe…')
   const rawSales = await scrapeAllOrdersWithScroll()
-  console.log('[ListSync] DOM Verkäufe:', rawSales.length, rawSales[0])
+  console.log('[ListSync] DOM Verkäufe:', rawSales.length)
 
-  // API-Datums-Lookup parallel holen
-  setSyncStatus('Hole Verkaufsdaten…')
+  setSyncStatus('Hole Verkaufsdaten mit Datum…')
   const dateMap = await fetchOrderDates()
   console.log('[ListSync] Datums-Map:', Object.keys(dateMap).length, 'Einträge')
 
-  // Normalize + Datum aus API-Map einsetzen falls DOM kein Datum hatte
   const sales = rawSales.map(item => {
     const dateFromApi = dateMap[item.vintedId] || dateMap[item.title.toLowerCase().trim()]
     return {
-      title:       item.title,
-      price:       item.price,
-      buyPrice:    0,
-      status:      'verkauft',
-      platforms:   ['vinted'],
-      images:      item.images,
-      brand:       '',
-      size:        '',
-      color:       '',
-      condition:   'Gut',
-      description: '',
-      soldAt:      item.soldAt || dateFromApi || null,
-      vintedId:    item.vintedId,
+      title: item.title, price: item.price, buyPrice: 0, status: 'verkauft',
+      platforms: ['vinted'], images: item.images, brand: '', size: '', color: '',
+      condition: 'Gut', description: '',
+      soldAt: item.soldAt || dateFromApi || null,
+      vintedId: item.vintedId,
     }
   })
 
-  // Also fetch active listings from API
-  setSyncStatus('Lade aktive Listings…')
-  const userId = await getCurrentUserId()
-  const rawActive = await fetchAllActive(userId)
-  const listings = rawActive.map(normalizeActive)
+  // Benutzernamen für Profilseite holen
+  setSyncStatus('Ermittle Profilseite…')
+  const userData = await callVintedAPI('/api/v2/users/current')
+  const username = userData?.user?.login || userData?.login || userData?.current_user?.login
+  console.log('[ListSync] Username:', username)
 
-  setSyncStatus(`${sales.length} Verkäufe + ${listings.length} aktive Listings – importiere…`)
-  await wait(500)
+  if (!username) {
+    setSyncStatus('⚠️ Profilseite nicht gefunden – nur Verkäufe werden importiert')
+    await wait(1000)
+    // Direkt senden ohne aktive Listings
+    chrome.runtime.sendMessage({
+      type: 'VINTED_SYNC_DATA',
+      data: { sales, purchases: [], listings: [], account: activeVintedAccount || 'Hauptaccount' }
+    }, response => {
+      setSyncStatus(response?.ok ? `✅ ${sales.length} Verkäufe importiert!` : '⚠️ Import fehlgeschlagen')
+      const banner = document.getElementById('ls-sync-banner')
+      if (banner) banner.style.background = response?.ok ? '#16a34a' : '#dc2626'
+    })
+    return
+  }
+
+  // Verkäufe zwischenspeichern, dann zu Profil navigieren
+  await chrome.storage.local.set({
+    syncSoldData:    sales,
+    syncAccount:     activeVintedAccount || 'Hauptaccount',
+    syncPhase:       'profile',
+  })
+
+  setSyncStatus(`2/2 Wechsle zu Profil (${username})…`)
+  await wait(800)
+  window.location.href = `https://www.vinted.de/member/${username}`
+}
+
+// ── Phase 2: Profil → aktive Listings scrapen ─────────────────────────────────
+
+async function scrapeActiveListings() {
+  // Scroll um alle Artikel zu laden
+  let lastCount = 0, noChange = 0
+  while (noChange < 3) {
+    window.scrollTo(0, document.body.scrollHeight)
+    await wait(1800)
+    const count = document.querySelectorAll('a[href*="/items/"]').length
+    if (count === lastCount) noChange++
+    else { noChange = 0; lastCount = count }
+    setSyncStatus(`Lade Profil… ${lastCount} Artikel gefunden`)
+  }
+
+  const results = []
+  const seen = new Set()
+  const links = document.querySelectorAll('a[href*="/items/"]')
+
+  for (const link of links) {
+    const vintedId = link.href?.match(/\/items\/(\d+)/)?.[1]
+    if (!vintedId || seen.has(vintedId)) continue
+    seen.add(vintedId)
+
+    // Card-Container finden
+    const card = link.closest('[data-testid*="item"], [class*="item"], [class*="Item"], li, article') || link.parentElement
+
+    // Verkauft-Artikel überspringen
+    if (card?.textContent?.includes('Verkauft') || card?.textContent?.includes('Reserved')) continue
+
+    const imgEl = card?.querySelector('img')
+    const srcset = imgEl?.srcset || imgEl?.getAttribute('srcset') || ''
+    const bestSrc = srcset
+      ? srcset.split(',').map(s => s.trim().split(' ')).sort((a,b) => parseFloat(b[1]||0)-parseFloat(a[1]||0))[0]?.[0]
+      : null
+    const img = upscaleVintedImg(bestSrc || imgEl?.src || '')
+
+    const priceMatch = card?.textContent?.match(/(\d+[,.]\d+)\s*€/)
+    const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0
+
+    // Titel: erstes sinnvolles Textelement
+    let title = ''
+    const titleEls = card?.querySelectorAll('[data-testid*="title"],[class*="title"],[class*="Title"],strong,h3,h2') || []
+    for (const el of titleEls) {
+      const t = el.textContent.trim()
+      if (t && t.length > 3 && !t.includes('€')) { title = t; break }
+    }
+    if (!title) {
+      // img alt als Fallback
+      title = imgEl?.alt?.trim() || '(kein Titel)'
+    }
+
+    if (price > 0 || title !== '(kein Titel)') {
+      results.push({
+        title, price, images: img ? [img] : [], vintedId, status: 'aktiv',
+        platforms: ['vinted'], brand: '', size: '', color: '', condition: 'Gut', description: '',
+      })
+    }
+  }
+
+  return results
+}
+
+async function runProfileSync() {
+  const { syncSoldData = [], syncAccount = 'Hauptaccount' } =
+    await new Promise(r => chrome.storage.local.get(['syncSoldData', 'syncAccount'], r))
+  await chrome.storage.local.remove(['syncSoldData', 'syncAccount', 'syncPhase'])
+
+  showSyncBanner('2/2 Lade aktive Listings vom Profil…')
+  await wait(2000) // React rendering abwarten
+
+  const listings = await scrapeActiveListings()
+  console.log('[ListSync] Aktive Listings vom Profil:', listings.length)
+
+  setSyncStatus(`${syncSoldData.length} Verkäufe + ${listings.length} aktive Listings – importiere…`)
+  await wait(400)
 
   chrome.runtime.sendMessage({
     type: 'VINTED_SYNC_DATA',
-    data: { sales, purchases: [], listings, account: activeVintedAccount || 'Hauptaccount' }
+    data: { sales: syncSoldData, purchases: [], listings, account: syncAccount }
   }, response => {
     if (response?.ok) {
-      setSyncStatus(`✅ ${sales.length} Verkäufe & ${listings.length} aktive Listings importiert!`)
+      setSyncStatus(`✅ ${syncSoldData.length} Verkäufe & ${listings.length} aktive Listings importiert!`)
       const banner = document.getElementById('ls-sync-banner')
       if (banner) banner.style.background = '#16a34a'
     } else {
@@ -543,13 +633,19 @@ async function runOrdersSync(activeVintedAccount) {
 // ── Main sync ─────────────────────────────────────────────────────────────────
 
 async function runSync() {
-  const { syncRequested } = await new Promise(r => chrome.storage.local.get('syncRequested', r))
+  const { syncRequested, syncPhase, activeVintedAccount } = await new Promise(r =>
+    chrome.storage.local.get(['syncRequested', 'syncPhase', 'activeVintedAccount'], r))
+
+  // Phase 2: Profilseite → aktive Listings
+  if (location.pathname.includes('/member/') && syncPhase === 'profile') {
+    await runProfileSync()
+    return
+  }
+
   if (!syncRequested) return
   await chrome.storage.local.remove('syncRequested')
 
-  const { activeVintedAccount } = await new Promise(r => chrome.storage.local.get('activeVintedAccount', r))
-
-  // Auf der Bestellungsseite → neuer DOM-Scraper
+  // Phase 1: Bestellungsseite → Verkäufe
   if (location.pathname.includes('/my_orders')) {
     await runOrdersSync(activeVintedAccount)
     return
