@@ -182,8 +182,7 @@ export default function NewListing() {
     setErrors(e); return Object.keys(e).length===0
   }
 
-  const handleFileChange = async (e) => {
-    const files = Array.from(e.target.files)
+  const uploadFiles = async (files) => {
     if (!files.length) return
     if (imgs.length + files.length > 8) { alert('Maximal 8 Bilder'); return }
     setUploading(true)
@@ -204,7 +203,72 @@ export default function NewListing() {
       }
       setImgs(x => [...x, ...newImgs])
     } catch(err) { alert('Upload fehlgeschlagen: ' + err.message) }
-    finally { setUploading(false); e.target.value = '' }
+    finally { setUploading(false) }
+  }
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files)
+    await uploadFiles(files)
+    e.target.value = ''
+  }
+
+  // ── KI-Anprobe (Virtual Try-On) ──────────────────────────────────────────────
+  const [tryon, setTryon] = useState({ open:false, piece:null, model:null, result:null, loading:false, error:'' })
+  const setT = (patch) => setTryon(t => ({ ...t, ...patch }))
+
+  // Bild verkleinern + als DataURL (spart Upload & KI-Kosten)
+  const fileToDataURL = (file, max=1024) => new Promise((resolve, reject) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      const s = Math.min(1, max / Math.max(img.width, img.height))
+      const w = Math.round(img.width * s), h = Math.round(img.height * s)
+      const c = document.createElement('canvas'); c.width = w; c.height = h
+      c.getContext('2d').drawImage(img, 0, 0, w, h)
+      URL.revokeObjectURL(url)
+      resolve(c.toDataURL('image/jpeg', 0.9))
+    }
+    img.onerror = reject
+    img.src = url
+  })
+
+  const dataURLtoFile = (dataUrl, name) => {
+    const [meta, b64] = dataUrl.split(',')
+    const mime = /:(.*?);/.exec(meta)[1]
+    const bin = atob(b64)
+    const arr = new Uint8Array(bin.length)
+    for (let i=0; i<bin.length; i++) arr[i] = bin.charCodeAt(i)
+    return new File([arr], name, { type: mime })
+  }
+
+  const pickTryonImg = async (which, file) => {
+    if (!file) return
+    try { const d = await fileToDataURL(file); setT({ [which]: d, result:null, error:'' }) }
+    catch { setT({ error:'Bild konnte nicht geladen werden' }) }
+  }
+
+  const generateTryon = async () => {
+    if (!tryon.piece || !tryon.model) { setT({ error:'Bitte beide Bilder hochladen.' }); return }
+    setT({ loading:true, error:'', result:null })
+    try {
+      const res = await fetch('/api/ai/tryon', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ piece: tryon.piece, model: tryon.model }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setT({ error: data.error || 'Generierung fehlgeschlagen', loading:false }); return }
+      setT({ result: data.image, loading:false })
+    } catch {
+      setT({ error:'Netzwerkfehler', loading:false })
+    }
+  }
+
+  const addTryonResult = async () => {
+    if (!tryon.result) return
+    const ext = tryon.result.startsWith('data:image/png') ? 'png' : 'jpg'
+    const file = dataURLtoFile(tryon.result, `tryon-${Date.now()}.${ext}`)
+    await uploadFiles([file])
+    setT({ open:false, piece:null, model:null, result:null })
   }
 
   const removeImg = (i) => setImgs(x => x.filter((_,j)=>j!==i))
@@ -640,6 +704,72 @@ export default function NewListing() {
                 </div>
               )}
               <p style={{ fontSize:12, color:'var(--text-3)', textAlign:'center' }}>{imgs.length}/8 Bilder hochgeladen</p>
+
+              {/* ── KI-Anprobe (Virtual Try-On) ── */}
+              <div style={{ border:'1px solid var(--border)', borderRadius:18, overflow:'hidden', background:'var(--surface)' }}>
+                <div onClick={()=>setT({ open:!tryon.open })}
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px', cursor:'pointer', background:'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.05))' }}>
+                  <span style={{ fontSize:20 }}>🪄</span>
+                  <div style={{ flex:1 }}>
+                    <p style={{ fontSize:13.5, fontWeight:800, color:'var(--text-1)', margin:0 }}>KI-Anprobe <span style={{ fontSize:10, color:'#6366f1', background:'rgba(99,102,241,0.12)', padding:'1px 6px', borderRadius:6, marginLeft:4 }}>BETA</span></p>
+                    <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'2px 0 0' }}>Modell trägt dein Kleidungsstück — ohne Wasserzeichen</p>
+                  </div>
+                  <span style={{ fontSize:14, color:'var(--text-3)', transform:tryon.open?'rotate(180deg)':'none', transition:'transform .2s' }}>▾</span>
+                </div>
+
+                {tryon.open && (
+                  <div style={{ padding:'16px', display:'flex', flexDirection:'column', gap:14 }}>
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                      {[
+                        { key:'piece', label:'1 · Kleidungsstück', hint:'Foto vom Piece' },
+                        { key:'model', label:'2 · Modell', hint:'Person bleibt gleich' },
+                      ].map(slot => (
+                        <div key={slot.key}>
+                          <p style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', margin:'0 0 6px' }}>{slot.label}</p>
+                          <label style={{ display:'block', aspectRatio:'1', borderRadius:14, border:`2px dashed ${tryon[slot.key]?'#818cf8':'var(--border)'}`, overflow:'hidden', cursor:'pointer', position:'relative', background:'var(--modal-close)' }}>
+                            <input type="file" accept="image/*" style={{ display:'none' }}
+                              onChange={e=>pickTryonImg(slot.key, e.target.files[0])}/>
+                            {tryon[slot.key]
+                              ? <img src={tryon[slot.key]} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
+                              : <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', color:'var(--text-3)' }}>
+                                  <span style={{ fontSize:26 }}>＋</span>
+                                  <span style={{ fontSize:11, marginTop:2 }}>{slot.hint}</span>
+                                </div>}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+
+                    {tryon.error && <p style={{ fontSize:12.5, color:'#ef4444', margin:0, fontWeight:600 }}>{tryon.error}</p>}
+
+                    {!tryon.result && (
+                      <button type="button" onClick={generateTryon} disabled={tryon.loading||!tryon.piece||!tryon.model}
+                        style={{ padding:'13px', borderRadius:13, border:'none', cursor:(tryon.loading||!tryon.piece||!tryon.model)?'default':'pointer',
+                          background:(tryon.loading||!tryon.piece||!tryon.model)?'var(--border)':'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                          color:(tryon.loading||!tryon.piece||!tryon.model)?'var(--text-3)':'#fff', fontSize:14.5, fontWeight:700, fontFamily:'inherit' }}>
+                        {tryon.loading ? '🪄 Generiere… (kann ~20s dauern)' : '🪄 Anprobe generieren'}
+                      </button>
+                    )}
+
+                    {tryon.result && (
+                      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                        <p style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', margin:0 }}>Ergebnis</p>
+                        <img src={tryon.result} alt="Anprobe" style={{ width:'100%', borderRadius:14, border:'1px solid var(--border)' }}/>
+                        <div style={{ display:'flex', gap:10 }}>
+                          <button type="button" onClick={()=>setT({ result:null })}
+                            style={{ flex:1, padding:'11px', borderRadius:12, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text-2)', fontSize:13.5, fontWeight:600, cursor:'pointer', fontFamily:'inherit' }}>
+                            🔄 Neu generieren
+                          </button>
+                          <button type="button" onClick={addTryonResult} disabled={uploading||imgs.length>=8}
+                            style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:'#22c55e', color:'#fff', fontSize:13.5, fontWeight:700, cursor:(uploading||imgs.length>=8)?'default':'pointer', fontFamily:'inherit', opacity:(uploading||imgs.length>=8)?0.6:1 }}>
+                            ✓ Zu Bildern hinzufügen
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
