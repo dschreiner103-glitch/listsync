@@ -43,7 +43,7 @@ export async function POST(req) {
       if (!userId || !plan) break
 
       if (plan === 'lifetime') {
-        await updateUser(userId, { plan: 'lifetime', plan_status: 'active', plan_ends_at: '' })
+        await updateUser(userId, { plan: 'lifetime', plan_status: 'active', plan_ends_at: '', onboarded: 1 })
       } else if (plan === 'pro') {
         const subId = session.subscription
         await updateUser(userId, {
@@ -51,6 +51,7 @@ export async function POST(req) {
           plan_status: 'active',
           stripe_subscription_id: subId || '',
           plan_ends_at: '',
+          onboarded: 1,
         })
       }
       console.log(`[Webhook] Plan aktiviert: userId=${userId} plan=${plan}`)

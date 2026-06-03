@@ -33,9 +33,9 @@ export async function POST(req) {
   const userId = parseInt(session.user.id)
   const isPostgres = !!process.env.DATABASE_URL?.startsWith('postgres')
   if (isPostgres) {
-    await prisma.$executeRawUnsafe(`UPDATE "User" SET plan = $1, plan_status = 'active', plan_ends_at = '' WHERE id = $2`, plan, userId)
+    await prisma.$executeRawUnsafe(`UPDATE "User" SET plan = $1, plan_status = 'active', plan_ends_at = '', onboarded = 1 WHERE id = $2`, plan, userId)
   } else {
-    await prisma.$executeRawUnsafe(`UPDATE "User" SET plan = ?, plan_status = 'active', plan_ends_at = '' WHERE id = ?`, plan, userId)
+    await prisma.$executeRawUnsafe(`UPDATE "User" SET plan = ?, plan_status = 'active', plan_ends_at = '', onboarded = 1 WHERE id = ?`, plan, userId)
   }
 
   return NextResponse.json({ ok: true, plan })

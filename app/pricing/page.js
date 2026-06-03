@@ -102,8 +102,12 @@ function PricingContent() {
   async function handleSelect(planId) {
     setError('')
     if (planId === 'free') {
-      // Free → direkt ins Dashboard
+      // Free → als onboarded markieren, dann ins Dashboard
       setLoading('free')
+      try {
+        const res = await fetch('/api/onboard-free', { method: 'POST' })
+        if (res.status === 401) { router.push('/register'); return }
+      } catch {}
       router.push('/dashboard')
       return
     }
