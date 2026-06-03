@@ -598,6 +598,11 @@ export default function Listings() {
                             </span>
                           )}
                           {l.platforms.map(p => <PlatformBadge key={p} plt={p} />)}
+                          {l.lagerplatz && (
+                            <span style={{ fontSize: 11.5, color: '#6366f1', fontWeight: 700, background: 'rgba(99,102,241,0.08)', padding: '2px 7px', borderRadius: 7, border: '1px solid rgba(99,102,241,0.15)' }}>
+                              📦 {l.lagerplatz}
+                            </span>
+                          )}
                           <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 'auto' }}>{l.views} Views</span>
                         </div>
                       </div>

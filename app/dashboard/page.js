@@ -578,6 +578,88 @@ export default function Dashboard() {
             </Card>
           )}
 
+          {/* ── Uhrzeit-Analyse + Preis-Range ── */}
+          {!loading && sold.length >= 3 && (() => {
+            // Beste Uhrzeit (0-23)
+            const hourCount = Array(24).fill(0)
+            sold.forEach(l => { hourCount[new Date(l.createdAt).getHours()]++ })
+            const bestHour = hourCount.indexOf(Math.max(...hourCount))
+            const bestHourCount = hourCount[bestHour]
+            const fmt2 = h => `${h}:00–${h+1}:00`
+
+            // Ø Tage bis Verkauf (createdAt → updatedAt wenn verkauft)
+            const withDays = sold.filter(l => l.createdAt && l.updatedAt && l.createdAt !== l.updatedAt)
+            const avgDays = withDays.length > 0
+              ? Math.round(withDays.reduce((s, l) => s + (new Date(l.updatedAt) - new Date(l.createdAt)) / (1000*60*60*24), 0) / withDays.length)
+              : null
+
+            // Preis-Range analyse
+            const ranges = [
+              { label: '< 10€',    min:0,   max:10  },
+              { label: '10–25€',   min:10,  max:25  },
+              { label: '25–50€',   min:25,  max:50  },
+              { label: '50–100€',  min:50,  max:100 },
+              { label: '> 100€',   min:100, max:999 },
+            ]
+            const rangeData = ranges.map(r => ({
+              ...r,
+              count:   sold.filter(l => l.price >= r.min && l.price < r.max).length,
+              revenue: sold.filter(l => l.price >= r.min && l.price < r.max).reduce((s,l) => s+l.price, 0),
+            })).filter(r => r.count > 0)
+            const maxRangeCount = Math.max(...rangeData.map(r => r.count), 1)
+
+            return (
+              <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  {/* Beste Uhrzeit */}
+                  <div className="ls-card" style={{ padding:'18px 20px' }}>
+                    <p style={{ fontSize:11, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.07em', margin:'0 0 6px' }}>Beste Uhrzeit</p>
+                    <p style={{ fontSize:26, fontWeight:800, color:'var(--text-1)', margin:'0 0 2px', letterSpacing:'-0.03em' }}>{fmt2(bestHour)}</p>
+                    <p style={{ fontSize:12, color:'var(--text-3)', margin:0 }}>{bestHourCount} Verkauf{bestHourCount!==1?'e':''} in dieser Stunde</p>
+                  </div>
+                  {/* Ø Tage bis Verkauf */}
+                  <div className="ls-card" style={{ padding:'18px 20px' }}>
+                    <p style={{ fontSize:11, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.07em', margin:'0 0 6px' }}>Ø Verkaufszeit</p>
+                    {avgDays !== null ? (
+                      <>
+                        <p style={{ fontSize:26, fontWeight:800, color:'var(--text-1)', margin:'0 0 2px', letterSpacing:'-0.03em' }}>{avgDays} Tage</p>
+                        <p style={{ fontSize:12, color:'var(--text-3)', margin:0 }}>von Listing bis Verkauf</p>
+                      </>
+                    ) : (
+                      <>
+                        <p style={{ fontSize:22, fontWeight:800, color:'var(--text-1)', margin:'0 0 2px' }}>–</p>
+                        <p style={{ fontSize:12, color:'var(--text-3)', margin:0 }}>zu wenig Daten</p>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Preis-Range Analyse */}
+                {rangeData.length > 1 && (
+                  <Card>
+                    <STitle>💰 Preis-Range Analyse</STitle>
+                    <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                      {rangeData.sort((a,b) => b.count-a.count).map(r => (
+                        <div key={r.label}>
+                          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                            <span style={{ fontSize:13, fontWeight:600, color:'var(--text-1)' }}>{r.label}</span>
+                            <div style={{ display:'flex', gap:10 }}>
+                              <span style={{ fontSize:12, color:'var(--text-3)' }}>{r.count}×</span>
+                              <span style={{ fontSize:12.5, fontWeight:700, color:'var(--text-1)' }}>{fmt(r.revenue)}</span>
+                            </div>
+                          </div>
+                          <div style={{ height:4, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
+                            <div style={{ height:'100%', width:`${(r.count/maxRangeCount)*100}%`, background:'#6366f1', borderRadius:2, transition:'width .5s' }}/>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </div>
+            )
+          })()}
+
           {/* ── CTA row ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <button onClick={() => router.push('/new')}

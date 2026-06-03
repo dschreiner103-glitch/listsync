@@ -186,25 +186,48 @@ async function fetchOrderDates() {
 }
 
 async function fetchAllActive(userId) {
+  // Catalog-basierte Endpunkte (robuster als user/items)
   const endpoints = userId ? [
-    `/api/v2/users/${userId}/items?item_statuses[]=1`,
-    `/api/v2/users/${userId}/items?statuses[]=1`,
-    `/api/v2/users/${userId}/items?status[]=active`,
-    `/api/v2/users/${userId}/items`,
+    `/api/v2/catalog/items?seller_ids[]=${userId}&per_page=96`,
+    `/api/v2/catalog?seller_ids[]=${userId}&per_page=96`,
+    `/api/v2/users/${userId}/items?per_page=50`,
+    `/api/v2/users/${userId}/items?item_statuses[]=1&per_page=50`,
   ] : []
-  endpoints.push(
-    '/api/v2/items?item_statuses[]=1&owned=1',
-    '/api/v2/items?owned=1',
-  )
+  endpoints.push('/api/v2/catalog/items?owned=1&per_page=96')
+
   for (const ep of endpoints) {
     setSyncStatus(`Lade aktive Listings… (${ep.split('?')[0].split('/').pop()})`)
     const test = await callVintedAPI(`${ep}${ep.includes('?')?'&':'?'}page=1&per_page=1`)
-    if (test && (test.items?.length >= 0 || test.total_items >= 0)) {
-      console.log('[ListSync] Aktive-Listings-Endpunkt:', ep)
+    if (!test) continue
+    const hasItems = test.items?.length >= 0 || test.total_items >= 0 || test.catalogItems?.length >= 0
+    if (hasItems) {
+      console.log('[ListSync] Aktive-Listings-Endpunkt gefunden:', ep)
+      // Catalog gibt manchmal catalogItems statt items
+      if (test.catalogItems !== undefined) {
+        return fetchAllCatalog(ep, 'Aktive Listings')
+      }
       return fetchAll(ep, 'Aktive Listings')
     }
   }
   return []
+}
+
+async function fetchAllCatalog(baseUrl, label) {
+  const items = []
+  let page = 1
+  while (true) {
+    setSyncStatus(`Lade ${label}… Seite ${page}`)
+    const sep = baseUrl.includes('?') ? '&' : '?'
+    const data = await callVintedAPI(`${baseUrl}${sep}page=${page}&per_page=96`)
+    if (!data) break
+    const batch = data.catalogItems || data.items || data.data?.items || []
+    if (!batch.length) break
+    items.push(...batch)
+    if (batch.length < 96) break
+    page++
+    await wait(600)
+  }
+  return items
 }
 
 // Fallback: scrape DOM if API doesn't work

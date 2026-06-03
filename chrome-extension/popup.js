@@ -133,9 +133,15 @@ document.getElementById('syncBtn').addEventListener('click', async () => {
     chrome.runtime.onMessage.removeListener(listener)
     const r = msg.result || {}
     result.className = 'sync-result show'
-    result.textContent = r.error
-      ? ('Fehler: ' + r.error)
-      : ((r.created || 0) + ' neu importiert, ' + (r.skipped || 0) + ' bereits vorhanden')
+    if (r.error) {
+      result.textContent = 'Fehler: ' + r.error
+    } else {
+      const parts = []
+      if (r.created)  parts.push(r.created + ' neu importiert')
+      if (r.updated)  parts.push(r.updated + ' auf "verkauft" aktualisiert')
+      if (r.skipped)  parts.push(r.skipped + ' bereits vorhanden')
+      result.textContent = parts.join(', ') || 'Keine neuen Einträge'
+    }
     btn.textContent = 'Vinted-Historie importieren'
     btn.disabled = false
   }
