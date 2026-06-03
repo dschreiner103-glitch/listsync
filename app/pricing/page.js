@@ -1,89 +1,85 @@
 'use client'
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
+import { signOut } from 'next-auth/react'
 
 const plans = [
   {
     id: 'free',
     name: 'Free',
-    price: '€0',
+    sub: 'Zum Ausprobieren',
+    price: '0 €',
     period: 'für immer',
-    color: '#6b7280',
-    gradient: 'linear-gradient(135deg,#374151,#1f2937)',
+    accent: '#6b7280',
     features: [
-      { text: '5 Listings', ok: true },
-      { text: '1 Plattform pro Crosspost', ok: true },
-      { text: 'Basis-Analytics', ok: true },
-      { text: 'Bulk Crosspost', ok: false },
-      { text: 'Alle 3 Plattformen', ok: false },
-      { text: 'Vollständige Analytics', ok: false },
+      'Bis zu 5 Listings',
+      '1 Plattform pro Crosspost',
+      'Lager & QR-Codes',
+      'Community Zugang',
+      'Basis-Dashboard',
     ],
-    cta: 'Aktueller Plan',
-    disabled: true,
+    cta: 'Kostenlos weiter',
   },
   {
     id: 'pro',
     name: 'Pro',
-    price: '€9,99',
-    period: 'pro Monat',
-    color: '#6366f1',
-    gradient: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
-    badge: 'Beliebt',
+    sub: 'Flexibel, jederzeit kündbar',
+    price: '9,99 €',
+    period: '/ Monat',
+    accent: '#6366f1',
     features: [
-      { text: 'Unlimitierte Listings', ok: true },
-      { text: 'Alle 3 Plattformen', ok: true },
-      { text: 'Bulk Crosspost', ok: true },
-      { text: 'Vollständige Analytics', ok: true },
-      { text: 'Prioritäts-Support', ok: true },
-      { text: 'Monatlich kündbar', ok: true },
+      'Unlimitierte Listings',
+      'Alle 3 Plattformen (Vinted, KA, eBay)',
+      'Bulk Crossposten',
+      'KI-Assistent',
+      'Vollständige Analytics',
+      'Prioritäts-Support',
     ],
     cta: 'Pro starten',
   },
   {
     id: 'lifetime',
     name: 'Lifetime',
-    price: '€79',
+    sub: 'Einmal zahlen, für immer Pro',
+    price: '79 €',
     period: 'einmalig',
-    color: '#f59e0b',
-    gradient: 'linear-gradient(135deg,#d97706,#f59e0b)',
+    accent: '#22c55e',
     badge: 'Bestes Angebot',
+    highlight: true,
     features: [
-      { text: 'Alles aus Pro', ok: true },
-      { text: 'Einmalige Zahlung', ok: true },
-      { text: 'Für immer Pro', ok: true },
-      { text: 'Alle zukünftigen Features', ok: true },
-      { text: 'Keine Abo-Gebühren', ok: true },
-      { text: 'Sofortiger Zugang', ok: true },
+      'Alles aus Pro',
+      'Einmalige Zahlung',
+      'Keine Abo-Gebühren',
+      'Alle zukünftigen Features',
+      'Sofortiger Zugang',
     ],
     cta: 'Lifetime holen',
   },
 ]
 
-function Check({ ok }) {
-  return ok ? (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+function Check({ accent }) {
+  return (
+    <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
       <polyline points="20 6 9 17 4 12" />
-    </svg>
-  ) : (
-    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   )
 }
 
-// Inner component uses useSearchParams — must be inside <Suspense>
 function PricingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(null)
   const [error, setError] = useState('')
 
-  async function handleUpgrade(planId) {
-    if (planId === 'free') return
-    setLoading(planId)
+  async function handleSelect(planId) {
     setError('')
+    if (planId === 'free') {
+      // Free → direkt ins Dashboard
+      setLoading('free')
+      router.push('/dashboard')
+      return
+    }
+    setLoading(planId)
     try {
       const res = await fetch('/api/stripe/checkout', {
         method: 'POST',
@@ -93,10 +89,10 @@ function PricingContent() {
       const data = await res.json()
       if (!res.ok) {
         if (res.status === 401) {
-          router.push(`/login?callbackUrl=/pricing?plan=${planId}`)
+          router.push(`/register`)
           return
         }
-        setError(data.error || 'Fehler beim Checkout')
+        setError(data.error || 'Fehler beim Checkout. Bitte versuche es erneut.')
         return
       }
       window.location.href = data.url
@@ -107,83 +103,126 @@ function PricingContent() {
     }
   }
 
-  // Auto-start checkout when arriving from homepage with ?plan=
+  // Auto-Checkout falls von Homepage mit ?plan= gekommen
   useEffect(() => {
     const plan = searchParams.get('plan')
-    if (plan === 'pro' || plan === 'lifetime') handleUpgrade(plan)
+    if (plan === 'pro' || plan === 'lifetime') handleSelect(plan)
   }, [])
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto' }}>
-      <div style={{ textAlign: 'center', marginBottom: 48 }}>
-        <h1 style={{ fontSize: 36, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 12px' }}>
-          Wähle deinen Plan
-        </h1>
-        <p style={{ fontSize: 16, color: 'var(--text-2)', margin: 0 }}>
-          Starte kostenlos — upgrade wenn du bereit bist.
-        </p>
-      </div>
+    <div style={{
+      minHeight: '100vh',
+      background: 'radial-gradient(circle at 50% 0%, #131325, #07070f 60%)',
+      color: '#f1f5f9',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+      padding: '40px 20px 80px',
+    }}>
+      <div style={{ maxWidth: 1040, margin: '0 auto' }}>
 
-      {error && (
-        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '12px 16px', color: '#dc2626', marginBottom: 24, textAlign: 'center', fontSize: 14 }}>
-          {error}
+        {/* Logout oben rechts */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <button onClick={() => signOut({ callbackUrl: '/' })}
+            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Abmelden
+          </button>
         </div>
-      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24, alignItems: 'start' }}>
-        {plans.map(plan => (
-          <div key={plan.id} style={{
-            background: 'var(--surface)',
-            border: plan.id === 'pro' ? '2px solid #6366f1' : '1px solid var(--border)',
-            borderRadius: 24, overflow: 'hidden', position: 'relative',
-          }}>
-            <div style={{ background: plan.gradient, height: 6 }} />
-            {plan.badge && (
-              <div style={{
-                position: 'absolute', top: 20, right: 16,
-                background: plan.gradient, color: '#fff',
-                fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-              }}>{plan.badge}</div>
-            )}
-            <div style={{ padding: '28px 28px 32px' }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: plan.color, letterSpacing: '.06em', textTransform: 'uppercase', margin: '0 0 8px' }}>{plan.name}</p>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 4 }}>
-                <span style={{ fontSize: 42, fontWeight: 800, color: 'var(--text-1)', lineHeight: 1 }}>{plan.price}</span>
+        {/* Locked Banner */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'center',
+          maxWidth: 720, margin: '0 auto 40px',
+          background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.35)',
+          borderRadius: 16, padding: '16px 22px',
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+            <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+          </svg>
+          <p style={{ margin: 0, fontSize: 14.5, color: '#fbbf24', fontWeight: 500, textAlign: 'center' }}>
+            Bitte wähle einen Plan um auf dein Dashboard zuzugreifen.
+          </p>
+        </div>
+
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: 48 }}>
+          <h1 style={{ fontSize: 'clamp(30px,5vw,46px)', fontWeight: 900, color: '#fff', margin: '0 0 12px', letterSpacing: '-0.03em' }}>
+            Wähle deinen Plan
+          </h1>
+          <p style={{ fontSize: 17, color: '#94a3b8', margin: 0 }}>
+            Starte jetzt mit ListSync und behalte den Überblick.
+          </p>
+        </div>
+
+        {error && (
+          <div style={{
+            maxWidth: 600, margin: '0 auto 28px',
+            background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: 12, padding: '12px 18px', color: '#f87171', textAlign: 'center', fontSize: 14, fontWeight: 600,
+          }}>{error}</div>
+        )}
+
+        {/* Plan Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 22, alignItems: 'stretch' }}>
+          {plans.map(plan => (
+            <div key={plan.id} style={{
+              position: 'relative',
+              display: 'flex', flexDirection: 'column',
+              background: plan.highlight ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.025)',
+              border: plan.highlight ? `1.5px solid ${plan.accent}` : '1px solid rgba(255,255,255,0.09)',
+              borderRadius: 22, padding: '30px 26px 28px',
+              boxShadow: plan.highlight ? `0 0 50px ${plan.accent}22` : 'none',
+            }}>
+              {plan.badge && (
+                <div style={{
+                  position: 'absolute', top: -13, left: '50%', transform: 'translateX(-50%)',
+                  background: plan.accent, color: '#06140a',
+                  fontSize: 11.5, fontWeight: 800, padding: '4px 14px', borderRadius: 99, whiteSpace: 'nowrap',
+                }}>★ {plan.badge}</div>
+              )}
+
+              <p style={{ fontSize: 19, fontWeight: 800, color: '#fff', margin: '0 0 4px' }}>{plan.name}</p>
+              <p style={{ fontSize: 13.5, color: '#64748b', margin: '0 0 22px' }}>{plan.sub}</p>
+
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 24 }}>
+                <span style={{ fontSize: 38, fontWeight: 900, color: '#fff', letterSpacing: '-0.03em' }}>{plan.price}</span>
+                <span style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>{plan.period}</span>
               </div>
-              <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '0 0 28px' }}>{plan.period}</p>
-              <ul style={{ listStyle: 'none', margin: '0 0 28px', padding: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {plan.features.map((f, i) => (
-                  <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Check ok={f.ok} />
-                    <span style={{ fontSize: 14, color: f.ok ? 'var(--text-1)' : 'var(--text-3)' }}>{f.text}</span>
-                  </li>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 13, marginBottom: 28 }}>
+                {plan.features.map(f => (
+                  <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14.5, color: '#cbd5e1', lineHeight: 1.4 }}>
+                    <Check accent={plan.accent} />
+                    {f}
+                  </div>
                 ))}
-              </ul>
+              </div>
+
               <button
-                onClick={() => handleUpgrade(plan.id)}
-                disabled={plan.disabled || loading === plan.id}
+                onClick={() => handleSelect(plan.id)}
+                disabled={loading === plan.id}
                 style={{
-                  width: '100%', padding: '13px 0', borderRadius: 14, border: 'none',
-                  cursor: plan.disabled ? 'default' : 'pointer',
-                  fontSize: 15, fontWeight: 700, transition: 'opacity .15s',
-                  background: plan.disabled ? 'var(--border)' : plan.gradient,
-                  color: plan.disabled ? 'var(--text-3)' : '#fff',
-                  opacity: loading && loading !== plan.id ? 0.6 : 1,
+                  marginTop: 'auto',
+                  width: '100%', padding: '14px 0', borderRadius: 13, border: 'none',
+                  cursor: loading === plan.id ? 'default' : 'pointer',
+                  fontSize: 15, fontWeight: 700, fontFamily: 'inherit',
+                  transition: 'opacity .15s, transform .15s',
+                  background: plan.id === 'free' ? 'rgba(255,255,255,0.08)' : plan.accent,
+                  color: plan.id === 'free' ? '#e2e8f0' : (plan.id === 'lifetime' ? '#06140a' : '#fff'),
+                  opacity: loading === plan.id ? 0.6 : 1,
                 }}
+                onMouseEnter={e => { if (loading !== plan.id) e.currentTarget.style.transform = 'translateY(-2px)' }}
+                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 {loading === plan.id ? 'Weiterleitung…' : plan.cta}
               </button>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
 
-      <div style={{ marginTop: 64, textAlign: 'center' }}>
-        <p style={{ fontSize: 14, color: 'var(--text-3)' }}>
-          Fragen? Schreib uns auf{' '}
-          <span style={{ color: '#6366f1', fontWeight: 600 }}>support@listsync.de</span>
-          {' '}· Alle Preise inkl. MwSt.
+        {/* Footer note */}
+        <p style={{ textAlign: 'center', fontSize: 13, color: '#475569', marginTop: 40 }}>
+          Sichere Zahlung über Stripe · Jederzeit kündbar · Alle Preise inkl. MwSt.
         </p>
+
       </div>
     </div>
   )
@@ -191,14 +230,8 @@ function PricingContent() {
 
 export default function Pricing() {
   return (
-    <div className="ls-page" style={{ display: 'flex' }}>
-      <Sidebar active="pricing" />
-      <div style={{ flex: 1, minWidth: 0, padding: '28px 24px', paddingBottom: 80 }}>
-        <Suspense fallback={<div style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)' }}>Laden…</div>}>
-          <PricingContent />
-        </Suspense>
-      </div>
-      <MobileNav active="pricing" />
-    </div>
+    <Suspense fallback={<div style={{ minHeight: '100vh', background: '#07070f' }} />}>
+      <PricingContent />
+    </Suspense>
   )
 }
