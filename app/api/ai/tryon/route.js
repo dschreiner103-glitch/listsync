@@ -53,12 +53,14 @@ export async function POST(req) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
 
-  const { piece, model, desc } = await req.json()
+  const { piece, model, type } = await req.json()
   const garmentBlob = dataUrlToBlob(piece)
   const humanBlob   = dataUrlToBlob(model)
   if (!garmentBlob || !humanBlob) {
     return NextResponse.json({ error: 'Bitte beide Bilder hochladen (Kleidungsstück + Modell).' }, { status: 400 })
   }
+  // Kleidungstyp → CatVTON: 'upper' (Oberteil) | 'lower' (Hose) | 'overall' (Ganzkörper)
+  const clothType = ['upper', 'lower', 'overall'].includes(type) ? type : 'upper'
 
   const hfToken = process.env.HF_TOKEN
   if (!hfToken || !hfToken.startsWith('hf_') || hfToken.includes('DEIN_TOKEN')) {
@@ -67,21 +69,21 @@ export async function POST(req) {
     }, { status: 400 })
   }
 
-  const space = process.env.HF_TRYON_SPACE || 'yisol/IDM-VTON'
+  const space = process.env.HF_TRYON_SPACE || 'zhengchong/CatVTON'
 
   try {
     const { Client } = await import('@gradio/client')
     const client = await Client.connect(space, { hf_token: hfToken })
 
-    // IDM-VTON /tryon: [ humanImageEditor, garmentImg, garmentDesc, autoMask, autoCrop, denoiseSteps, seed ]
-    const result = await client.predict('/tryon', [
+    // CatVTON /submit_function: [ personImageEditor, garmentImg, clothType, steps, cfg, seed, showType ]
+    const result = await client.predict('/submit_function', [
       { background: humanBlob, layers: [], composite: null },
       garmentBlob,
-      desc || 'a clothing item',
-      true,   // Auto-Maskierung
-      true,   // Auto-Crop & Resize (robuster bei beliebigem Seitenverhältnis)
-      30,     // Denoise-Steps
-      42,     // Seed
+      clothType,        // 'upper' | 'lower' | 'overall'
+      40,               // Inference Steps (Qualität)
+      2.5,              // CFG Strength
+      42,               // Seed
+      'result only',    // nur das Ergebnisbild
     ])
 
     const out = Array.isArray(result?.data) ? result.data[0] : null

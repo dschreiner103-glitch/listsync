@@ -213,7 +213,7 @@ export default function NewListing() {
   }
 
   // ── KI-Anprobe (Virtual Try-On) ──────────────────────────────────────────────
-  const [tryon, setTryon] = useState({ open:false, piece:null, model:null, result:null, loading:false, error:'' })
+  const [tryon, setTryon] = useState({ open:false, piece:null, model:null, result:null, loading:false, error:'', type:'upper' })
   const setT = (patch) => setTryon(t => ({ ...t, ...patch }))
 
   // Bild verkleinern + als DataURL (spart Upload & KI-Kosten)
@@ -253,7 +253,7 @@ export default function NewListing() {
     try {
       const res = await fetch('/api/ai/tryon', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ piece: tryon.piece, model: tryon.model, desc: form.title || form.category || 'a clothing item' }),
+        body: JSON.stringify({ piece: tryon.piece, model: tryon.model, type: tryon.type }),
       })
       const data = await res.json()
       if (!res.ok) { setT({ error: data.error || 'Generierung fehlgeschlagen', loading:false }); return }
@@ -738,6 +738,28 @@ export default function NewListing() {
                           </label>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Kleidungstyp */}
+                    <div>
+                      <p style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', margin:'0 0 6px' }}>Art des Kleidungsstücks</p>
+                      <div style={{ display:'flex', gap:8 }}>
+                        {[
+                          { id:'upper',   label:'👕 Oberteil' },
+                          { id:'lower',   label:'👖 Hose' },
+                          { id:'overall', label:'🧥 Ganzkörper' },
+                        ].map(t => {
+                          const sel = tryon.type === t.id
+                          return (
+                            <button type="button" key={t.id} onClick={()=>setT({ type:t.id, result:null })}
+                              style={{ flex:1, padding:'9px 6px', borderRadius:11, cursor:'pointer', fontSize:12.5, fontWeight:700, fontFamily:'inherit',
+                                border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.1)':'var(--surface)',
+                                color:sel?'#6366f1':'var(--text-2)', transition:'all .15s' }}>
+                              {t.label}
+                            </button>
+                          )
+                        })}
+                      </div>
                     </div>
 
                     {tryon.error && <p style={{ fontSize:12.5, color:'#ef4444', margin:0, fontWeight:600 }}>{tryon.error}</p>}
