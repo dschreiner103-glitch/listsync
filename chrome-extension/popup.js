@@ -126,7 +126,7 @@ document.getElementById('syncBtn').addEventListener('click', async () => {
   result.className = 'sync-result'
 
   await chrome.storage.local.set({ syncRequested: true })
-  chrome.tabs.create({ url: 'https://www.vinted.de', active: true })
+  chrome.tabs.create({ url: 'https://www.vinted.de/my_orders?order_type=sold', active: true })
 
   const listener = (msg) => {
     if (msg.type !== 'IMPORT_DONE') return

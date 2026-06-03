@@ -298,6 +298,145 @@ function normalizeActive(item) {
   }
 }
 
+// ── Orders page scraper (my_orders?order_type=sold) ──────────────────────────
+
+async function clickAbgeschlossen() {
+  await wait(1500)
+  const allBtns = [...document.querySelectorAll('button, a, [role="tab"], [role="button"]')]
+  const btn = allBtns.find(el => el.textContent.trim() === 'Abgeschlossen')
+  if (btn) { btn.click(); await wait(2000); return true }
+  return false
+}
+
+function scrapeOrderCards() {
+  const results = []
+  const seen = new Set()
+
+  // Anchor: find all text nodes containing "Transaktion erfolgreich beendet"
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT)
+  const statusNodes = []
+  let node
+  while ((node = walker.nextNode())) {
+    if (node.textContent.includes('Transaktion erfolgreich beendet')) {
+      statusNodes.push(node.parentElement)
+    }
+  }
+
+  for (const statusEl of statusNodes) {
+    // Walk up to find the card container (has image + price)
+    let card = statusEl
+    for (let i = 0; i < 8; i++) {
+      if (card?.querySelector?.('img') && /\d+[,.]\d+\s*€/.test(card.textContent)) break
+      card = card?.parentElement
+    }
+    if (!card || seen.has(card)) continue
+    seen.add(card)
+
+    const img = card.querySelector('img')?.src || ''
+    const priceMatch = card.textContent.match(/(\d+[,.]\d+)\s*€/)
+    const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0
+
+    // Title: h2/h3/strong, or longest text node that isn't price/status
+    let title = ''
+    const headings = card.querySelectorAll('h1,h2,h3,h4,strong,[class*="title"],[class*="Title"],[class*="name"],[class*="Name"]')
+    for (const h of headings) {
+      const t = h.textContent.trim()
+      if (t && t.length > 3 && !t.includes('€') && !t.includes('Transaktion') && !t.includes('Bestellung')) {
+        title = t; break
+      }
+    }
+    // Fallback: first substantial text node
+    if (!title) {
+      const textNodes = [...card.querySelectorAll('*')]
+        .filter(el => el.children.length === 0)
+        .map(el => el.textContent.trim())
+        .filter(t => t.length > 5 && !t.includes('€') && !t.includes('Transaktion') && !t.includes('Bestellung') && !/^\d/.test(t))
+      title = textNodes[0] || '(kein Titel)'
+    }
+
+    // Date: time element or data attribute
+    const timeEl = card.querySelector('time')
+    const soldAt = timeEl?.getAttribute('datetime') || timeEl?.dateTime || null
+
+    // VintedId from link href e.g. /orders/12345
+    const link = card.querySelector('a[href*="/orders/"], a[href*="/my_orders/"]')
+    const vintedId = link?.href?.match(/\/(\d+)/)?.[1] || ''
+
+    results.push({ title, price, images: img ? [img] : [], soldAt, vintedId, status: 'verkauft' })
+  }
+
+  return results
+}
+
+async function scrapeAllOrdersWithScroll() {
+  let lastCount = 0
+  let noChange = 0
+  while (noChange < 3) {
+    window.scrollTo(0, document.body.scrollHeight)
+    await wait(1800)
+    const count = scrapeOrderCards().length
+    if (count === lastCount) noChange++
+    else { noChange = 0; lastCount = count }
+    setSyncStatus(`Lade… ${lastCount} Verkäufe gefunden`)
+  }
+  return scrapeOrderCards()
+}
+
+async function runOrdersSync(activeVintedAccount) {
+  showSyncBanner('Lese abgeschlossene Verkäufe…')
+
+  // Click "Abgeschlossen" tab
+  setSyncStatus('Klicke "Abgeschlossen"…')
+  const clicked = await clickAbgeschlossen()
+  if (!clicked) setSyncStatus('Tab nicht gefunden – lese alle Bestellungen…')
+
+  // Scrape all completed sales
+  setSyncStatus('Scrape Verkäufe…')
+  const rawSales = await scrapeAllOrdersWithScroll()
+  console.log('[ListSync] DOM Verkäufe:', rawSales.length, rawSales[0])
+
+  // Normalize
+  const sales = rawSales.map(item => ({
+    title:       item.title,
+    price:       item.price,
+    buyPrice:    0,
+    status:      'verkauft',
+    platforms:   ['vinted'],
+    images:      item.images,
+    brand:       '',
+    size:        '',
+    color:       '',
+    condition:   'Gut',
+    description: '',
+    soldAt:      item.soldAt,
+    vintedId:    item.vintedId,
+  }))
+
+  // Also fetch active listings from API
+  setSyncStatus('Lade aktive Listings…')
+  const userId = await getCurrentUserId()
+  const rawActive = await fetchAllActive(userId)
+  const listings = rawActive.map(normalizeActive)
+
+  setSyncStatus(`${sales.length} Verkäufe + ${listings.length} aktive Listings – importiere…`)
+  await wait(500)
+
+  chrome.runtime.sendMessage({
+    type: 'VINTED_SYNC_DATA',
+    data: { sales, purchases: [], listings, account: activeVintedAccount || 'Hauptaccount' }
+  }, response => {
+    if (response?.ok) {
+      setSyncStatus(`✅ ${sales.length} Verkäufe & ${listings.length} aktive Listings importiert!`)
+      const banner = document.getElementById('ls-sync-banner')
+      if (banner) banner.style.background = '#16a34a'
+    } else {
+      setSyncStatus('⚠️ Import fehlgeschlagen – bitte erneut versuchen')
+      const banner = document.getElementById('ls-sync-banner')
+      if (banner) banner.style.background = '#dc2626'
+    }
+  })
+}
+
 // ── Main sync ─────────────────────────────────────────────────────────────────
 
 async function runSync() {
@@ -306,6 +445,13 @@ async function runSync() {
   await chrome.storage.local.remove('syncRequested')
 
   const { activeVintedAccount } = await new Promise(r => chrome.storage.local.get('activeVintedAccount', r))
+
+  // Auf der Bestellungsseite → neuer DOM-Scraper
+  if (location.pathname.includes('/my_orders')) {
+    await runOrdersSync(activeVintedAccount)
+    return
+  }
+
   showSyncBanner(`Verbinde mit Vinted${activeVintedAccount ? ' (' + activeVintedAccount + ')' : ''}…`)
   await wait(1000)
 
