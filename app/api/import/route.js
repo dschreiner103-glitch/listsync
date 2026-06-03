@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { prisma, ensureMigrated } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
@@ -18,6 +18,7 @@ export async function POST(req) {
     const session = await getServerSession(authOptions)
     if (!session?.user?.id) return NextResponse.json({ error: 'Nicht angemeldet' }, { status: 401 })
     const userId = Number(session.user.id)
+    await ensureMigrated()
 
     const { sales = [], purchases = [], listings = [], account = '' } = await req.json()
 
@@ -105,12 +106,22 @@ export async function POST(req) {
       const existing = await findByVintedId(userId, item.vintedId)
 
       if (existing) {
-        // Bild updaten falls fehlt
+        // Views + Likes + Bild aktualisieren
+        const updateData = {}
+        if (item.views > 0) updateData.views = Number(item.views)
         if (item.images?.length && JSON.parse(existing.images || '[]').length === 0) {
-          await prisma.listing.update({
-            where: { id: existing.id },
-            data: { images: JSON.stringify(item.images.slice(0, 8)) }
-          })
+          updateData.images = JSON.stringify(item.images.slice(0, 8))
+        }
+        if (Object.keys(updateData).length > 0) {
+          await prisma.listing.update({ where: { id: existing.id }, data: updateData })
+          if (item.likes > 0) {
+            const pg = isPostgres()
+            await prisma.$executeRawUnsafe(
+              pg ? `UPDATE "Listing" SET likes = $1 WHERE id = $2`
+                 : `UPDATE "Listing" SET likes = ? WHERE id = ?`,
+              Number(item.likes), existing.id
+            )
+          }
           updated++
         } else {
           skipped++
@@ -118,7 +129,7 @@ export async function POST(req) {
         continue
       }
 
-      await prisma.listing.create({
+      const created_listing = await prisma.listing.create({
         data: {
           userId,
           title:       (item.title || '').substring(0, 200),
@@ -133,8 +144,18 @@ export async function POST(req) {
           color:       item.color || '',
           condition:   item.condition || 'Gut',
           category:    'Sonstiges',
+          views:       Number(item.views) || 0,
         }
       })
+      // likes via raw SQL (neues Feld)
+      if (item.likes) {
+        const pg = isPostgres()
+        await prisma.$executeRawUnsafe(
+          pg ? `UPDATE "Listing" SET likes = $1 WHERE id = $2`
+             : `UPDATE "Listing" SET likes = ? WHERE id = ?`,
+          Number(item.likes), created_listing.id
+        )
+      }
       created++
     }
 

@@ -34,7 +34,12 @@ model Listing {
   platforms     String    @default("[]")
   images        String    @default("[]")
   views         Int       @default(0)
+  favorites     Int       @default(0)
   days          Int       @default(0)
+  soldAt        DateTime?
+  kaAdId        String    @default("")
+  buyerName     String    @default("")
+  buyerAddress  String    @default("")
   relistedAt    DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

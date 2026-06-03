@@ -651,7 +651,10 @@ export default function Listings() {
                               📦 {l.lagerplatz}
                             </span>
                           )}
-                          <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 'auto' }}>{l.views} Views</span>
+                          {l.likes > 0 && (
+                            <span style={{ fontSize: 12, color: '#ec4899', fontWeight: 600 }}>♥ {l.likes}</span>
+                          )}
+                          <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 'auto' }}>{l.views > 0 ? `${l.views} Views` : ''}</span>
                         </div>
                       </div>
                     </div>

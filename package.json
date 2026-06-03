@@ -15,6 +15,7 @@
     "@stripe/stripe-js": "^9.7.0",
     "@vercel/blob": "^0.23.4",
     "bcryptjs": "^3.0.3",
+    "jspdf": "^4.2.1",
     "next": "14.2.3",
     "next-auth": "^4.24.14",
     "react": "^18",

@@ -27,10 +27,16 @@ export async function GET() {
 
   return NextResponse.json(rows.map(l => ({
     ...parseListing(l),
-    lagerplatz: l.lagerplatz || '',
-    material:   l.material   || '',
-    kaCategory: l.kaCategory || '',
+    lagerplatz:   l.lagerplatz   || '',
+    material:     l.material     || '',
+    kaCategory:   l.kaCategory   || '',
     ebayCategory: l.ebayCategory || '',
+    favorites:    Number(l.favorites  || 0),
+    likes:        Number(l.likes || 0),
+    soldAt:       l.soldAt       || null,
+    kaAdId:       l.kaAdId       || '',
+    buyerName:    l.buyerName    || '',
+    buyerAddress: l.buyerAddress || '',
   })))
 }
 

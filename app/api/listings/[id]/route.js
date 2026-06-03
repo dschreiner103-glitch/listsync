@@ -64,13 +64,18 @@ export async function PATCH(req, { params }) {
   // Update new fields via raw SQL (bypasses stale Prisma client validation)
   const rawUpdates = []
   const rawArgs    = []
-  if (data.material      !== undefined) { rawUpdates.push('material');       rawArgs.push(data.material) }
-  if (data.stil          !== undefined) { rawUpdates.push('stil');           rawArgs.push(data.stil) }
-  if (data.beinform      !== undefined) { rawUpdates.push('beinform');       rawArgs.push(data.beinform) }
-  if (data.taillenumfang !== undefined) { rawUpdates.push('taillenumfang');  rawArgs.push(data.taillenumfang) }
-  if (data.kaCategory    !== undefined) { rawUpdates.push('"kaCategory"');   rawArgs.push(data.kaCategory) }
-  if (data.ebayCategory  !== undefined) { rawUpdates.push('"ebayCategory"'); rawArgs.push(data.ebayCategory) }
-  if (data.lagerplatz    !== undefined) { rawUpdates.push('lagerplatz');     rawArgs.push(data.lagerplatz) }
+  if (data.material      !== undefined) { rawUpdates.push('material');        rawArgs.push(data.material) }
+  if (data.stil          !== undefined) { rawUpdates.push('stil');            rawArgs.push(data.stil) }
+  if (data.beinform      !== undefined) { rawUpdates.push('beinform');        rawArgs.push(data.beinform) }
+  if (data.taillenumfang !== undefined) { rawUpdates.push('taillenumfang');   rawArgs.push(data.taillenumfang) }
+  if (data.kaCategory    !== undefined) { rawUpdates.push('"kaCategory"');    rawArgs.push(data.kaCategory) }
+  if (data.ebayCategory  !== undefined) { rawUpdates.push('"ebayCategory"');  rawArgs.push(data.ebayCategory) }
+  if (data.lagerplatz    !== undefined) { rawUpdates.push('lagerplatz');      rawArgs.push(data.lagerplatz) }
+  if (data.favorites     !== undefined) { rawUpdates.push('favorites');       rawArgs.push(Number(data.favorites)) }
+  if (data.soldAt        !== undefined) { rawUpdates.push('"soldAt"');        rawArgs.push(data.soldAt ? new Date(data.soldAt).toISOString() : null) }
+  if (data.kaAdId        !== undefined) { rawUpdates.push('"kaAdId"');        rawArgs.push(data.kaAdId) }
+  if (data.buyerName     !== undefined) { rawUpdates.push('"buyerName"');     rawArgs.push(data.buyerName) }
+  if (data.buyerAddress  !== undefined) { rawUpdates.push('"buyerAddress"');  rawArgs.push(data.buyerAddress) }
 
   if (rawUpdates.length) {
     const isPostgres = !!process.env.DATABASE_URL?.startsWith('postgres')
@@ -101,6 +106,11 @@ export async function PATCH(req, { params }) {
     kaCategory:    data.kaCategory    !== undefined ? data.kaCategory    : (existing.kaCategory    || ''),
     ebayCategory:  data.ebayCategory  !== undefined ? data.ebayCategory  : (existing.ebayCategory  || ''),
     lagerplatz:    data.lagerplatz    !== undefined ? data.lagerplatz    : (existing.lagerplatz    || ''),
+    favorites:     data.favorites     !== undefined ? Number(data.favorites) : Number(existing.favorites || 0),
+    soldAt:        data.soldAt        !== undefined ? data.soldAt        : (existing.soldAt        || null),
+    kaAdId:        data.kaAdId        !== undefined ? data.kaAdId        : (existing.kaAdId        || ''),
+    buyerName:     data.buyerName     !== undefined ? data.buyerName     : (existing.buyerName     || ''),
+    buyerAddress:  data.buyerAddress  !== undefined ? data.buyerAddress  : (existing.buyerAddress  || ''),
   })
 }
 
