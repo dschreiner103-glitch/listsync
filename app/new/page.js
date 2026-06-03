@@ -115,14 +115,25 @@ export default function NewListing() {
   const [form, setForm]       = useState({
     title:'', description:'', price:'', buyPrice:'',
     condition:'Sehr gut', category:'',
-    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', kaCategory:'', ebayCategory:'', lagerplatz:'', shipping:[], shipSize:'',
+    brand:'', size:'', color:'', material:'', stil:'', beinform:'', taillenumfang:'', kaCategory:'', ebayCategory:'', lagerplatz:'', shipping:[], shipSize:'', carriers:[],
     platforms:['vinted','kleinanzeigen','ebay'],
     address:''
   })
 
+  const descRef = useRef(null)
+  // Textarea wächst automatisch mit dem Inhalt mit (min 3 Zeilen, max ~60vh)
+  const autoGrow = (el) => {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, Math.round(window.innerHeight * 0.6)) + 'px'
+  }
+  // Nach KI-Generierung Höhe anpassen
+  useEffect(() => { autoGrow(descRef.current) }, [form.description])
+
   const set = (k,v) => setForm(f=>({...f,[k]:v}))
   const togglePlt  = p => set('platforms', form.platforms.includes(p)?form.platforms.filter(x=>x!==p):[...form.platforms,p])
   const toggleShip = s => set('shipping',  form.shipping.includes(s)?form.shipping.filter(x=>x!==s):[...form.shipping,s])
+  const toggleCarrier = c => set('carriers', form.carriers.includes(c)?form.carriers.filter(x=>x!==c):[...form.carriers,c])
 
   const handleAiGenerate = async () => {
     if (!aiBullets.trim()) return
@@ -139,6 +150,8 @@ export default function NewListing() {
           price: form.price,
           size: form.size,
           color: form.color,
+          material: form.material,
+          carriers: form.carriers,
         }),
       })
       const data = await res.json()
@@ -512,8 +525,12 @@ export default function NewListing() {
 
                 <div>
                   <label style={lbl}>Beschreibung</label>
-                  <textarea value={form.description} onChange={e=>set('description',e.target.value)} rows={3}
-                    placeholder="Beschreibe den Artikel, Besonderheiten, Maße…" style={{ ...inp, resize:'vertical' }}/>
+                  <textarea ref={descRef} value={form.description}
+                    onChange={e=>{ set('description',e.target.value); autoGrow(e.target) }}
+                    onInput={e=>autoGrow(e.target)}
+                    rows={3}
+                    placeholder="Beschreibe den Artikel, Besonderheiten, Maße…"
+                    style={{ ...inp, resize:'none', minHeight:84, overflow:'hidden' }}/>
                 </div>
               </div>
 
@@ -543,6 +560,27 @@ export default function NewListing() {
                       )
                     })}
                   </div>
+                </div>
+
+                {/* Versandanbieter (Kunde wählt) */}
+                <div>
+                  <label style={{ ...lbl, marginBottom:8 }}>Versandanbieter <span style={{ fontWeight:400, color:'var(--text-3)' }}>(erscheint in der Beschreibung)</span></label>
+                  <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
+                    {['Hermes','DHL','DPD','GLS'].map(c => {
+                      const sel = form.carriers.includes(c)
+                      return (
+                        <button type="button" key={c} onClick={()=>toggleCarrier(c)}
+                          style={{ padding:'9px 16px', borderRadius:11, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit',
+                            border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.1)':'var(--surface)',
+                            color:sel?'#6366f1':'var(--text-2)', transition:'all .15s' }}>
+                          {sel ? '✓ ' : ''}{c}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'7px 0 0' }}>
+                    {form.carriers.length ? `Versand mit: ${form.carriers.join(', ')}` : 'Nichts gewählt → „alle gängigen Anbieter möglich"'}
+                  </p>
                 </div>
 
                 <div>

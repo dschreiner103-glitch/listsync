@@ -6,7 +6,7 @@ export async function POST(req) {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { bulletPoints, category, brand, condition, price, size, color, material } = await req.json()
+  const { bulletPoints, category, brand, condition, price, size, color, material, carriers } = await req.json()
 
   if (!bulletPoints?.trim()) {
     return NextResponse.json({ error: 'Stichpunkte fehlen' }, { status: 400 })
@@ -50,11 +50,11 @@ JSON mit diesen 4 Feldern:
 {
   "title": "SEO-Titel 70-80 Zeichen, so viele Suchbegriffe wie möglich für maximale Auffindbarkeit: [Marke] [Artikelname] [Farbe] [Größe] [Material] [Stil/Zustand]. Nutze die 80 Zeichen möglichst aus, aber NIEMALS über 80 Zeichen und kein Wort abschneiden.",
   "intro": "2-3 konkrete ehrliche Sätze über diesen spezifischen Artikel: Zustand, Besonderheiten, Tragezustand. Kein Marketing-Blabla.",
-  "hashtags": ["mindestens70", "eintraege", "nurDasWort", "ohne#"],
+  "hashtags": ["mindestens100", "eintraege", "nurDasWort", "ohne#"],
   "keywords": ["15", "suchbegriffe", "ohne#"]
 }
 
-FÜR hashtags-Array — PFLICHT: mindestens 70 Einträge, nur das Wort ohne #:
+FÜR hashtags-Array — PFLICHT: mindestens 100 Einträge, nur das Wort ohne #:
 Artikel-spezifisch (min. 6): Marke, Typ, Farbe, Größe, Material
 Brand-Variationen (min. 5): z.B. NikeHoodie NikeStyle NikeVintage NikeFleece NikeOutfit
 Stil & Ära (alle verwenden): vintage vintagestyle y2k y2kvintage y2kfashion 90s 90svintage 90sstyle 2000s 00s retro archive pashastyle oldmoney preppy streetwear streetstyle urbanstyle hiphop
@@ -104,41 +104,58 @@ ${contextTags ? `Kontext (ALLE verwenden): ${contextTags}` : ''}`
     }
 
     const intro    = (parsed.intro    || '').trim()
-    const hashArr  = Array.isArray(parsed.hashtags) ? parsed.hashtags : []
-    const hashStr  = hashArr.map(h => `#${h.replace(/^#/, '')}`).join(' ')
     const itemName = [brand, parsed.title?.split(' ').slice(1, 3).join(' ')].filter(Boolean).join(' ') || 'Artikel'
 
-    // Beschreibung server-seitig aus festem Template + AI-Intro + AI-Hashtags zusammenbauen
+    // ── Hashtags: AI-Tags + breiter Reichweiten-Pool, dedupliziert ──
+    const GENERIC_TAGS = [
+      'fashion','mode','outfit','ootd','style','styleinspo','outfitinspo','trend','trending','viral',
+      'fyp','foryou','foryoupage','explore','musthave','sale','deal','schnäppchen','günstig','angebot',
+      'secondhand','vintage','thrift','thrifted','thrifting','preloved','preowned','nachhaltig','slowfashion','sustainable',
+      'kleiderschrank','ausmisten','closetclearout','neu','top','original','rare','limited','exclusive','unique',
+      'cool','clean','cleanfit','aesthetic','vibes','look','lookbook','dripcheck','drip','fresh',
+      'streetwear','streetstyle','casual','classy','elegant','basic','oversized','y2k','90s','2000s',
+      'retro','urban','boho','minimalist','designer','brand','luxus','premium','qualität','geschenk',
+      'geschenkidee','gift','summer','winter','herbst','frühling','sommeroutfit','winteroutfit','layering','everyday',
+      'herren','damen','unisex','kids','shopping','onlineshopping','vintedfinds','vintedde','vinted','kleinanzeigen',
+      'ebay','ebayfinds','follow','followme','like','share','must','newin','dailylook','fashionista',
+    ]
+    const rawTags = [
+      ...(Array.isArray(parsed.hashtags) ? parsed.hashtags : []),
+      ...GENERIC_TAGS,
+    ].map(h => String(h).replace(/^#/, '').replace(/\s+/g, '').trim()).filter(Boolean)
+
+    const seen = new Set()
+    const tags = []
+    for (const t of rawTags) {
+      const key = t.toLowerCase()
+      if (!seen.has(key)) { seen.add(key); tags.push(t) }
+    }
+    const hashStr = tags.map(t => `#${t}`).join(' ')
+
+    // ── Versand-Zeile aus Anbieter-Auswahl ──
+    const carrierList = Array.isArray(carriers) ? carriers.filter(Boolean) : []
+    const versandLine = carrierList.length
+      ? `📦 Versand mit: ${carrierList.join(', ')} · innerhalb 24h`
+      : '📦 Versand: alle gängigen Anbieter möglich · innerhalb 24h'
+
+    // ── Einheitliche, saubere Beschreibung (keine Dopplungen) ──
+    const detailLines = [
+      brand     && `• Marke: ${brand}`,
+      size      && `• Größe: ${size}`,
+      color     && `• Farbe: ${color}`,
+      material  && `• Material: ${material}`,
+      condition && `• Zustand: ${condition}`,
+    ].filter(Boolean)
+
     const description = [
-      '✨ Hiermit würde ich dir gerne folgenden Artikel vorstellen: ✨',
+      `✨ ${itemName} ✨`,
       '',
       intro,
       '',
-      `📌 Name: ${itemName}`,
-      `✏️ Größe: ${size || '–'}`,
-      '📦 Versand: Innerhalb 24h',
-      '💬 Bei Fragen gerne schreiben',
-      '🔄 Schneller Versand & faire Preise',
-      '',
-      'Zum Artikel :',
-      '',
-      `Size : ${size || '–'}`,
-      `Maße: – cm Breit – cm Lang`,
-      `Zustand: ${condition || '–'}`,
-      '',
-      '🍍Verfügbar',
-      '',
-      'Versende Innerhalb 24h📦',
-      '❕Am Liebsten Hermes ❕',
-      'Jedoch Sind Alle Versandoptionen Offen',
-      '',
-      'Ich nehme alle gängigen Zahlungsarten an ✅',
-      '',
-      '',
-      'Per Fragen Gerne Melden🙋🏽',
-      '',
-      '',
-      'Bei Fragen oder ernsthaftem Interesse gerne anschreiben 🤙',
+      ...(detailLines.length ? ['📋 Details:', ...detailLines, ''] : []),
+      versandLine,
+      '💳 Alle gängigen Zahlungsarten',
+      '💬 Bei Fragen oder ernsthaftem Interesse gerne anschreiben 🤙',
       '',
       hashStr,
     ].join('\n')
@@ -159,7 +176,7 @@ ${contextTags ? `Kontext (ALLE verwenden): ${contextTags}` : ''}`
       title:        clamp80(parsed.title || ''),
       description,
       keywords:     Array.isArray(parsed.keywords) ? parsed.keywords.slice(0, 15) : [],
-      hashtagCount: hashArr.length,
+      hashtagCount: tags.length,
     })
   } catch (e) {
     return NextResponse.json({ error: 'Netzwerkfehler zur KI' }, { status: 500 })
