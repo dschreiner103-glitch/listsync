@@ -706,9 +706,12 @@ export default function Listings() {
 
                     {l.status === 'verkauft' && (
                       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)' }}>
-                        <div style={{ display: 'flex', gap: 16, marginBottom: 10 }}>
+                        <div style={{ display: 'flex', gap: 16, marginBottom: 10, flexWrap: 'wrap' }}>
                           <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0 }}>Einkauf: {fmt(l.buyPrice)}</p>
                           <p style={{ fontSize: 12.5, color: '#10b981', fontWeight: 700, margin: 0 }}>Gewinn: +{fmt(profit(l))}</p>
+                          {l.createdAt && <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>
+                            Verkauft: {new Date(l.createdAt).toLocaleDateString('de-DE', { day:'2-digit', month:'short', year:'numeric' })}
+                          </p>}
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button onClick={() => openRelistModal(l.id)}

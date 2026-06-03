@@ -427,6 +427,52 @@ export default function Dashboard() {
             </div>
           </div>}
 
+          {/* ── Monatsvergleich ── */}
+          {!loading && sold.length >= 2 && (() => {
+            const now = new Date()
+            const startThis  = new Date(now.getFullYear(), now.getMonth(), 1)
+            const startPrev  = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+            const endPrev    = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+
+            const thisMonth  = sold.filter(l => new Date(l.createdAt) >= startThis)
+            const prevMonth  = sold.filter(l => { const d = new Date(l.createdAt); return d >= startPrev && d <= endPrev })
+
+            const thisRev  = thisMonth.reduce((s,l) => s + l.price, 0)
+            const prevRev  = prevMonth.reduce((s,l) => s + l.price, 0)
+            const thisPro  = thisMonth.reduce((s,l) => s + (l.price-(l.buyPrice||0)), 0)
+            const prevPro  = prevMonth.reduce((s,l) => s + (l.price-(l.buyPrice||0)), 0)
+
+            const revDiff  = prevRev > 0 ? Math.round(((thisRev - prevRev) / prevRev) * 100) : null
+            const proDiff  = prevPro > 0 ? Math.round(((thisPro - prevPro) / prevPro) * 100) : null
+            const MO = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
+
+            const Arrow = ({ pct }) => pct === null ? null : (
+              <span style={{ fontSize: 11, fontWeight: 800, color: pct >= 0 ? '#10b981' : '#ef4444' }}>
+                {pct >= 0 ? '↑' : '↓'} {Math.abs(pct)}% vs. {MO[now.getMonth()-1<0?11:now.getMonth()-1]}
+              </span>
+            )
+
+            return (
+              <Card>
+                <STitle>📅 Monatsvergleich</STitle>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+                  {[
+                    { label: 'Verkäufe', this: thisMonth.length, prev: prevMonth.length, fmt: v => v, diff: prevMonth.length > 0 ? Math.round(((thisMonth.length-prevMonth.length)/prevMonth.length)*100) : null },
+                    { label: 'Einnahmen', this: thisRev, prev: prevRev, fmt: v => fmt(v), diff: revDiff },
+                    { label: 'Gewinn', this: thisPro, prev: prevPro, fmt: v => fmt(v), diff: proDiff },
+                  ].map(col => (
+                    <div key={col.label} style={{ textAlign: 'center', padding: '12px', background: 'var(--bg)', borderRadius: 12 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '.06em', margin: '0 0 4px' }}>{col.label}</p>
+                      <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 4px', letterSpacing: '-0.02em' }}>{col.fmt(col.this)}</p>
+                      <Arrow pct={col.diff} />
+                      {col.diff === null && <span style={{ fontSize: 11, color: 'var(--text-3)' }}>kein Vormonat</span>}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )
+          })()}
+
           {/* ── Platform breakdown ── */}
           <Card>
             <STitle>Verkäufe nach Plattform</STitle>

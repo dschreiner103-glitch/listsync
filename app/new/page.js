@@ -6,6 +6,7 @@ import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, seoTitle, fmt } from '@/components/Badge'
 import CategoryPicker from '@/components/CategoryPicker'
+import { calcScore, scoreColor, scoreLabel } from '@/lib/score'
 
 // eBay-Unterkategorie-Optionen je Hauptkategorie
 const EBAY_CATS = {
@@ -414,6 +415,31 @@ export default function NewListing() {
               style={{ width:36, height:36, borderRadius:'50%', border:'none', cursor:'pointer', background:'var(--modal-close)', color:'var(--text-2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, flexShrink:0 }}>←</button>
             <h1 style={{ fontSize:20, fontWeight:800, color:'var(--text-1)', margin:0, letterSpacing:'-0.02em' }}>Neues Listing</h1>
           </div>
+
+          {/* Live Score Bar */}
+          {(() => {
+            const preview = { title: form.title, description: form.description, images: form.images, brand: form.brand, size: form.size, color: form.color, condition: form.condition, platforms: form.platforms }
+            const { score, improvements } = calcScore(preview)
+            const c = scoreColor(score)
+            const lbl = scoreLabel(score)
+            const pct = score
+            return (
+              <div style={{ marginBottom: 18, padding: '12px 14px', borderRadius: 14, border: `1px solid ${c}33`, background: `${c}0a` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text-2)' }}>Listing-Qualität</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: c }}>{score}/100 · {lbl}</span>
+                </div>
+                <div style={{ height: 6, background: 'var(--border)', borderRadius: 99, overflow: 'hidden', marginBottom: improvements.length > 0 ? 8 : 0 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: c, borderRadius: 99, transition: 'width .3s' }}/>
+                </div>
+                {improvements.length > 0 && (
+                  <p style={{ fontSize: 11.5, color: c, margin: 0, fontWeight: 600 }}>
+                    💡 {improvements[0].tip}
+                  </p>
+                )}
+              </div>
+            )
+          })()}
 
           {/* Step indicator */}
           <div style={{ display:'flex', alignItems:'center', marginBottom:32 }}>
