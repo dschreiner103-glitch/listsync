@@ -411,8 +411,18 @@ async function runSyncQueue() {
     await new Promise(r => setTimeout(r, 700))
     location.href = `https://www.vinted.de/items/${remaining[0].vintedId}`
   } else {
-    // Alle ausgelesen → importieren
-    setSyncStatus(`Importiere ${scraped.length} Listings + ${(store.syncSoldData||[]).length} Verkäufe…`)
+    // Alle ausgelesen → importieren (Bilder werden im Background hochgeladen)
+    await chrome.storage.local.remove(['syncPhase', 'syncItemQueue', 'syncScrapedItems', 'syncSoldData', 'syncAccount'])
+    setSyncStatus(`Lade Bilder hoch & importiere ${scraped.length} Listings…`)
+
+    // Upload-Fortschritt vom Background anzeigen
+    const progressListener = (m) => {
+      if (m.type === 'SYNC_UPLOAD_PROGRESS') {
+        setSyncStatus(`Lade Bilder hoch… Listing ${m.done}/${m.total}`)
+      }
+    }
+    chrome.runtime.onMessage.addListener(progressListener)
+
     chrome.runtime.sendMessage({
       type: 'VINTED_SYNC_DATA',
       data: {
@@ -422,12 +432,15 @@ async function runSyncQueue() {
         account:   store.syncAccount || 'Hauptaccount',
       }
     }, (response) => {
+      chrome.runtime.onMessage.removeListener(progressListener)
+      const r = response?.result || {}
       showSyncBanner(
-        response?.ok ? `✅ ${scraped.length} Listings & ${(store.syncSoldData||[]).length} Verkäufe importiert!` : '⚠️ Import fehlgeschlagen',
+        response?.ok
+          ? `✅ ${(r.created||0)+(r.updated||0)} Listings & ${(store.syncSoldData||[]).length} Verkäufe importiert!`
+          : '⚠️ Import fehlgeschlagen',
         response?.ok ? '#16a34a' : '#dc2626'
       )
     })
-    await chrome.storage.local.remove(['syncPhase', 'syncItemQueue', 'syncScrapedItems', 'syncSoldData', 'syncAccount'])
   }
   return true
 }

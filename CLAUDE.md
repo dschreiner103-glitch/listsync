@@ -294,6 +294,46 @@ Fallback: wenn gemappter Leaf nicht gefunden → Original-`kaCategory` wird vers
 - [ ] Vinted-Sync: Zuverlässigkeit verbessern (braucht aktive Browser-Session)
 - [ ] Mobile: Einige Dark-Mode Elemente noch nicht perfekt
 
+## Stripe-Zahlungssystem (implementiert 2026-06-02)
+
+Vollständige Free/Pro/Lifetime-Integration ist live im Code.
+
+### Dateien
+- `lib/stripe.js` — Stripe-Client, PLANS-Objekt, `getUserPlan(userId)` Helper
+- `app/api/stripe/checkout/route.js` — Checkout Session (POST `{plan: 'pro'|'lifetime'}`)
+- `app/api/stripe/webhook/route.js` — Webhooks: checkout.session.completed, subscription.updated/deleted, invoice.payment_failed
+- `app/api/stripe/portal/route.js` — Customer Portal URL
+- `app/api/subscription/route.js` — Aktuellen Plan abfragen (GET)
+- `app/pricing/page.js` — Öffentliche Pricing Page (in middleware.js aus Auth ausgenommen)
+
+### DB-Felder (via ensureMigrated in lib/prisma.js)
+User-Tabelle: `stripe_customer_id`, `stripe_subscription_id`, `plan`, `plan_status`, `plan_ends_at`
+
+### Pläne
+- **Free**: max 5 Listings, 1 Plattform
+- **Pro**: €9,99/Monat, alles unlimitiert
+- **Lifetime**: €79 einmalig, Pro für immer
+
+### Limit-Enforcement
+`app/api/listings/route.js` POST — gibt `{upgrade: true}` zurück wenn Free-Limit erreicht.
+
+### Env-Variablen (.env)
+```
+STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_PRO_MONTHLY=price_...
+STRIPE_PRICE_LIFETIME=price_...
+```
+
+### Lokal testen
+```bash
+stripe listen --forward-to localhost:3000/api/stripe/webhook
+```
+Auf Vercel: Env-Vars im Dashboard setzen, Webhook-URL = `https://project-dle5b.vercel.app/api/stripe/webhook`
+
+---
+
 ## Design-Referenz
 **Sentra** (get-sentra.com) — Vinted Sales Tracker. Selbe Zielgruppe, ähnliche Features. ListSync soll sich so anfühlen.
 

@@ -46,8 +46,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
   if (msg.type === 'VINTED_SYNC_DATA') {
     importVintedHistory(msg.data, sender.tab?.id)
-    sendResponse({ ok: true })
-    return true
+      .then(result => sendResponse({ ok: true, result }))
+      .catch(e => sendResponse({ ok: false, error: e.message }))
+    return true // async response
   }
   if (msg.type === 'IMPORT_VINTED_LISTING') {
     importVintedListing(msg.listing)
@@ -375,10 +376,49 @@ function getEbayCategoryIdFromListing(listing) {
   return EBAY_IDS[cat.split(' – ')[0]] || null
 }
 
+// ── Bild-URLs zu ListSync-Storage hochladen (Vinted-URLs laufen ab/hotlink) ──
+async function uploadImageUrls(urls) {
+  const uploaded = []
+  for (const url of (urls || []).slice(0, 8)) {
+    try {
+      const res = await fetch(url)
+      if (!res.ok) continue
+      const blob = await res.blob()
+      if (!blob.type.startsWith('image/')) continue
+      const fd = new FormData()
+      const ext = (blob.type || 'image/jpeg').split('/')[1] || 'jpg'
+      fd.append('files', new File([blob], `import_${uploaded.length + 1}.${ext}`, { type: blob.type }))
+      const up = await fetch(`${BASE_URL}/api/upload`, { method: 'POST', body: fd, credentials: 'include' })
+      if (up.ok) {
+        const { urls: outUrls } = await up.json()
+        if (outUrls?.[0]) uploaded.push(outUrls[0])
+      }
+    } catch(e) { console.warn('[ListSync BG] Bild-Upload fehlgeschlagen:', e.message) }
+  }
+  return uploaded
+}
+
 // ── Vinted history import ─────────────────────────────────────────────────────
 
 async function importVintedHistory(data, sourceTabId) {
   try {
+    // Aktive Listings: Bilder hochladen damit sie dauerhaft funktionieren
+    if (Array.isArray(data.listings) && data.listings.length) {
+      for (let i = 0; i < data.listings.length; i++) {
+        const l = data.listings[i]
+        if (l.images?.length) {
+          const uploaded = await uploadImageUrls(l.images)
+          if (uploaded.length) l.images = uploaded
+        }
+        // Fortschritt an Sync-Tab melden
+        if (sourceTabId) {
+          chrome.tabs.sendMessage(sourceTabId, {
+            type: 'SYNC_UPLOAD_PROGRESS', done: i + 1, total: data.listings.length
+          }).catch(() => {})
+        }
+      }
+    }
+
     const { token } = await chrome.storage.local.get('authToken')
     const res = await fetch(`${BASE_URL}/api/import`, {
       method:  'POST',
@@ -389,8 +429,10 @@ async function importVintedHistory(data, sourceTabId) {
     const result = await res.json()
     console.log('[ListSync BG] Import:', result)
     chrome.runtime.sendMessage({ type: 'IMPORT_DONE', result }).catch(() => {})
+    return result
   } catch(e) {
     console.warn('[ListSync BG] Import fehlgeschlagen:', e.message)
+    throw e
   }
 }
 
