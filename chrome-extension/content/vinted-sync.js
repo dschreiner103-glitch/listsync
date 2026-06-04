@@ -623,90 +623,8 @@ async function scrapeActiveListings() {
     })
   }
 
-  console.log('[ListSync] Aktive Listings (DOM):', results.length)
-
-  // Volle Details aus der API laden (Brand, Größe, Kategorie, Farbe, Material, Zustand)
-  setSyncStatus(`Lade Details für ${results.length} Listings…`)
-  const enriched = []
-  for (let i = 0; i < results.length; i++) {
-    const item = results[i]
-    if (!item.vintedId) { enriched.push(item); continue }
-    setSyncStatus(`Details ${i + 1}/${results.length}…`)
-    try {
-      const detail = await callVintedAPI(`/api/v2/items/${item.vintedId}`)
-      const it = detail?.item || detail
-      if (it) {
-        // Debug: erste API-Response komplett loggen damit wir die Felder sehen
-        if (i === 0) console.log('[ListSync ITEM-API] Erste Response:', JSON.stringify(it, null, 2))
-
-        enriched.push({ ...item, ...mapVintedItem(it, item) })
-      } else {
-        enriched.push(item)
-      }
-    } catch (e) {
-      console.warn('[ListSync] Detail-Fehler', item.vintedId, e.message)
-      enriched.push(item)
-    }
-    await wait(150) // kurze Pause gegen Rate-Limiting
-  }
-
-  console.log('[ListSync] Aktive Listings (angereichert):', enriched.length)
-  return enriched
-}
-
-// Mappt ein Vinted-API-Item auf unser Listing-Format (defensiv – viele Feldvarianten)
-function mapVintedItem(it, fallback) {
-  // Brand: kann String, brand_dto.title, brand.title oder brand_title sein
-  const brand = it.brand_dto?.title || it.brand?.title || it.brand_title ||
-                (typeof it.brand === 'string' ? it.brand : '') || ''
-
-  // Größe: size_title, size.title oder size (String)
-  const size = it.size_title || it.size?.title ||
-               (typeof it.size === 'string' ? it.size : '') || ''
-
-  // Zustand: status (String), item_condition.title, condition_title
-  const condition = it.status || it.item_condition?.title || it.condition_title ||
-                    (typeof it.condition === 'string' ? it.condition : '') || fallback.condition || 'Gut'
-
-  // Farbe: color1 + color2 kombinieren, oder color.title
-  const colorParts = [
-    it.color1 || it.color1_title || it.color?.title || (typeof it.color === 'string' ? it.color : ''),
-    it.color2 || it.color2_title,
-  ].filter(Boolean)
-  const color = [...new Set(colorParts)].join(', ')
-
-  // Material: composition, material, material_title
-  const material = it.composition || it.material?.title || it.material_title ||
-                   (typeof it.material === 'string' ? it.material : '') || ''
-
-  // Kategorie: aus catalog/path Breadcrumb wenn vorhanden
-  let category = 'Sonstiges'
-  if (Array.isArray(it.catalog_branch_title_paths) && it.catalog_branch_title_paths[0]) {
-    category = it.catalog_branch_title_paths[0].join(' – ')
-  } else if (Array.isArray(it.path)) {
-    category = it.path.map(p => p.title || p).filter(Boolean).join(' – ')
-  } else if (it.catalog?.title) {
-    category = it.catalog.title
-  } else if (it.category?.title) {
-    category = it.category.title
-  }
-
-  // Bilder: full_size_url bevorzugen
-  const images = Array.isArray(it.photos)
-    ? it.photos.map(p => p.full_size_url || p.url || p.thumbnails?.[p.thumbnails.length-1]?.url || '').filter(Boolean)
-    : fallback.images
-
-  // Preis
-  const price = parseFloat(it.price?.amount || it.price_numeric || it.price_amount?.amount || fallback.price) || fallback.price
-
-  // Beschreibung
-  const description = (it.description || '').trim()
-
-  return {
-    title: it.title || fallback.title,
-    price, brand, size, color, condition, material, category, description,
-    images: images.length ? images : fallback.images,
-  }
+  console.log('[ListSync] Aktive Listings (IDs vom Profil):', results.length)
+  return results
 }
 
 async function runProfileSync() {
@@ -717,26 +635,38 @@ async function runProfileSync() {
   showSyncBanner('2/2 Lade aktive Listings vom Profil…')
   await wait(2000) // React rendering abwarten
 
-  const listings = await scrapeActiveListings()
-  console.log('[ListSync] Aktive Listings vom Profil:', listings.length)
+  // Nur IDs + Stats (views/likes/price) vom Profil sammeln
+  const profileItems = await scrapeActiveListings()
+  console.log('[ListSync] Aktive Listings (IDs):', profileItems.length)
 
-  setSyncStatus(`${syncSoldData.length} Verkäufe + ${listings.length} aktive Listings – importiere…`)
-  await wait(400)
+  if (profileItems.length === 0) {
+    // Keine aktiven Listings → nur Verkäufe importieren
+    setSyncStatus(`Keine aktiven Listings. Importiere ${syncSoldData.length} Verkäufe…`)
+    chrome.runtime.sendMessage({
+      type: 'VINTED_SYNC_DATA',
+      data: { sales: syncSoldData, purchases: [], listings: [], account: syncAccount }
+    }, response => {
+      setSyncStatus(response?.ok ? `✅ ${syncSoldData.length} Verkäufe importiert!` : '⚠️ Import fehlgeschlagen')
+      const banner = document.getElementById('ls-sync-banner')
+      if (banner) banner.style.background = response?.ok ? '#16a34a' : '#dc2626'
+    })
+    return
+  }
 
-  chrome.runtime.sendMessage({
-    type: 'VINTED_SYNC_DATA',
-    data: { sales: syncSoldData, purchases: [], listings, account: syncAccount }
-  }, response => {
-    if (response?.ok) {
-      setSyncStatus(`✅ ${syncSoldData.length} Verkäufe & ${listings.length} aktive Listings importiert!`)
-      const banner = document.getElementById('ls-sync-banner')
-      if (banner) banner.style.background = '#16a34a'
-    } else {
-      setSyncStatus('⚠️ Import fehlgeschlagen – bitte erneut versuchen')
-      const banner = document.getElementById('ls-sync-banner')
-      if (banner) banner.style.background = '#dc2626'
-    }
+  // Phase 3 starten: jede Artikelseite einzeln öffnen und voll auslesen
+  // (übernimmt vinted-import.js via runSyncQueue)
+  const queue = profileItems.map(p => ({ vintedId: p.vintedId, views: p.views, likes: p.likes }))
+  await chrome.storage.local.set({
+    syncItemQueue:   queue,
+    syncScrapedItems: [],
+    syncSoldData:    syncSoldData,
+    syncAccount:     syncAccount,
+    syncPhase:       'items',
   })
+
+  setSyncStatus(`${profileItems.length} Artikel gefunden – lese jeden einzeln aus…`)
+  await wait(800)
+  window.location.href = `https://www.vinted.de/items/${queue[0].vintedId}`
 }
 
 // ── Main sync ─────────────────────────────────────────────────────────────────

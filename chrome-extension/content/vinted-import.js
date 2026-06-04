@@ -78,16 +78,28 @@ function scrapeDescription() {
 }
 
 function scrapeImages() {
-  // og:image tags sind am zuverlässigsten (hohe Auflösung)
+  // 1. Galerie-Bilder (alle Fotos des Artikels) – höchste Priorität
+  const galleryImgs = [...document.querySelectorAll(
+    '[data-testid*="photo"] img, [data-testid*="image-carousel"] img, [class*="gallery"] img, [class*="photo"] img, [class*="Photo"] img, [class*="item-photo"] img'
+  )]
+    .map(i => {
+      // srcset für höchste Auflösung
+      const srcset = i.srcset || i.getAttribute('srcset') || ''
+      if (srcset) {
+        const best = srcset.split(',').map(s => s.trim().split(' '))
+          .sort((a, b) => parseFloat(b[1] || 0) - parseFloat(a[1] || 0))[0]?.[0]
+        if (best) return best
+      }
+      return i.src
+    })
+    .filter(s => s && !s.startsWith('data:') && (s.includes('vinted') || s.includes('cloudfront')))
+  const uniqueGallery = [...new Set(galleryImgs)]
+  if (uniqueGallery.length) return uniqueGallery.slice(0, 12)
+
+  // 2. Fallback: og:image meta tags
   const og = [...document.querySelectorAll('meta[property="og:image"]')]
     .map(m => m.content).filter(Boolean)
-  if (og.length) return og.slice(0, 8)
-
-  // Fallback: Foto-Galerie
-  const imgs = [...document.querySelectorAll(
-    '[data-testid*="photo"] img, [class*="gallery"] img, [class*="photo"] img, [class*="Photo"] img'
-  )].map(i => i.src).filter(s => s && !s.startsWith('data:') && s.includes('vinted'))
-  return [...new Set(imgs)].slice(0, 8)
+  return [...new Set(og)].slice(0, 12)
 }
 
 function scrapeCategory() {
@@ -248,8 +260,106 @@ async function handleImport() {
   })
 }
 
+// ── Sync-Queue: automatischer Bulk-Import aller aktiven Artikel ───────────────
+// vinted-sync.js sammelt alle Artikel-IDs vom Profil und navigiert hierher.
+// Jede Artikelseite wird geöffnet, voll ausgelesen (wie der manuelle Import),
+// dann automatisch zur nächsten navigiert.
+
+function showSyncBanner(msg, color = '#4f46e5') {
+  let d = document.getElementById('ls-sync-banner')
+  if (!d) {
+    d = document.createElement('div')
+    d.id = 'ls-sync-banner'
+    d.style.cssText = `position:fixed;top:0;left:0;right:0;z-index:2147483647;color:#fff;font-family:sans-serif;padding:10px 16px;display:flex;align-items:center;gap:10px;box-shadow:0 3px 16px rgba(0,0,0,.4)`
+    document.body.prepend(d)
+  }
+  d.style.background = color
+  d.innerHTML = `<span style="font-size:20px">🔄</span>
+    <div style="flex:1"><div style="font-weight:700;font-size:13px">ListSync Import</div>
+    <div id="ls-sync-status" style="font-size:11px;opacity:.85">${msg}</div></div>`
+}
+function setSyncStatus(msg) {
+  const el = document.getElementById('ls-sync-status')
+  if (el) el.textContent = msg
+}
+
+async function runSyncQueue() {
+  const store = await chrome.storage.local.get(['syncPhase', 'syncItemQueue', 'syncScrapedItems', 'syncSoldData', 'syncAccount'])
+  if (store.syncPhase !== 'items' || !Array.isArray(store.syncItemQueue) || !store.syncItemQueue.length) {
+    return false // kein Sync aktiv → normaler Modus (Import-Button)
+  }
+
+  const currentId = location.pathname.match(/\/items\/(\d+)/)?.[1]
+  const queue     = store.syncItemQueue
+  const scraped   = store.syncScrapedItems || []
+  const total     = queue.length + scraped.length
+
+  showSyncBanner(`Lese Artikel ${scraped.length + 1}/${total} aus…`)
+
+  // Warten bis die Artikelseite gerendert ist
+  try { await waitForEl('h1, [data-testid="item-title"], [itemprop="name"]', 9000) } catch {}
+  await new Promise(r => setTimeout(r, 1800))
+
+  // Voll auslesen – exakt wie beim manuellen Import
+  const queueItem = queue.find(q => q.vintedId === currentId) || {}
+  const listing = {
+    title:       scrapeTitle(),
+    description: scrapeDescription(),
+    price:       scrapePrice(),
+    images:      scrapeImages(),
+    category:    scrapeCategory(),
+    condition:   scrapeCondition(),
+    brand:       scrapeBrand(),
+    size:        scrapeSize(),
+    color:       scrapeColor(),
+    material:    scrapeMaterial(),
+    status:      'aktiv',
+    platforms:   ['vinted'],
+    vintedId:    currentId,
+    views:       queueItem.views || 0,
+    likes:       queueItem.likes || 0,
+  }
+  console.log('[ListSync SYNC-ITEM]', listing.title, '–', listing.images.length, 'Bilder, Kat:', listing.category)
+
+  scraped.push(listing)
+  const remaining = queue.filter(q => q.vintedId !== currentId)
+  await chrome.storage.local.set({ syncScrapedItems: scraped, syncItemQueue: remaining })
+
+  if (remaining.length > 0) {
+    // Nächster Artikel
+    setSyncStatus(`${scraped.length} fertig · ${remaining.length} übrig – weiter…`)
+    await new Promise(r => setTimeout(r, 700))
+    location.href = `https://www.vinted.de/items/${remaining[0].vintedId}`
+  } else {
+    // Alle ausgelesen → importieren
+    setSyncStatus(`Importiere ${scraped.length} Listings + ${(store.syncSoldData||[]).length} Verkäufe…`)
+    chrome.runtime.sendMessage({
+      type: 'VINTED_SYNC_DATA',
+      data: {
+        sales:     store.syncSoldData || [],
+        purchases: [],
+        listings:  scraped,
+        account:   store.syncAccount || 'Hauptaccount',
+      }
+    }, (response) => {
+      showSyncBanner(
+        response?.ok ? `✅ ${scraped.length} Listings & ${(store.syncSoldData||[]).length} Verkäufe importiert!` : '⚠️ Import fehlgeschlagen',
+        response?.ok ? '#16a34a' : '#dc2626'
+      )
+    })
+    await chrome.storage.local.remove(['syncPhase', 'syncItemQueue', 'syncScrapedItems', 'syncSoldData', 'syncAccount'])
+  }
+  return true
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
+  // Sync-Queue zuerst prüfen – übernimmt die Seite wenn Bulk-Import läuft
+  if (location.pathname.match(/^\/items\/\d+/)) {
+    const isSyncing = await runSyncQueue()
+    if (isSyncing) return
+  }
+
   // Kurz warten bis Vinted React fertig gerendert hat
   await new Promise(r => setTimeout(r, 2000))
 
