@@ -78,28 +78,38 @@ function scrapeDescription() {
 }
 
 function scrapeImages() {
-  // 1. Galerie-Bilder (alle Fotos des Artikels) – höchste Priorität
-  const galleryImgs = [...document.querySelectorAll(
-    '[data-testid*="photo"] img, [data-testid*="image-carousel"] img, [class*="gallery"] img, [class*="photo"] img, [class*="Photo"] img, [class*="item-photo"] img'
-  )]
-    .map(i => {
-      // srcset für höchste Auflösung
-      const srcset = i.srcset || i.getAttribute('srcset') || ''
-      if (srcset) {
-        const best = srcset.split(',').map(s => s.trim().split(' '))
-          .sort((a, b) => parseFloat(b[1] || 0) - parseFloat(a[1] || 0))[0]?.[0]
-        if (best) return best
-      }
-      return i.src
-    })
-    .filter(s => s && !s.startsWith('data:') && (s.includes('vinted') || s.includes('cloudfront')))
-  const uniqueGallery = [...new Set(galleryImgs)]
-  if (uniqueGallery.length) return uniqueGallery.slice(0, 12)
+  const urls = []
 
-  // 2. Fallback: og:image meta tags
-  const og = [...document.querySelectorAll('meta[property="og:image"]')]
-    .map(m => m.content).filter(Boolean)
-  return [...new Set(og)].slice(0, 12)
+  // 1. ALLE img-Tags die nach Vinted-Produktfotos aussehen
+  for (const i of document.querySelectorAll('img')) {
+    let src = i.src || ''
+    // srcset für höchste Auflösung bevorzugen
+    const srcset = i.srcset || i.getAttribute('srcset') || ''
+    if (srcset) {
+      const best = srcset.split(',').map(s => s.trim().split(' '))
+        .sort((a, b) => parseFloat(b[1] || 0) - parseFloat(a[1] || 0))[0]?.[0]
+      if (best) src = best
+    }
+    if (!src || src.startsWith('data:')) continue
+    // Vinted-Produktbilder kommen von images*.vinted.net / vinted-cdn
+    if (/vinted\.net|vinted-cdn|cloudfront|ce-cdn/.test(src) && /\/(\d+)\//.test(src)) {
+      urls.push(src)
+    }
+  }
+
+  // 2. og:image meta tags (Vinted hat oft mehrere = alle Bilder)
+  for (const m of document.querySelectorAll('meta[property="og:image"]')) {
+    if (m.content) urls.push(m.content)
+  }
+
+  // Deduplizieren (ohne Query-Params vergleichen damit gleiche Bilder nicht doppelt)
+  const seen = new Set()
+  const result = []
+  for (const u of urls) {
+    const key = u.split('?')[0]
+    if (!seen.has(key)) { seen.add(key); result.push(u) }
+  }
+  return result.slice(0, 12)
 }
 
 function scrapeCategory() {
@@ -112,75 +122,90 @@ function scrapeCategory() {
 }
 
 function scrapeCondition() {
-  const sels = [
-    '[data-testid="item-condition"]',
-    '[class*="condition"]',
-    '[class*="Condition"]',
-  ]
-  for (const s of sels) {
-    const t = document.querySelector(s)?.textContent?.trim()
-    if (t) return t
-  }
-  return ''
+  return scrapeDetailMap()['condition'] || ''
 }
 
 function scrapeBrand() {
-  const sels = [
-    '[data-testid="item-brand"]',
-    '[itemprop="brand"]',
-    '[class*="brand"]',
-    '[class*="Brand"]',
-  ]
-  for (const s of sels) {
-    const t = document.querySelector(s)?.textContent?.trim()
-    if (t) return t
-  }
-  return ''
+  return scrapeDetailMap()['brand'] || ''
 }
 
 function scrapeSize() {
-  const sels = [
-    '[data-testid="item-size"]',
-    '[class*="size"]',
-    '[class*="Size"]',
-  ]
-  for (const s of sels) {
-    const t = document.querySelector(s)?.textContent?.trim()
-    if (t && t.length < 10) return t
-  }
-  return ''
+  return scrapeDetailMap()['size'] || ''
 }
 
 function scrapeColor() {
-  // Vinted zeigt Farbe als Detail-Zeile auf der Artikel-Seite
-  const sels = [
-    '[data-testid="item-color"]',
-    '[class*="color"]',
-    '[class*="Color"]',
-    '[class*="colour"]',
-  ]
-  for (const s of sels) {
-    const t = document.querySelector(s)?.textContent?.trim()
-    if (t && t.length < 30) return t
-  }
-  // Fallback: Suche in Detail-Zeilen nach "Farbe"
-  const rows = document.querySelectorAll('[class*="details"] dt, [class*="Details"] dt, dt, th')
-  for (const dt of rows) {
-    if (dt.textContent.trim().toLowerCase().includes('farbe') || dt.textContent.trim().toLowerCase().includes('color')) {
-      const val = dt.nextElementSibling?.textContent?.trim()
-      if (val) return val
-    }
-  }
-  return ''
+  return scrapeDetailMap()['color'] || ''
 }
 
 function scrapeMaterial() {
-  const rows = document.querySelectorAll('[class*="details"] dt, [class*="Details"] dt, dt, th')
-  for (const dt of rows) {
-    if (dt.textContent.trim().toLowerCase().includes('material')) {
-      const val = dt.nextElementSibling?.textContent?.trim()
-      if (val) return val
+  return scrapeDetailMap()['material'] || ''
+}
+
+// ── Robuste Detail-Tabelle: liest Label→Wert Paare aus der Artikel-Detailbox ──
+// Vinted zeigt: Marke | Ralph Lauren, Größe | S, Zustand | Sehr gut, Material | Daunen, Farbe | Marineblau
+let _detailMapCache = null
+function scrapeDetailMap() {
+  if (_detailMapCache) return _detailMapCache
+  const map = {}
+  const LABELS = {
+    'marke': 'brand', 'größe': 'size', 'grösse': 'size', 'size': 'size',
+    'zustand': 'condition', 'material': 'material', 'farbe': 'color',
+    'stil': 'stil', 'muster': 'muster',
+  }
+
+  // Finde alle Blatt-Elemente (ohne Kinder) deren Text exakt ein Label ist
+  const all = document.querySelectorAll('div, span, dt, td, th, p, li')
+  for (const el of all) {
+    if (el.children.length > 0) continue
+    const txt = (el.textContent || '').trim().toLowerCase().replace(/\s*\(empfohlen\)/, '')
+    const key = LABELS[txt]
+    if (!key || map[key]) continue
+
+    const value = findValueForLabel(el)
+    if (value) map[key] = value
+  }
+
+  _detailMapCache = map
+  console.log('[ListSync DETAIL-MAP]', map)
+  return map
+}
+
+function findValueForLabel(labelEl) {
+  const labelText = (labelEl.textContent || '').trim()
+  const clean = (s) => {
+    if (!s) return ''
+    // entferne Label selbst, Info-Icon-Text, Whitespace
+    let t = s.replace(labelText, '').trim()
+    // nur erste sinnvolle Zeile
+    t = t.split('\n')[0].trim()
+    return t
+  }
+
+  // Strategie 1: direkter nächster Sibling
+  let sib = labelEl.nextElementSibling
+  if (sib) { const v = sib.textContent.trim(); if (v && v !== labelText) return clean(v) }
+
+  // Strategie 2: im gemeinsamen Eltern-Container ein Geschwister mit anderem Text
+  // Gehe bis zu 3 Ebenen hoch und suche eine "Zeile" mit Label + Wert
+  let node = labelEl
+  for (let depth = 0; depth < 4; depth++) {
+    const parent = node.parentElement
+    if (!parent) break
+    // Alle Blatt-Texte im Parent sammeln, die nicht das Label sind
+    const candidates = []
+    const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT)
+    let tn
+    while ((tn = walker.nextNode())) {
+      const t = tn.textContent.trim()
+      if (t && t !== labelText && t.toLowerCase() !== labelText.toLowerCase()) candidates.push(t)
     }
+    if (candidates.length === 1) return candidates[0]
+    if (candidates.length > 1) {
+      // Nimm den ersten der nicht nur ein Icon/Zahl-Info ist
+      const real = candidates.find(c => c.length > 1 && !/^\(/.test(c))
+      if (real) return real
+    }
+    node = parent
   }
   return ''
 }
@@ -326,18 +351,20 @@ async function runSyncQueue() {
     : []
   const apiShip  = api?.package_size?.title || api?.package_size_title || ''
 
+  // DOM-Werte (sichtbar in der Detail-Tabelle → zuverlässig)
+  const domImgs = scrapeImages()
   const queueItem = queue.find(q => q.vintedId === currentId) || {}
   const listing = {
-    title:       api?.title || scrapeTitle(),
+    title:       scrapeTitle() || api?.title || `Artikel ${currentId}`,
     description: domDesc || api?.description || '',
-    price:       parseFloat(api?.price?.amount || api?.price_numeric) || scrapePrice(),
-    images:      apiImgs.length ? apiImgs : scrapeImages(),
+    price:       scrapePrice() || parseFloat(api?.price?.amount || api?.price_numeric) || 0,
+    images:      domImgs.length ? domImgs : apiImgs,        // DOM zuerst, API-Fallback
     category:    domCat !== 'Sonstiges' ? domCat : 'Sonstiges',
-    condition:   apiCond  || scrapeCondition() || 'Gut',
-    brand:       apiBrand || scrapeBrand(),
-    size:        apiSize  || scrapeSize(),
-    color:       apiColor || scrapeColor(),
-    material:    apiMat   || scrapeMaterial(),
+    condition:   scrapeCondition() || apiCond  || 'Gut',
+    brand:       scrapeBrand()     || apiBrand,
+    size:        scrapeSize()      || apiSize,
+    color:       scrapeColor()     || apiColor,
+    material:    scrapeMaterial()  || apiMat,
     shipSize:    apiShip,
     status:      'aktiv',
     platforms:   ['vinted'],
