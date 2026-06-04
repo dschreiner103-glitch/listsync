@@ -298,28 +298,57 @@ async function runSyncQueue() {
 
   // Warten bis die Artikelseite gerendert ist
   try { await waitForEl('h1, [data-testid="item-title"], [itemprop="name"]', 9000) } catch {}
-  await new Promise(r => setTimeout(r, 1800))
+  await new Promise(r => setTimeout(r, 1500))
 
-  // Voll auslesen – exakt wie beim manuellen Import
+  // ── API-Daten holen (zuverlässig für Marke, Größe, Farbe, Material, Bilder) ──
+  let api = null
+  try {
+    const res = await fetch(`https://www.vinted.de/api/v2/items/${currentId}`, {
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      credentials: 'include',
+    })
+    if (res.ok) { const j = await res.json(); api = j?.item || j }
+  } catch {}
+  if (scraped.length === 0 && api) console.log('[ListSync ITEM-API]', JSON.stringify(api, null, 2))
+
+  // ── DOM-Scrape (gut für Beschreibung + Kategorie) ──
+  const domDesc = scrapeDescription()
+  const domCat  = scrapeCategory()
+
+  // ── Hybrid-Merge: API bevorzugt für strukturierte Felder, DOM als Fallback ──
+  const apiBrand = api?.brand_dto?.title || (typeof api?.brand === 'string' ? api.brand : '') || api?.brand?.title || ''
+  const apiSize  = api?.size_title || (typeof api?.size === 'string' ? api.size : '') || api?.size?.title || ''
+  const apiCond  = api?.status || api?.condition || api?.item_condition?.title || ''
+  const apiColor = [api?.color1 || api?.color1_title, api?.color2 || api?.color2_title].filter(Boolean).join(', ')
+  const apiMat   = api?.composition || (typeof api?.material === 'string' ? api.material : '') || api?.material?.title || ''
+  const apiImgs  = Array.isArray(api?.photos)
+    ? api.photos.map(p => p.full_size_url || p.url || (p.thumbnails && p.thumbnails[p.thumbnails.length-1]?.url) || '').filter(Boolean)
+    : []
+  const apiShip  = api?.package_size?.title || api?.package_size_title || ''
+
   const queueItem = queue.find(q => q.vintedId === currentId) || {}
   const listing = {
-    title:       scrapeTitle(),
-    description: scrapeDescription(),
-    price:       scrapePrice(),
-    images:      scrapeImages(),
-    category:    scrapeCategory(),
-    condition:   scrapeCondition(),
-    brand:       scrapeBrand(),
-    size:        scrapeSize(),
-    color:       scrapeColor(),
-    material:    scrapeMaterial(),
+    title:       api?.title || scrapeTitle(),
+    description: domDesc || api?.description || '',
+    price:       parseFloat(api?.price?.amount || api?.price_numeric) || scrapePrice(),
+    images:      apiImgs.length ? apiImgs : scrapeImages(),
+    category:    domCat !== 'Sonstiges' ? domCat : 'Sonstiges',
+    condition:   apiCond  || scrapeCondition() || 'Gut',
+    brand:       apiBrand || scrapeBrand(),
+    size:        apiSize  || scrapeSize(),
+    color:       apiColor || scrapeColor(),
+    material:    apiMat   || scrapeMaterial(),
+    shipSize:    apiShip,
     status:      'aktiv',
     platforms:   ['vinted'],
     vintedId:    currentId,
     views:       queueItem.views || 0,
     likes:       queueItem.likes || 0,
   }
-  console.log('[ListSync SYNC-ITEM]', listing.title, '–', listing.images.length, 'Bilder, Kat:', listing.category)
+  console.log('[ListSync SYNC-ITEM]', {
+    title: listing.title?.slice(0,25), brand: listing.brand, size: listing.size,
+    color: listing.color, material: listing.material, imgs: listing.images.length, cat: listing.category,
+  })
 
   scraped.push(listing)
   const remaining = queue.filter(q => q.vintedId !== currentId)

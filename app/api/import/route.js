@@ -137,6 +137,7 @@ export async function POST(req) {
         if (item.color)         updateData.color      = item.color
         if (item.condition)     updateData.condition  = item.condition
         if (item.category && item.category !== 'Sonstiges') updateData.category = item.category
+        if (item.shipSize)      updateData.shipSize    = item.shipSize
         if (item.description)   updateData.description = buildDescription(item.description, item.vintedId)
         if (item.images?.length) updateData.images = JSON.stringify(item.images.slice(0, 8))
         const hasRaw = item.likes > 0 || item.material
@@ -167,6 +168,7 @@ export async function POST(req) {
           color:       item.color     || '',
           condition:   item.condition || 'Gut',
           category:    item.category  || 'Sonstiges',
+          shipSize:    item.shipSize  || '',
           views:       Number(item.views) || 0,
         }
       })
