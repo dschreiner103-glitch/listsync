@@ -507,9 +507,9 @@ async function runOrdersSync(activeVintedAccount) {
 
   // User-ID: gespeicherte Member-ID aus aktivem Account, sonst Auto-Detect
   setSyncStatus('Ermittle User-ID…')
-  const { vintedAccounts = [], activeVintedAccount } = await new Promise(r =>
+  const { vintedAccounts = [], activeVintedAccount: savedAccountName } = await new Promise(r =>
     chrome.storage.local.get(['vintedAccounts', 'activeVintedAccount'], r))
-  const activeAcc = vintedAccounts.find(a => (a.name || a) === activeVintedAccount)
+  const activeAcc = vintedAccounts.find(a => (a.name || a) === (savedAccountName || activeVintedAccount))
   const storedMemberId = typeof activeAcc === 'object' ? activeAcc?.memberId : null
   const userId = storedMemberId || await getCurrentUserId()
   console.log('[ListSync] User-ID für Profil:', userId, storedMemberId ? '(gespeichert)' : '(auto)')
