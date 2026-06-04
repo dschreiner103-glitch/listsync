@@ -12,6 +12,22 @@ function buildDescription(description, vintedId) {
   return clean + tag
 }
 
+// Setzt Raw-SQL-Felder (likes, material) die der Prisma-Client evtl. noch nicht kennt
+async function setRawFields(listingId, { likes, material }) {
+  const pg = isPostgres()
+  const updates = []
+  const args = []
+  if (likes !== undefined && likes !== null) { updates.push('likes'); args.push(Number(likes) || 0) }
+  if (material) { updates.push('material'); args.push(material) }
+  if (!updates.length) return
+  const setClause = updates.map((f, i) => pg ? `${f} = $${i + 1}` : `${f} = ?`).join(', ')
+  const idPlaceholder = pg ? `$${updates.length + 1}` : '?'
+  await prisma.$executeRawUnsafe(
+    `UPDATE "Listing" SET ${setClause} WHERE id = ${idPlaceholder}`,
+    ...args, listingId
+  )
+}
+
 // Suche Listing per vintedId (steht in der description als [vintedId:XXX])
 async function findByVintedId(userId, vintedId) {
   if (!vintedId) return null
@@ -123,16 +139,12 @@ export async function POST(req) {
         if (item.category && item.category !== 'Sonstiges') updateData.category = item.category
         if (item.description)   updateData.description = buildDescription(item.description, item.vintedId)
         if (item.images?.length) updateData.images = JSON.stringify(item.images.slice(0, 8))
-        if (Object.keys(updateData).length > 0) {
-          await prisma.listing.update({ where: { id: existing.id }, data: updateData })
-          if (item.likes > 0) {
-            const pg = isPostgres()
-            await prisma.$executeRawUnsafe(
-              pg ? `UPDATE "Listing" SET likes = $1 WHERE id = $2`
-                 : `UPDATE "Listing" SET likes = ? WHERE id = ?`,
-              Number(item.likes), existing.id
-            )
+        const hasRaw = item.likes > 0 || item.material
+        if (Object.keys(updateData).length > 0 || hasRaw) {
+          if (Object.keys(updateData).length > 0) {
+            await prisma.listing.update({ where: { id: existing.id }, data: updateData })
           }
+          await setRawFields(existing.id, { likes: item.likes, material: item.material })
           updated++
         } else {
           skipped++
@@ -158,15 +170,8 @@ export async function POST(req) {
           views:       Number(item.views) || 0,
         }
       })
-      // likes via raw SQL (neues Feld)
-      if (item.likes) {
-        const pg = isPostgres()
-        await prisma.$executeRawUnsafe(
-          pg ? `UPDATE "Listing" SET likes = $1 WHERE id = $2`
-             : `UPDATE "Listing" SET likes = ? WHERE id = ?`,
-          Number(item.likes), created_listing.id
-        )
-      }
+      // likes + material via raw SQL (neue Felder)
+      await setRawFields(created_listing.id, { likes: item.likes, material: item.material })
       created++
     }
 

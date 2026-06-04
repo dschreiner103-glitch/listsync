@@ -617,14 +617,15 @@ async function scrapeActiveListings() {
 
     results.push({
       title, price, images: img ? [img] : [], vintedId, status: 'aktiv',
-      platforms: ['vinted'], brand: '', size: '', color: '', condition: 'Gut', description: '',
+      platforms: ['vinted'], brand: '', size: '', color: '', condition: 'Gut',
+      material: '', category: 'Sonstiges', description: '',
       views, likes,
     })
   }
 
   console.log('[ListSync] Aktive Listings (DOM):', results.length)
 
-  // Volle Details aus der API laden (Brand, Größe, Kategorie, Farbe, Zustand)
+  // Volle Details aus der API laden (Brand, Größe, Kategorie, Farbe, Material, Zustand)
   setSyncStatus(`Lade Details für ${results.length} Listings…`)
   const enriched = []
   for (let i = 0; i < results.length; i++) {
@@ -635,27 +636,77 @@ async function scrapeActiveListings() {
       const detail = await callVintedAPI(`/api/v2/items/${item.vintedId}`)
       const it = detail?.item || detail
       if (it) {
-        enriched.push({
-          ...item,
-          title:     it.title || item.title,
-          price:     parseFloat(it.price_numeric || it.price_amount?.amount || item.price) || item.price,
-          brand:     it.brand?.title || it.brand_title || '',
-          size:      it.size?.title  || it.size_title  || '',
-          color:     it.color?.title || it.color_title || '',
-          condition: it.item_condition?.title || it.condition_title || item.condition,
-          category:  it.catalog?.title || it.category?.title || 'Sonstiges',
-          description: it.description || '',
-          images:    it.photos?.map(p => p.full_size_url || p.url || '').filter(Boolean) || item.images,
-        })
+        // Debug: erste API-Response komplett loggen damit wir die Felder sehen
+        if (i === 0) console.log('[ListSync ITEM-API] Erste Response:', JSON.stringify(it, null, 2))
+
+        enriched.push({ ...item, ...mapVintedItem(it, item) })
       } else {
         enriched.push(item)
       }
-    } catch { enriched.push(item) }
-    await wait(120) // kurze Pause gegen Rate-Limiting
+    } catch (e) {
+      console.warn('[ListSync] Detail-Fehler', item.vintedId, e.message)
+      enriched.push(item)
+    }
+    await wait(150) // kurze Pause gegen Rate-Limiting
   }
 
   console.log('[ListSync] Aktive Listings (angereichert):', enriched.length)
   return enriched
+}
+
+// Mappt ein Vinted-API-Item auf unser Listing-Format (defensiv – viele Feldvarianten)
+function mapVintedItem(it, fallback) {
+  // Brand: kann String, brand_dto.title, brand.title oder brand_title sein
+  const brand = it.brand_dto?.title || it.brand?.title || it.brand_title ||
+                (typeof it.brand === 'string' ? it.brand : '') || ''
+
+  // Größe: size_title, size.title oder size (String)
+  const size = it.size_title || it.size?.title ||
+               (typeof it.size === 'string' ? it.size : '') || ''
+
+  // Zustand: status (String), item_condition.title, condition_title
+  const condition = it.status || it.item_condition?.title || it.condition_title ||
+                    (typeof it.condition === 'string' ? it.condition : '') || fallback.condition || 'Gut'
+
+  // Farbe: color1 + color2 kombinieren, oder color.title
+  const colorParts = [
+    it.color1 || it.color1_title || it.color?.title || (typeof it.color === 'string' ? it.color : ''),
+    it.color2 || it.color2_title,
+  ].filter(Boolean)
+  const color = [...new Set(colorParts)].join(', ')
+
+  // Material: composition, material, material_title
+  const material = it.composition || it.material?.title || it.material_title ||
+                   (typeof it.material === 'string' ? it.material : '') || ''
+
+  // Kategorie: aus catalog/path Breadcrumb wenn vorhanden
+  let category = 'Sonstiges'
+  if (Array.isArray(it.catalog_branch_title_paths) && it.catalog_branch_title_paths[0]) {
+    category = it.catalog_branch_title_paths[0].join(' – ')
+  } else if (Array.isArray(it.path)) {
+    category = it.path.map(p => p.title || p).filter(Boolean).join(' – ')
+  } else if (it.catalog?.title) {
+    category = it.catalog.title
+  } else if (it.category?.title) {
+    category = it.category.title
+  }
+
+  // Bilder: full_size_url bevorzugen
+  const images = Array.isArray(it.photos)
+    ? it.photos.map(p => p.full_size_url || p.url || p.thumbnails?.[p.thumbnails.length-1]?.url || '').filter(Boolean)
+    : fallback.images
+
+  // Preis
+  const price = parseFloat(it.price?.amount || it.price_numeric || it.price_amount?.amount || fallback.price) || fallback.price
+
+  // Beschreibung
+  const description = (it.description || '').trim()
+
+  return {
+    title: it.title || fallback.title,
+    price, brand, size, color, condition, material, category, description,
+    images: images.length ? images : fallback.images,
+  }
 }
 
 async function runProfileSync() {
