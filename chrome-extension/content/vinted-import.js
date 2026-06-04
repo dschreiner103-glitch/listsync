@@ -34,17 +34,25 @@ function isOwnListing() {
 
 // ── Daten auslesen ────────────────────────────────────────────────────────────
 function scrapeTitle() {
-  const sels = [
-    '[data-testid="item-title"] h2',
-    'h2[itemprop="name"]',
-    '[itemprop="name"]',
-    'h1', 'h2',
-  ]
+  // 1. og:title – von Vinted server-side gerendert, immer korrekt
+  const og = document.querySelector('meta[property="og:title"]')?.content || ''
+  if (og) {
+    // "Ralph Lauren Daunenjacke Dunkelblau (S) | Vinted" → Titel extrahieren
+    let t = og.replace(/\s*\|\s*Vinted.*$/i, '').trim()
+    // Manche Vinted-Titel: "Titel, Größe X - 80,00 €" → vor " - Preis" abschneiden
+    t = t.replace(/\s*[-–]\s*\d+[,.]\d+\s*€.*$/, '').trim()
+    if (t.length > 1) return t
+  }
+  // 2. document.title
+  const dt = (document.title || '').replace(/\s*\|\s*Vinted.*$/i, '').trim()
+  if (dt && dt.length > 1 && !/^vinted/i.test(dt)) return dt
+  // 3. DOM-Fallbacks
+  const sels = ['[data-testid="item-title"]', '[itemprop="name"]', 'h1']
   for (const s of sels) {
     const t = document.querySelector(s)?.textContent?.trim()
-    if (t) return t
+    if (t && t.length > 1) return t
   }
-  return document.querySelector('meta[property="og:title"]')?.content?.replace(' | Vinted', '').trim() || ''
+  return ''
 }
 
 function scrapePrice() {
@@ -80,35 +88,51 @@ function scrapeDescription() {
 function scrapeImages() {
   const urls = []
 
-  // 1. ALLE img-Tags die nach Vinted-Produktfotos aussehen
+  // 1. og:image meta-Tags – von Vinted server-side gerendert, volle Auflösung
+  for (const m of document.querySelectorAll('meta[property="og:image"]')) {
+    if (m.content && /vinted/.test(m.content)) urls.push(m.content)
+  }
+
+  // 2. __NEXT_DATA__ JSON (Next.js – enthält photos in voller Auflösung)
+  try {
+    const nd = document.getElementById('__NEXT_DATA__')
+    if (nd) {
+      const json = nd.textContent
+      // Alle full_size_url / url die nach Vinted-Fotos aussehen rausziehen
+      const matches = json.match(/"(full_size_url|url)":"(https:\\?\/\\?\/[^"]*vinted[^"]*?)"/g) || []
+      for (const m of matches) {
+        const u = m.match(/:"(.+)"$/)?.[1]?.replace(/\\\//g, '/')
+        if (u && /\.(jpe?g|png|webp)/.test(u)) urls.push(u)
+      }
+    }
+  } catch {}
+
+  // 3. Alle img-Tags (inkl. lazy-load Attribute, srcset)
   for (const i of document.querySelectorAll('img')) {
-    let src = i.src || ''
-    // srcset für höchste Auflösung bevorzugen
+    const cands = [i.src, i.getAttribute('data-src'), i.getAttribute('data-original')]
     const srcset = i.srcset || i.getAttribute('srcset') || ''
     if (srcset) {
       const best = srcset.split(',').map(s => s.trim().split(' '))
         .sort((a, b) => parseFloat(b[1] || 0) - parseFloat(a[1] || 0))[0]?.[0]
-      if (best) src = best
+      if (best) cands.unshift(best)
     }
-    if (!src || src.startsWith('data:')) continue
-    // Vinted-Produktbilder kommen von images*.vinted.net / vinted-cdn
-    if (/vinted\.net|vinted-cdn|cloudfront|ce-cdn/.test(src) && /\/(\d+)\//.test(src)) {
-      urls.push(src)
+    for (const src of cands) {
+      if (src && !src.startsWith('data:') && /vinted\.net|vinted-cdn|cloudfront|ce-cdn/.test(src)) {
+        urls.push(src)
+      }
     }
   }
 
-  // 2. og:image meta tags (Vinted hat oft mehrere = alle Bilder)
-  for (const m of document.querySelectorAll('meta[property="og:image"]')) {
-    if (m.content) urls.push(m.content)
-  }
-
-  // Deduplizieren (ohne Query-Params vergleichen damit gleiche Bilder nicht doppelt)
+  // Deduplizieren über Foto-ID im Pfad (gleiche Bilder in versch. Größen filtern)
   const seen = new Set()
   const result = []
   for (const u of urls) {
-    const key = u.split('?')[0]
+    // Foto-ID = letzte Zahlfolge vor der Endung
+    const idMatch = u.match(/\/(\d{6,})[^/]*\.(jpe?g|png|webp)/i)
+    const key = idMatch ? idMatch[1] : u.split('?')[0]
     if (!seen.has(key)) { seen.add(key); result.push(u) }
   }
+  console.log('[ListSync IMAGES]', result.length, 'Bilder')
   return result.slice(0, 12)
 }
 
