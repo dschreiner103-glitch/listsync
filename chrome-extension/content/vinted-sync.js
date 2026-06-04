@@ -505,10 +505,14 @@ async function runOrdersSync(activeVintedAccount) {
     }
   })
 
-  // User-ID für Profilseite holen (URL: vinted.de/member/{userId})
+  // User-ID: gespeicherte Member-ID aus aktivem Account, sonst Auto-Detect
   setSyncStatus('Ermittle User-ID…')
-  const userId = await getCurrentUserId()
-  console.log('[ListSync] User-ID für Profil:', userId)
+  const { vintedAccounts = [], activeVintedAccount } = await new Promise(r =>
+    chrome.storage.local.get(['vintedAccounts', 'activeVintedAccount'], r))
+  const activeAcc = vintedAccounts.find(a => (a.name || a) === activeVintedAccount)
+  const storedMemberId = typeof activeAcc === 'object' ? activeAcc?.memberId : null
+  const userId = storedMemberId || await getCurrentUserId()
+  console.log('[ListSync] User-ID für Profil:', userId, storedMemberId ? '(gespeichert)' : '(auto)')
 
   if (!userId) {
     setSyncStatus('⚠️ User-ID nicht gefunden – nur Verkäufe werden importiert')
@@ -612,8 +616,40 @@ async function scrapeActiveListings() {
     })
   }
 
-  console.log('[ListSync] Aktive Listings gefunden:', results.length)
-  return results
+  console.log('[ListSync] Aktive Listings (DOM):', results.length)
+
+  // Volle Details aus der API laden (Brand, Größe, Kategorie, Farbe, Zustand)
+  setSyncStatus(`Lade Details für ${results.length} Listings…`)
+  const enriched = []
+  for (let i = 0; i < results.length; i++) {
+    const item = results[i]
+    if (!item.vintedId) { enriched.push(item); continue }
+    setSyncStatus(`Details ${i + 1}/${results.length}…`)
+    try {
+      const detail = await callVintedAPI(`/api/v2/items/${item.vintedId}`)
+      const it = detail?.item || detail
+      if (it) {
+        enriched.push({
+          ...item,
+          title:     it.title || item.title,
+          price:     parseFloat(it.price_numeric || it.price_amount?.amount || item.price) || item.price,
+          brand:     it.brand?.title || it.brand_title || '',
+          size:      it.size?.title  || it.size_title  || '',
+          color:     it.color?.title || it.color_title || '',
+          condition: it.item_condition?.title || it.condition_title || item.condition,
+          category:  it.catalog?.title || it.category?.title || 'Sonstiges',
+          description: it.description || '',
+          images:    it.photos?.map(p => p.full_size_url || p.url || '').filter(Boolean) || item.images,
+        })
+      } else {
+        enriched.push(item)
+      }
+    } catch { enriched.push(item) }
+    await wait(120) // kurze Pause gegen Rate-Limiting
+  }
+
+  console.log('[ListSync] Aktive Listings (angereichert):', enriched.length)
+  return enriched
 }
 
 async function runProfileSync() {

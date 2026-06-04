@@ -95,9 +95,13 @@
     <div class="section">
       <div class="section-title">Vinted Accounts</div>
       <div id="accountList"></div>
-      <div class="add-account">
-        <input id="newAccountName" placeholder="Account-Name (z.B. Haupt)" maxlength="30"/>
-        <button id="addAccountBtn">+</button>
+      <div style="display:flex;flex-direction:column;gap:5px;margin-top:6px">
+        <input id="newAccountName" placeholder="Name (z.B. Hauptaccount)" maxlength="30" style="padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px"/>
+        <div style="display:flex;gap:6px">
+          <input id="newMemberId" placeholder="Member-ID (z.B. 285789811)" maxlength="20" style="flex:1;padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px" type="number"/>
+          <button id="addAccountBtn" style="padding:7px 14px;background:#4f46e5;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">+</button>
+        </div>
+        <p style="font-size:10px;color:#9ca3af;margin:0">Member-ID findest du in deiner Vinted-Profil-URL: vinted.de/member/<strong>285789811</strong></p>
       </div>
     </div>
 

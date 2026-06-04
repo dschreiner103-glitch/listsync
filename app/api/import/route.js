@@ -106,12 +106,16 @@ export async function POST(req) {
       const existing = await findByVintedId(userId, item.vintedId)
 
       if (existing) {
-        // Views + Likes + Bild aktualisieren
+        // Alle Felder aktualisieren die jetzt vollständiger sind
         const updateData = {}
-        if (item.views > 0) updateData.views = Number(item.views)
-        if (item.images?.length && JSON.parse(existing.images || '[]').length === 0) {
-          updateData.images = JSON.stringify(item.images.slice(0, 8))
-        }
+        if (item.views > 0)     updateData.views     = Number(item.views)
+        if (item.brand)         updateData.brand      = item.brand
+        if (item.size)          updateData.size       = item.size
+        if (item.color)         updateData.color      = item.color
+        if (item.condition)     updateData.condition  = item.condition
+        if (item.category && item.category !== 'Sonstiges') updateData.category = item.category
+        if (item.description)   updateData.description = (item.description || '') + (item.vintedId ? `\n[vintedId:${item.vintedId}]` : '')
+        if (item.images?.length) updateData.images = JSON.stringify(item.images.slice(0, 8))
         if (Object.keys(updateData).length > 0) {
           await prisma.listing.update({ where: { id: existing.id }, data: updateData })
           if (item.likes > 0) {
@@ -139,11 +143,11 @@ export async function POST(req) {
           status:      'aktiv',
           platforms:   JSON.stringify(['vinted']),
           images:      JSON.stringify((item.images || []).slice(0, 8)),
-          brand:       item.brand || '',
-          size:        item.size  || '',
-          color:       item.color || '',
+          brand:       item.brand     || '',
+          size:        item.size      || '',
+          color:       item.color     || '',
           condition:   item.condition || 'Gut',
-          category:    'Sonstiges',
+          category:    item.category  || 'Sonstiges',
           views:       Number(item.views) || 0,
         }
       })

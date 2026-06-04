@@ -61,10 +61,14 @@ function pollProgress() {
 pollProgress()
 setInterval(pollProgress, 800)
 
-// Vinted Accounts
+// Vinted Accounts — gespeichert als [{name, memberId}]
 function loadAccounts(cb) {
-  chrome.storage.local.get(['vintedAccounts', 'activeVintedAccount'], r =>
-    cb(r.vintedAccounts || [], r.activeVintedAccount || null))
+  chrome.storage.local.get(['vintedAccounts', 'activeVintedAccount'], r => {
+    // Migration: alte String-Arrays zu Objekten konvertieren
+    const raw = r.vintedAccounts || []
+    const accounts = raw.map(a => typeof a === 'string' ? { name: a, memberId: '' } : a)
+    cb(accounts, r.activeVintedAccount || null)
+  })
 }
 function saveAccounts(accounts, active) {
   chrome.storage.local.set({ vintedAccounts: accounts, activeVintedAccount: active })
@@ -77,12 +81,15 @@ function renderAccounts() {
       list.innerHTML = '<p style="font-size:12px;color:#9ca3af;padding:4px 0">Noch keine Accounts – füge einen hinzu.</p>'
       return
     }
-    accounts.forEach((name, i) => {
-      const isActive = name === active
+    accounts.forEach((acc, i) => {
+      const isActive = acc.name === active
       const item = document.createElement('div')
       item.className = 'account-item' + (isActive ? ' active' : '')
       item.innerHTML = `
-        <span class="account-name">${name}</span>
+        <div style="flex:1;min-width:0">
+          <span class="account-name">${acc.name}</span>
+          ${acc.memberId ? `<span style="font-size:10px;color:#9ca3af;display:block">ID: ${acc.memberId}</span>` : '<span style="font-size:10px;color:#ef4444">⚠ Keine Member-ID</span>'}
+        </div>
         ${isActive ? '<span class="active-badge">Aktiv</span>' : ''}
         <button class="del-btn" data-i="${i}" title="Entfernen">&#x2715;</button>
       `
@@ -90,10 +97,10 @@ function renderAccounts() {
         if (e.target.classList.contains('del-btn')) {
           const idx = Number(e.target.dataset.i)
           const updated = accounts.filter((_, j) => j !== idx)
-          const newActive = active === accounts[idx] ? (updated[0] || null) : active
+          const newActive = active === accounts[idx]?.name ? (updated[0]?.name || null) : active
           saveAccounts(updated, newActive); renderAccounts()
         } else {
-          saveAccounts(accounts, name); renderAccounts()
+          saveAccounts(accounts, acc.name); renderAccounts()
         }
       })
       list.appendChild(item)
@@ -101,18 +108,24 @@ function renderAccounts() {
   })
 }
 document.getElementById('addAccountBtn').addEventListener('click', () => {
-  const input = document.getElementById('newAccountName')
-  const name  = input.value.trim()
+  const nameInput     = document.getElementById('newAccountName')
+  const memberIdInput = document.getElementById('newMemberId')
+  const name     = nameInput.value.trim()
+  const memberId = memberIdInput.value.trim()
   if (!name) return
   loadAccounts((accounts, active) => {
-    if (accounts.includes(name)) return
-    const updated = [...accounts, name]
+    if (accounts.find(a => a.name === name)) return
+    const updated = [...accounts, { name, memberId }]
     saveAccounts(updated, active || name)
-    input.value = ''
+    nameInput.value = ''
+    memberIdInput.value = ''
     renderAccounts()
   })
 })
 document.getElementById('newAccountName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('newMemberId').focus()
+})
+document.getElementById('newMemberId').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('addAccountBtn').click()
 })
 renderAccounts()
