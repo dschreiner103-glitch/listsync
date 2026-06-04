@@ -556,56 +556,62 @@ async function scrapeActiveListings() {
 
   const results = []
   const seen = new Set()
-  const links = document.querySelectorAll('a[href*="/items/"]')
+  const links = [...document.querySelectorAll('a[href*="/items/"]')]
 
   for (const link of links) {
     const vintedId = link.href?.match(/\/items\/(\d+)/)?.[1]
     if (!vintedId || seen.has(vintedId)) continue
     seen.add(vintedId)
 
-    // Card-Container finden — gehe weit genug hoch um Badge + Stats zu sehen
-    let card = link
-    for (let i = 0; i < 6; i++) {
-      if (card?.querySelector('img') && /\d/.test(card.textContent)) break
-      card = card?.parentElement
+    // NUR den Link selbst und max. 2 Ebenen hochgehen — nicht zu weit!
+    // Sonst werden Texte von Nachbar-Karten mitgelesen
+    const card2 = link.parentElement
+    const card3 = card2?.parentElement
+
+    // Status-Badge prüfen: nur INNERHALB des Links / nächsten 2 Eltern
+    const linkText = link.textContent || ''
+    const card2Text = card2?.textContent || ''
+
+    // Badge-Elemente innerhalb des Links suchen
+    const hasBadge = (el) => {
+      if (!el) return false
+      const badges = el.querySelectorAll('[class*="badge"],[class*="status"],[class*="label"],[class*="overlay"],[class*="ribbon"]')
+      for (const b of badges) {
+        const t = b.textContent.trim()
+        if (t === 'Verkauft' || t === 'Entwurf' || t === 'Reserved') return true
+      }
+      return false
     }
-    card = card || link.parentElement
 
-    const text = card?.textContent || ''
+    if (hasBadge(link) || hasBadge(card2)) continue
 
-    // Entwurf und Verkauft überspringen
-    if (text.includes('Verkauft') || text.includes('Entwurf') || text.includes('Reserved')) continue
+    // Zusätzlich: wenn das Link-Element selbst "Entwurf"/"Verkauft" enthält
+    if (linkText.includes('Fertigstellen')) continue // Entwurf-Button
+    if (linkText === 'Verkauft' || linkText === 'Entwurf') continue
 
-    // Bild
-    const imgEl = card?.querySelector('img')
+    // Bild aus dem Link
+    const imgEl = link.querySelector('img') || card2?.querySelector('img')
     const srcset = imgEl?.srcset || imgEl?.getAttribute('srcset') || ''
     const bestSrc = srcset
       ? srcset.split(',').map(s => s.trim().split(' ')).sort((a,b) => parseFloat(b[1]||0)-parseFloat(a[1]||0))[0]?.[0]
       : null
     const img = upscaleVintedImg(bestSrc || imgEl?.src || '')
 
-    // Preis
-    const priceMatch = text.match(/(\d+[,.]\d+)\s*€/)
+    // Titel aus img alt (zuverlässigster Weg auf Profilseite)
+    const title = imgEl?.alt?.trim() || `Artikel ${vintedId}`
+
+    // Preis, Views, Likes aus dem unmittelbaren Eltern-Container
+    const container = card3 || card2 || link
+    const containerText = container?.textContent || ''
+
+    const priceMatch = containerText.match(/(\d+[,.]\d+)\s*€/)
     const price = priceMatch ? parseFloat(priceMatch[1].replace(',', '.')) : 0
 
-    // Ansichten (Views)
-    const viewsMatch = text.match(/(\d+)\s*Ansichten?/i)
+    const viewsMatch = containerText.match(/(\d+)\s*Ansichten?/i)
     const views = viewsMatch ? parseInt(viewsMatch[1]) : 0
 
-    // Favoriten (Likes)
-    const likesMatch = text.match(/(\d+)\s*Favoriten?/i)
+    const likesMatch = containerText.match(/(\d+)\s*Favoriten?/i)
     const likes = likesMatch ? parseInt(likesMatch[1]) : 0
-
-    // Titel
-    let title = imgEl?.alt?.trim() || ''
-    if (!title) {
-      const titleEls = card?.querySelectorAll('[data-testid*="title"],[class*="title"],[class*="Title"],strong,h3,h2') || []
-      for (const el of titleEls) {
-        const t = el.textContent.trim()
-        if (t && t.length > 3 && !t.includes('€') && !t.includes('Ansichten') && !t.includes('Favoriten')) { title = t; break }
-      }
-    }
-    if (!title) title = '(kein Titel)'
 
     console.log('[ListSync PROFIL]', { title: title.slice(0,30), price, views, likes, vintedId })
 
