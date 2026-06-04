@@ -188,6 +188,14 @@ async function fetchImageAsBase64(url) {
 
 const PLT_NAMES = { vinted: 'Vinted', kleinanzeigen: 'Kleinanzeigen', ebay: 'eBay' }
 
+// Bereinigt interne Tags aus der Beschreibung vor dem Crossposten
+function cleanDescription(desc) {
+  return (desc || '')
+    .replace(/\n?\[vintedId:\d+\]/g, '')
+    .replace(/\n?\[vinted_id:\d+\]/g, '')
+    .trim()
+}
+
 async function handlePost(listing, platforms) {
   const bgMode = await isBackgroundMode()
 
@@ -198,22 +206,25 @@ async function handlePost(listing, platforms) {
     _focusWindowId = activeTab?.windowId || null
   }
 
+  // Beschreibung von internen Tags bereinigen
+  const cleanListing = { ...listing, description: cleanDescription(listing.description) }
+
   // 1. Listing sofort ohne Bilder speichern – Tab kann sofort öffnen
-  await chrome.storage.local.set({ pendingListing: { ...listing, imageData: [] } })
+  await chrome.storage.local.set({ pendingListing: { ...cleanListing, imageData: [] } })
 
   // 2. Tabs sofort öffnen (parallel, nicht warten)
   const tabPromises = platforms.map(async platform => {
     let tab = null
     if (platform === 'vinted')        tab = await openVintedNewListing(bgMode)
     else if (platform === 'kleinanzeigen') tab = await openKleinanzeigenNewListing(bgMode)
-    else if (platform === 'ebay')     tab = await openEbayNewListing(listing, bgMode)
+    else if (platform === 'ebay')     tab = await openEbayNewListing(cleanListing, bgMode)
     // Tab tracken für Notification + Auto-Close
     if (tab?.id) {
       trackedTabs.set(tab.id, {
         platform,
-        listingId:    listing.id,
-        listingTitle: listing.title || 'Listing',
-        isDraft:      listing.status === 'entwurf',
+        listingId:    cleanListing.id,
+        listingTitle: cleanListing.title || 'Listing',
+        isDraft:      cleanListing.status === 'entwurf',
       })
       // Timeout: nach 10min ohne LISTING_POSTED → Fehler-Notification
       setTimeout(() => {
@@ -231,15 +242,15 @@ async function handlePost(listing, platforms) {
 
   // 3. Bilder parallel laden (während Vinted-Tab lädt, spart ~2-5s)
   const imageData = (await Promise.all(
-    (listing.images || []).slice(0, 8).map(url => {
+    (cleanListing.images || []).slice(0, 8).map(url => {
       const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
       return fetchImageAsBase64(fullUrl)
     })
   )).filter(Boolean)
 
   // 4. Storage mit Bildern aktualisieren – Content Script liest sie in injectImages() nochmal
-  await chrome.storage.local.set({ pendingListing: { ...listing, imageData } })
-  console.log('[ListSync BG] Bilder geladen:', imageData.length, '– ID:', listing.id)
+  await chrome.storage.local.set({ pendingListing: { ...cleanListing, imageData } })
+  console.log('[ListSync BG] Bilder geladen:', imageData.length, '– ID:', cleanListing.id)
 
   await Promise.all(tabPromises)
 }

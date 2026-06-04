@@ -5,6 +5,13 @@ import { authOptions } from '@/lib/auth'
 
 const isPostgres = () => !!process.env.DATABASE_URL?.startsWith('postgres')
 
+// Baut eine saubere Beschreibung mit verstecktem vintedId-Marker am Ende
+function buildDescription(description, vintedId) {
+  const clean = (description || '').replace(/\n?\[vintedId:\d+\]/g, '').trim()
+  const tag = vintedId ? `\n[vintedId:${vintedId}]` : ''
+  return clean + tag
+}
+
 // Suche Listing per vintedId (steht in der description als [vintedId:XXX])
 async function findByVintedId(userId, vintedId) {
   if (!vintedId) return null
@@ -56,7 +63,7 @@ export async function POST(req) {
         data: {
           userId,
           title:       (item.title || '').substring(0, 200),
-          description: (item.description || '') + (item.vintedId ? `\n[vintedId:${item.vintedId}]` : ''),
+          description: buildDescription(item.description, item.vintedId),
           price:       Number(item.price) || 0,
           buyPrice:    Number(item.buyPrice) || 0,
           status:      'verkauft',
@@ -83,7 +90,7 @@ export async function POST(req) {
         data: {
           userId,
           title:       (item.title || '').substring(0, 200),
-          description: (item.description || '') + (item.vintedId ? `\n[vintedId:${item.vintedId}]` : ''),
+          description: buildDescription(item.description, item.vintedId),
           price:       0,
           buyPrice:    Number(item.buyPrice) || 0,
           status:      'inaktiv',
@@ -114,7 +121,7 @@ export async function POST(req) {
         if (item.color)         updateData.color      = item.color
         if (item.condition)     updateData.condition  = item.condition
         if (item.category && item.category !== 'Sonstiges') updateData.category = item.category
-        if (item.description)   updateData.description = (item.description || '') + (item.vintedId ? `\n[vintedId:${item.vintedId}]` : '')
+        if (item.description)   updateData.description = buildDescription(item.description, item.vintedId)
         if (item.images?.length) updateData.images = JSON.stringify(item.images.slice(0, 8))
         if (Object.keys(updateData).length > 0) {
           await prisma.listing.update({ where: { id: existing.id }, data: updateData })
@@ -137,7 +144,7 @@ export async function POST(req) {
         data: {
           userId,
           title:       (item.title || '').substring(0, 200),
-          description: (item.description || '') + (item.vintedId ? `\n[vintedId:${item.vintedId}]` : ''),
+          description: buildDescription(item.description, item.vintedId),
           price:       Number(item.price) || 0,
           buyPrice:    0,
           status:      'aktiv',
