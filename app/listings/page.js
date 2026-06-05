@@ -155,6 +155,16 @@ export default function Listings() {
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
+  const timeAgo = (date) => {
+    if (!date) return ''
+    const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
+    if (diff < 60)     return 'gerade eben'
+    if (diff < 3600)   return `vor ${Math.floor(diff / 60)} Min`
+    if (diff < 86400)  return `vor ${Math.floor(diff / 3600)} Std`
+    if (diff < 604800) return `vor ${Math.floor(diff / 86400)} Tagen`
+    return new Date(date).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })
+  }
+
   const needsRelist = (l) => {
     if (l.status !== 'aktiv') return false
     const created  = new Date(l.relistedAt || l.createdAt)
@@ -257,9 +267,13 @@ export default function Listings() {
     const isDraft = crosspostMode === 'draft'
     // Status im DB aktualisieren
     const newStatus = isDraft ? 'entwurf' : 'aktiv'
-    const patch = { platforms: selPlatforms, status: newStatus }
+    const nowIso = new Date().toISOString()
+    // Beim Hochladen (nicht Entwurf) relistedAt setzen → erscheint im "Relisted"-Tab
+    const patch = isDraft
+      ? { platforms: selPlatforms, status: newStatus }
+      : { platforms: selPlatforms, status: newStatus, relistedAt: nowIso }
     await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
-    setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms, status: newStatus } : l))
+    setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms, status: newStatus, ...(isDraft ? {} : { relistedAt: nowIso }) } : l))
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
     setModal(null)
     if (extPlatforms.length > 0 && listing) {
@@ -280,20 +294,24 @@ export default function Listings() {
   const [pltFilter, setPltFilter] = useState('alle') // 'alle' | 'vinted' | 'kleinanzeigen' | 'ebay'
 
   const relistAlerts = listings.filter(needsRelist)
+  const relistedListings = listings.filter(l => l.relistedAt)
   const tabs = [
     { id: 'alle',     label: 'Alle',     count: listings.length },
     { id: 'aktiv',    label: 'Aktiv',    count: listings.filter(l => l.status === 'aktiv').length },
+    { id: 'relisted', label: '🔄 Relisted', count: relistedListings.length },
     { id: 'entwurf',  label: 'Entwürfe', count: listings.filter(l => l.status === 'entwurf').length },
     { id: 'verkauft', label: 'Verkauft', count: listings.filter(l => l.status === 'verkauft').length },
     { id: 'inaktiv',  label: 'Inaktiv',  count: listings.filter(l => l.status === 'inaktiv').length },
   ]
   const filtered = listings.filter(l =>
-    (filter === 'alle' || l.status === filter) &&
+    (filter === 'alle' || (filter === 'relisted' ? !!l.relistedAt : l.status === filter)) &&
     (pltFilter === 'alle' || (l.platforms || []).includes(pltFilter)) &&
     (!search || l.title.toLowerCase().includes(search.toLowerCase()) ||
                 (l.description || '').toLowerCase().includes(search.toLowerCase()))
   )
   const visible = [...filtered].sort((a, b) => {
+    // Im Relisted-Tab immer nach Relist-Zeit (neueste zuerst)
+    if (filter === 'relisted') return new Date(b.relistedAt) - new Date(a.relistedAt)
     if (sortBy === 'newest')    return new Date(b.createdAt) - new Date(a.createdAt)
     if (sortBy === 'oldest')    return new Date(a.createdAt) - new Date(b.createdAt)
     if (sortBy === 'price_hi')  return b.price - a.price
@@ -519,11 +537,11 @@ export default function Listings() {
           </div>
 
           {/* ── Tabs ── */}
-          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 14, background: 'var(--tab-bg)' }}>
+          <div style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 14, background: 'var(--tab-bg)', overflowX: 'auto', scrollbarWidth: 'none' }}>
             {tabs.map(t => (
               <button key={t.id} onClick={() => setFilter(t.id)}
                 style={{
-                  flex: 1, padding: '9px 6px', borderRadius: 11, border: 'none', cursor: 'pointer',
+                  flex: '1 0 auto', whiteSpace: 'nowrap', padding: '9px 12px', borderRadius: 11, border: 'none', cursor: 'pointer',
                   fontSize: 13, fontWeight: 700, transition: 'all .15s', fontFamily: 'inherit',
                   background: filter === t.id ? 'var(--tab-active)' : 'transparent',
                   color: filter === t.id ? 'var(--text-1)' : 'var(--text-2)',
@@ -640,6 +658,11 @@ export default function Listings() {
                         <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '4px 0 8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.description}</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5 }}>
                           <StatusBadge status={l.status} />
+                          {l.relistedAt && (
+                            <span style={{ fontSize: 11.5, background: 'rgba(16,185,129,0.1)', color: '#059669', padding: '2px 8px', borderRadius: 8, fontWeight: 700, border: '1px solid rgba(16,185,129,0.2)' }}>
+                              ✓ Relisted {timeAgo(l.relistedAt)}
+                            </span>
+                          )}
                           {aged && (
                             <span style={{ fontSize: 11.5, background: 'var(--warn-bg)', color: 'var(--warn-text)', padding: '2px 8px', borderRadius: 8, fontWeight: 700, border: '1px solid var(--warn-border)' }}>
                               Relist
