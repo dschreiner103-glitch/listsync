@@ -50,6 +50,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(e => sendResponse({ ok: false, error: e.message }))
     return true // async response
   }
+  if (msg.type === 'VINTED_STATS_DATA') {
+    syncStatsToListSync(msg.stats, sender.tab?.id)
+      .then(result => sendResponse({ ok: true, result }))
+      .catch(e => sendResponse({ ok: false, error: e.message }))
+    return true
+  }
   if (msg.type === 'IMPORT_VINTED_LISTING') {
     importVintedListing(msg.listing)
       .then(result => sendResponse({ ok: true, result }))
@@ -433,6 +439,61 @@ async function importVintedHistory(data, sourceTabId) {
   } catch(e) {
     console.warn('[ListSync BG] Import fehlgeschlagen:', e.message)
     throw e
+  }
+}
+
+// ── Stats an ListSync senden (nur views/likes) ───────────────────────────────
+async function syncStatsToListSync(stats, sourceTabId) {
+  try {
+    const res = await fetch(`${BASE_URL}/api/listings/stats`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ stats }),
+      credentials: 'include',
+    })
+    const result = await res.json()
+    console.log('[ListSync BG] Stats-Sync:', result)
+    // Hintergrund-Tab nach Stats-Sync schließen
+    if (sourceTabId) { try { await chrome.tabs.remove(sourceTabId) } catch {} }
+    return result
+  } catch(e) {
+    console.warn('[ListSync BG] Stats-Sync fehlgeschlagen:', e.message)
+    if (sourceTabId) { try { await chrome.tabs.remove(sourceTabId) } catch {} }
+    throw e
+  }
+}
+
+// ── Automatischer Stats-Sync im Hintergrund (alle 4 Stunden) ──────────────────
+const STATS_ALARM = 'ls-stats-sync'
+const STATS_INTERVAL_MIN = 240 // 4 Stunden
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.alarms.create(STATS_ALARM, { periodInMinutes: STATS_INTERVAL_MIN, delayInMinutes: 5 })
+})
+chrome.runtime.onStartup.addListener(() => {
+  chrome.alarms.create(STATS_ALARM, { periodInMinutes: STATS_INTERVAL_MIN, delayInMinutes: 5 })
+})
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== STATS_ALARM) return
+  await runBackgroundStatsSync()
+})
+
+async function runBackgroundStatsSync() {
+  try {
+    // Aktiven Account + Member-ID holen
+    const { vintedAccounts = [], activeVintedAccount } = await chrome.storage.local.get(['vintedAccounts', 'activeVintedAccount'])
+    const acc = vintedAccounts.find(a => (a.name || a) === activeVintedAccount) || vintedAccounts[0]
+    const memberId = typeof acc === 'object' ? acc?.memberId : null
+    if (!memberId) { console.log('[ListSync BG] Stats-Sync übersprungen – keine Member-ID'); return }
+
+    // Flag setzen + Profil-Tab im Hintergrund öffnen
+    await chrome.storage.local.set({ statsOnlyRequested: true })
+    await chrome.tabs.create({ url: `https://www.vinted.de/member/${memberId}`, active: false })
+    // vinted-sync.js scrapet die Stats und schließt den Tab via syncStatsToListSync
+    console.log('[ListSync BG] Hintergrund-Stats-Sync gestartet für Member', memberId)
+  } catch(e) {
+    console.warn('[ListSync BG] Hintergrund-Stats-Sync Fehler:', e.message)
   }
 }
 

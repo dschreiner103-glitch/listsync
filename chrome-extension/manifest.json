@@ -3,7 +3,7 @@
   "name": "ListSync",
   "version": "3.2",
   "description": "Automatisch auf Vinted, Kleinanzeigen & eBay posten + Vinted-Historie synchronisieren",
-  "permissions": ["tabs", "scripting", "storage", "activeTab", "notifications", "windows"],
+  "permissions": ["tabs", "scripting", "storage", "activeTab", "notifications", "windows", "alarms"],
   "host_permissions": [
     "http://localhost:3000/*",
     "https://project-dle5b.vercel.app/*",

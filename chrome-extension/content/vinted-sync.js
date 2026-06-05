@@ -671,9 +671,26 @@ async function runProfileSync() {
 
 // ── Main sync ─────────────────────────────────────────────────────────────────
 
+// ── Stats-Only Sync (automatischer Hintergrund-Update von Views/Likes) ────────
+async function runStatsSync() {
+  await chrome.storage.local.remove('statsOnlyRequested')
+  // Leiser Hintergrund-Lauf – kein großer Banner
+  await wait(2800)
+  const items = await scrapeActiveListings()
+  const stats = items.map(i => ({ vintedId: i.vintedId, views: i.views, likes: i.likes }))
+  console.log('[ListSync] Stats-Sync:', stats.length, 'Artikel')
+  chrome.runtime.sendMessage({ type: 'VINTED_STATS_DATA', stats })
+}
+
 async function runSync() {
-  const { syncRequested, syncPhase, activeVintedAccount } = await new Promise(r =>
-    chrome.storage.local.get(['syncRequested', 'syncPhase', 'activeVintedAccount'], r))
+  const { syncRequested, syncPhase, statsOnlyRequested, activeVintedAccount } = await new Promise(r =>
+    chrome.storage.local.get(['syncRequested', 'syncPhase', 'statsOnlyRequested', 'activeVintedAccount'], r))
+
+  // Hintergrund-Stats-Sync: nur views/likes aktualisieren
+  if (location.pathname.includes('/member/') && statsOnlyRequested) {
+    await runStatsSync()
+    return
+  }
 
   // Phase 2: Profilseite → aktive Listings
   if (location.pathname.includes('/member/') && syncPhase === 'profile') {
