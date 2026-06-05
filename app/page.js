@@ -52,7 +52,7 @@ function FeatureCard({ icon, title, desc, color, delay = 0 }) {
   const [ref, vis] = useReveal()
   return (
     <div ref={ref} style={{ opacity: vis ? 1 : 0, transform: vis ? 'translateY(0)' : 'translateY(40px)', transition: `all .6s ease ${delay}s` }}>
-      <div ref={tilt} style={{ background:'linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.01))', border:'1px solid rgba(255,255,255,.08)', borderRadius:24, padding:'28px 24px', cursor:'default', transition:'transform .15s ease', transformStyle:'preserve-3d' }}>
+      <div ref={tilt} className="feature-card-inner" style={{ background:'linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.02))', border:'1px solid rgba(255,255,255,.10)', borderRadius:24, padding:'28px 24px', cursor:'default', transition:'transform .15s ease, box-shadow .2s', transformStyle:'preserve-3d', boxShadow:'0 4px 20px rgba(0,0,0,.3)' }}>
         <div style={{ width:52,height:52,borderRadius:16,background:`linear-gradient(135deg,${color}33,${color}11)`,border:`1px solid ${color}44`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,marginBottom:18 }}>
           {icon}
         </div>
@@ -81,14 +81,16 @@ function Orb({ size, x, y, color, dur }) {
 function PricingCard({ vis, delay, router, label, price, sub, included, excluded, cta, ctaStyle, ctaHref, highlight }) {
   const tilt = useTilt(6)
   return (
-    <div ref={tilt} style={{
-      background: highlight ? 'linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.1))' : 'rgba(255,255,255,.03)',
-      border: highlight ? '1px solid rgba(99,102,241,.4)' : '1px solid rgba(255,255,255,.08)',
-      borderRadius:24, padding:32, position:'relative',
-      opacity:vis?1:0, transform:vis?'translateY(0)':'translateY(40px)',
-      transition:`all .6s ease ${delay}s, transform .15s ease`,
-      boxShadow: highlight ? '0 0 60px rgba(99,102,241,.15)' : 'none',
-    }}>
+    <div ref={tilt}
+      className={`pricing-card${highlight ? ' pricing-pro pricing-pro-card' : ''}`}
+      style={{
+        background: highlight ? 'linear-gradient(135deg,rgba(99,102,241,.15),rgba(139,92,246,.1))' : 'rgba(255,255,255,.03)',
+        border: highlight ? '1px solid rgba(99,102,241,.4)' : '1px solid rgba(255,255,255,.08)',
+        borderRadius:24, padding:32, position:'relative',
+        opacity:vis?1:0, transform:vis?'translateY(0)':'translateY(40px)',
+        transition:`all .6s ease ${delay}s, transform .2s cubic-bezier(0.34,1.56,0.64,1)`,
+        boxShadow: highlight ? '0 0 60px rgba(99,102,241,.2), 0 0 120px rgba(99,102,241,.08)' : 'none',
+      }}>
       {highlight && <div style={{ position:'absolute', top:-12, left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#6366f1,#8b5cf6)', borderRadius:99, padding:'4px 14px', fontSize:11, fontWeight:800, color:'white', whiteSpace:'nowrap' }}>BELIEBTESTE WAHL</div>}
       {ctaStyle === 'gold' && <div style={{ position:'absolute', top:-12, left:'50%', transform:'translateX(-50%)', background:'linear-gradient(135deg,#d97706,#f59e0b)', borderRadius:99, padding:'4px 14px', fontSize:11, fontWeight:800, color:'white', whiteSpace:'nowrap' }}>BESTES ANGEBOT</div>}
       <p style={{ fontSize:12, fontWeight:700, color:highlight?'#818cf8':'#64748b', textTransform:'uppercase', letterSpacing:'.1em', margin:'0 0 12px' }}>{label}</p>
@@ -150,49 +152,214 @@ export default function LandingPage() {
     <div style={{ background:'#060610', color:'#f1f5f9', fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', overflowX:'hidden' }}>
 
       <style>{`
-        @keyframes float8 { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-20px)} }
-        @keyframes float12 { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-30px)} }
-        @keyframes float6 { 0%,100%{transform:translateY(0px)} 50%{transform:translateY(-14px)} }
-        @keyframes spin-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-        @keyframes pulse-glow { 0%,100%{opacity:.4} 50%{opacity:.8} }
-        @keyframes slide-up { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes float8  { 0%,100%{transform:translateY(0px)}  50%{transform:translateY(-20px)} }
+        @keyframes float12 { 0%,100%{transform:translateY(0px)}  50%{transform:translateY(-30px)} }
+        @keyframes float6  { 0%,100%{transform:translateY(0px)}  50%{transform:translateY(-14px)} }
+        @keyframes spin-slow    { from{transform:rotate(0deg)}   to{transform:rotate(360deg)} }
+        @keyframes pulse-glow   { 0%,100%{opacity:.4}            50%{opacity:.9} }
+        @keyframes slide-up     { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes gradient-x   { 0%,100%{background-position:0% 50%}  50%{background-position:100% 50%} }
+        @keyframes neon-flicker { 0%,100%{opacity:1} 92%{opacity:1} 93%{opacity:.85} 94%{opacity:1} 97%{opacity:.9} 98%{opacity:1} }
+        @keyframes scan-line    { from{transform:translateY(-100%)} to{transform:translateY(100vh)} }
+        @keyframes grid-drift   { from{background-position:0 0} to{background-position:40px 40px} }
+        @keyframes glow-orb     { 0%,100%{transform:scale(1) translate(0,0)} 33%{transform:scale(1.1) translate(20px,-20px)} 66%{transform:scale(.9) translate(-15px,15px)} }
+
+        /* ── Buttons ── */
         .nav-link { color:#94a3b8; text-decoration:none; font-size:14px; font-weight:600; transition:color .2s }
         .nav-link:hover { color:#f1f5f9 }
-        .btn-primary { background:linear-gradient(135deg,#6366f1,#8b5cf6); color:white; border:none; padding:14px 28px; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; box-shadow:0 0 30px rgba(99,102,241,.3) }
-        .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 40px rgba(99,102,241,.5) }
-        .btn-ghost { background:rgba(255,255,255,.06); color:#f1f5f9; border:1px solid rgba(255,255,255,.12); padding:14px 28px; border-radius:14px; font-size:15px; font-weight:600; cursor:pointer; font-family:inherit; transition:all .2s }
-        .btn-ghost:hover { background:rgba(255,255,255,.1); transform:translateY(-2px) }
-        .btn-gold { background:linear-gradient(135deg,#d97706,#f59e0b); color:white; border:none; padding:14px 28px; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; transition:all .2s; box-shadow:0 0 30px rgba(245,158,11,.3) }
-        .btn-gold:hover { transform:translateY(-2px); box-shadow:0 8px 40px rgba(245,158,11,.5) }
+        .btn-primary {
+          background: linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#6366f1 100%);
+          background-size: 200% 200%;
+          color: white; border: none; padding: 14px 28px; border-radius: 14px;
+          font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
+          transition: all .25s cubic-bezier(0.34,1.56,0.64,1);
+          box-shadow: 0 0 30px rgba(99,102,241,.4), 0 4px 15px rgba(99,102,241,.3);
+          animation: gradient-x 4s ease infinite;
+          position: relative; overflow: hidden;
+        }
+        .btn-primary::after {
+          content: ''; position: absolute; inset: 0;
+          background: linear-gradient(135deg, rgba(255,255,255,.18), transparent);
+          opacity: 0; transition: opacity .2s;
+        }
+        .btn-primary:hover { transform:translateY(-3px) scale(1.02); box-shadow:0 12px 45px rgba(99,102,241,.65), 0 0 80px rgba(99,102,241,.25) }
+        .btn-primary:hover::after { opacity: 1 }
+        .btn-primary:active { transform: scale(0.96); }
+        .btn-ghost {
+          background: rgba(255,255,255,.06); color:#f1f5f9;
+          border: 1px solid rgba(255,255,255,.14); padding:14px 28px; border-radius:14px;
+          font-size:15px; font-weight:600; cursor:pointer; font-family:inherit;
+          transition: all .2s cubic-bezier(0.4,0,0.2,1);
+          backdrop-filter: blur(10px);
+        }
+        .btn-ghost:hover { background:rgba(255,255,255,.12); transform:translateY(-2px); border-color:rgba(255,255,255,.25); box-shadow: 0 8px 30px rgba(0,0,0,.3) }
+        .btn-ghost:active { transform: scale(0.96); }
+        .btn-gold {
+          background: linear-gradient(135deg,#d97706 0%,#f59e0b 50%,#d97706 100%);
+          background-size: 200% 200%;
+          color:white; border:none; padding:14px 28px; border-radius:14px;
+          font-size:15px; font-weight:700; cursor:pointer; font-family:inherit;
+          transition: all .25s cubic-bezier(0.34,1.56,0.64,1);
+          box-shadow:0 0 30px rgba(245,158,11,.35);
+          animation: gradient-x 4s ease infinite;
+        }
+        .btn-gold:hover { transform:translateY(-3px) scale(1.02); box-shadow:0 12px 40px rgba(245,158,11,.6) }
+        .btn-gold:active { transform: scale(0.96); }
 
-        /* ── Mobile ── */
+        /* ── Desktop defaults ── */
         .nav-links-desktop { display:flex }
-        .nav-btns-desktop { display:flex }
-        .stats-grid { display:grid; grid-template-columns:repeat(4,1fr) }
-        .mockup-wrap { display:block }
-        .mockup-sidebar { display:flex }
-        .features-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)) }
-        .steps-grid { display:grid; grid-template-columns:repeat(3,1fr) }
-        .pricing-grid { display:grid; grid-template-columns:1fr 1fr 1fr }
-        .footer-inner { display:flex }
+        .nav-btns-desktop  { display:flex }
+        .stats-grid        { display:grid; grid-template-columns:repeat(4,1fr) }
+        .mockup-wrap       { display:block }
+        .mockup-sidebar    { display:flex }
+        .features-grid     { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)) }
+        .steps-grid        { display:grid; grid-template-columns:repeat(3,1fr) }
+        .pricing-grid      { display:grid; grid-template-columns:1fr 1fr 1fr }
+        .footer-inner      { display:flex }
+        .pricing-pro       { order: 0 }
 
+        /* ── Feature card hover glow ── */
+        .feature-card-inner {
+          transition: transform .18s ease, box-shadow .18s ease !important;
+        }
+        .feature-card-inner:hover {
+          transform: translateY(-6px) scale(1.02) !important;
+          box-shadow: 0 20px 50px rgba(0,0,0,.5) !important;
+        }
+
+        /* ── Stat number glow ── */
+        .stat-number { text-shadow: 0 0 30px rgba(99,102,241,.4); }
+
+        /* ── Pricing card glow on hover ── */
+        .pricing-card { transition: transform .2s cubic-bezier(0.34,1.56,0.64,1), box-shadow .2s !important; }
+        .pricing-card:hover { transform: translateY(-8px) scale(1.02) !important; }
+
+        /* ══════════════════════════════════
+           ── MOBILE OVERHAUL ──
+        ══════════════════════════════════ */
         @media (max-width: 768px) {
+          /* Nav */
           .nav-links-desktop { display:none !important }
           .nav-btns-desktop { gap:6px !important }
           .nav-btns-desktop .btn-ghost { display:none }
-          .nav-btns-desktop .btn-primary { padding:9px 16px !important; font-size:13px !important }
+          .nav-btns-desktop .btn-primary { padding:10px 18px !important; font-size:13px !important; border-radius:12px !important }
           nav { padding:12px 16px !important }
-          .stats-grid { grid-template-columns:repeat(2,1fr) !important }
+
+          /* Hero */
+          .hero-section { padding:90px 20px 50px !important }
+          .hero-btns { flex-direction:column; align-items:stretch !important; gap:12px !important }
+          .hero-btns button { width:100% !important; padding:18px 24px !important; font-size:16px !important; border-radius:16px !important }
+          .hero-pill { font-size:12px !important }
+          .hero-mockup { margin-top:40px !important; border-radius:16px !important }
+
+          /* Stats */
+          .stats-grid { grid-template-columns:repeat(2,1fr) !important; gap:16px !important }
+          .stat-number { font-size:36px !important }
+
+          /* App mockup */
           .mockup-sidebar { display:none !important }
           .mockup-wrap { grid-template-columns:1fr !important }
-          .features-grid { grid-template-columns:1fr !important }
-          .steps-grid { grid-template-columns:1fr !important; gap:24px !important }
-          .pricing-grid { grid-template-columns:1fr !important }
+
+          /* ── Features: horizontal scroll carousel ── */
+          .features-section-pad {
+            padding: 60px 0 !important;
+            max-width: 100% !important;
+          }
+          .features-header { padding: 0 20px !important; margin-bottom: 28px !important }
+          .features-grid {
+            display: flex !important;
+            overflow-x: auto !important;
+            scroll-snap-type: x mandatory !important;
+            -webkit-overflow-scrolling: touch !important;
+            gap: 14px !important;
+            padding: 8px 20px 20px !important;
+            margin: 0 !important;
+            scrollbar-width: none !important;
+            align-items: stretch !important;
+          }
+          .features-grid::-webkit-scrollbar { display: none !important }
+          .features-grid > * {
+            flex-shrink: 0 !important;
+            width: 78vw !important;
+            max-width: 290px !important;
+            scroll-snap-align: start !important;
+          }
+
+          /* ── Steps ── */
+          .steps-grid { grid-template-columns:1fr !important; gap:0 !important }
+          .step-item { position:relative !important }
+          .step-item:not(:last-child)::after {
+            content:'↓';
+            display:block;
+            text-align:center;
+            font-size:24px;
+            color:rgba(99,102,241,.5);
+            padding:8px 0;
+          }
+          .section-pad { padding:60px 20px !important }
+
+          /* ── Pricing: Pro on top, full width ── */
+          .pricing-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 16px !important;
+          }
+          .pricing-pro { order: -1 !important }
+
+          /* Footer */
           .footer-inner { flex-direction:column; align-items:center; gap:12px !important }
-          .hero-section { padding:100px 16px 60px !important }
-          .hero-btns { flex-direction:column; align-items:stretch !important }
-          .hero-btns button { width:100% }
-          .section-pad { padding:60px 16px !important }
+
+          /* Button active states */
+          .btn-primary:active, .btn-ghost:active, .btn-gold:active {
+            transform: scale(0.94) !important;
+          }
+
+          /* Feature card tap */
+          .feature-card-inner:active {
+            transform: scale(0.97) !important;
+          }
+        }
+
+        /* ── Pricing card mobile highlight ring ── */
+        @media (max-width: 768px) {
+          .pricing-pro-card {
+            box-shadow: 0 0 0 2px rgba(99,102,241,.6), 0 0 60px rgba(99,102,241,.2) !important;
+          }
+        }
+
+        /* ── Swipe hint: only on mobile ── */
+        .mobile-swipe-hint { display: none }
+        @media (max-width: 768px) { .mobile-swipe-hint { display: block } }
+
+        /* ── Animated grid background ── */
+        .hero-grid-bg {
+          position: absolute; inset: 0; pointer-events: none; z-index: 0;
+          background-image:
+            linear-gradient(rgba(99,102,241,.07) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(99,102,241,.07) 1px, transparent 1px);
+          background-size: 50px 50px;
+          animation: grid-drift 8s linear infinite;
+          mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+          -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+        }
+
+        /* ── Stat number glow ── */
+        .stat-number { text-shadow: 0 0 40px rgba(99,102,241,.5), 0 0 80px rgba(99,102,241,.2); }
+
+        /* ── Hero headline animated gradient ── */
+        .hero-gradient-text {
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 30%, #22c55e 60%, #6366f1 100%);
+          background-size: 200% 200%;
+          -webkit-background-clip: text;
+          background-clip: text;
+          -webkit-text-fill-color: transparent;
+          animation: gradient-x 5s ease infinite;
+        }
+
+        /* ── CTA section neon glow ── */
+        .cta-headline {
+          text-shadow: 0 0 60px rgba(99,102,241,.3), 0 0 120px rgba(99,102,241,.15);
+          animation: neon-flicker 8s ease infinite;
         }
       `}</style>
 
@@ -217,6 +384,9 @@ export default function LandingPage() {
       {/* ── Hero ── */}
       <section ref={heroRef} className="hero-section" style={{ minHeight:'100vh', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', textAlign:'center', padding:'120px 24px 80px', position:'relative', overflow:'hidden' }}>
 
+        {/* Animated grid background */}
+        <div className="hero-grid-bg"/>
+
         {/* Background orbs */}
         <Orb size={600} x={10}  y={10}  color="#6366f1" dur={12} />
         <Orb size={400} x={75}  y={20}  color="#8b5cf6" dur={8}  />
@@ -237,7 +407,7 @@ export default function LandingPage() {
         <h1 style={{ fontSize:'clamp(40px,7vw,90px)', fontWeight:900, letterSpacing:'-0.04em', lineHeight:1.05, margin:'0 0 24px', maxWidth:900, animation:'slide-up .7s ease .1s both' }}>
           <span style={{ color:'white' }}>Verkaufe mehr.</span>
           <br/>
-          <span style={{ background:'linear-gradient(135deg,#6366f1,#8b5cf6,#22c55e)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>Arbeite weniger.</span>
+          <span className="hero-gradient-text">Arbeite weniger.</span>
         </h1>
 
         <p style={{ fontSize:'clamp(16px,2.5vw,20px)', color:'#94a3b8', maxWidth:600, lineHeight:1.6, margin:'0 0 48px', animation:'slide-up .7s ease .2s both' }}>
@@ -462,7 +632,7 @@ export default function LandingPage() {
             { val:4.9,   suf:'★', label:'Bewertung' },
           ].map(s => (
             <div key={s.label} style={{ opacity:statsVis?1:0, transform:statsVis?'translateY(0)':'translateY(30px)', transition:'all .6s ease' }}>
-              <p style={{ fontSize:'clamp(28px,4vw,48px)', fontWeight:900, color:'white', margin:'0 0 6px', letterSpacing:'-0.03em' }}>
+              <p className="stat-number" style={{ fontSize:'clamp(28px,4vw,48px)', fontWeight:900, color:'white', margin:'0 0 6px', letterSpacing:'-0.03em' }}>
                 {statsVis ? <Counter to={Math.floor(s.val)} suffix={s.suf}/> : '0'}
               </p>
               <p style={{ fontSize:13, color:'#64748b', margin:0, fontWeight:600 }}>{s.label}</p>
@@ -472,8 +642,8 @@ export default function LandingPage() {
       </section>
 
       {/* ── Features ── */}
-      <section id="features" ref={featRef} className="section-pad" style={{ padding:'100px 24px', maxWidth:1100, margin:'0 auto' }}>
-        <div style={{ textAlign:'center', marginBottom:64, opacity:featVis?1:0, transform:featVis?'translateY(0)':'translateY(30px)', transition:'all .6s ease' }}>
+      <section id="features" ref={featRef} className="section-pad features-section-pad" style={{ padding:'100px 24px', maxWidth:1100, margin:'0 auto' }}>
+        <div className="features-header" style={{ textAlign:'center', marginBottom:64, opacity:featVis?1:0, transform:featVis?'translateY(0)':'translateY(30px)', transition:'all .6s ease' }}>
           <span style={{ fontSize:12, fontWeight:800, color:'#6366f1', textTransform:'uppercase', letterSpacing:'.12em' }}>Features</span>
           <h2 style={{ fontSize:'clamp(28px,5vw,54px)', fontWeight:900, color:'white', letterSpacing:'-0.03em', margin:'12px 0 16px' }}>
             Alles was du als Reseller brauchst
@@ -481,6 +651,9 @@ export default function LandingPage() {
           <p style={{ fontSize:17, color:'#64748b', maxWidth:500, margin:'0 auto', lineHeight:1.6 }}>
             Kein Tool-Dschungel mehr. ListSync ersetzt fünf verschiedene Apps.
           </p>
+          {/* Mobile swipe hint */}
+          <p style={{ fontSize:11, color:'rgba(99,102,241,.6)', marginTop:16, fontWeight:700, letterSpacing:'.06em' }}
+            className="mobile-swipe-hint">← SWIPE →</p>
         </div>
         <div className="features-grid" style={{ gap:20 }}>
           {FEATURES.map(f => <FeatureCard key={f.title} {...f}/>)}
@@ -498,8 +671,15 @@ export default function LandingPage() {
               { n:'02', icon:'✨', title:'KI übernimmt', desc:'Titel, Beschreibung & Hashtags automatisch generiert.' },
               { n:'03', icon:'🚀', title:'Überall live', desc:'Mit einem Klick auf Vinted, Kleinanzeigen & eBay.' },
             ].map(step => (
-              <div key={step.n} style={{ textAlign:'center' }}>
-                <div style={{ fontSize:48, marginBottom:16 }}>{step.icon}</div>
+              <div key={step.n} className="step-item" style={{ textAlign:'center' }}>
+                <div style={{
+                  width:80, height:80, borderRadius:24, margin:'0 auto 16px',
+                  background:`linear-gradient(135deg,rgba(99,102,241,.2),rgba(139,92,246,.1))`,
+                  border:'1px solid rgba(99,102,241,.3)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:36,
+                  boxShadow:'0 0 30px rgba(99,102,241,.15)',
+                }}>{step.icon}</div>
                 <div style={{ fontSize:11, fontWeight:800, color:'#6366f1', letterSpacing:'.1em', marginBottom:8 }}>SCHRITT {step.n}</div>
                 <h3 style={{ fontSize:20, fontWeight:800, color:'white', margin:'0 0 8px' }}>{step.title}</h3>
                 <p style={{ fontSize:14, color:'#64748b', margin:0, lineHeight:1.6 }}>{step.desc}</p>

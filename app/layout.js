@@ -227,12 +227,199 @@ export default function RootLayout({ children }) {
 
           /* ── Safe area for iPhone notch/home bar ── */
           .ls-mobile-nav { padding-bottom: env(safe-area-inset-bottom, 0); }
-          .ls-page-content { padding-bottom: calc(80px + env(safe-area-inset-bottom, 0)); }
+          .ls-page-content { padding-bottom: calc(108px + env(safe-area-inset-bottom, 0)); }
           @media (min-width: 768px) { .ls-page-content { padding-bottom: 40px; } }
+
+          /* ══════════════════════════════════════════
+             ── 3D & Animation Overhaul ──
+          ══════════════════════════════════════════ */
+
+          /* ── Keyframes ── */
+          @keyframes slideUp {
+            from { opacity: 0; transform: translateY(28px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)    scale(1);    }
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to   { opacity: 1; }
+          }
+          @keyframes popIn {
+            0%  { opacity: 0; transform: scale(0.6); }
+            65% { transform: scale(1.12); }
+            100%{ opacity: 1; transform: scale(1);   }
+          }
+          @keyframes float {
+            0%,100% { transform: translateY(0px)  rotate(0deg);  }
+            33%     { transform: translateY(-8px) rotate(0.8deg);  }
+            66%     { transform: translateY(-4px) rotate(-0.4deg); }
+          }
+          @keyframes glow-pulse {
+            0%,100% { box-shadow: 0 4px 20px rgba(99,102,241,0.4); }
+            50%     { box-shadow: 0 4px 40px rgba(99,102,241,0.75), 0 0 80px rgba(99,102,241,0.2); }
+          }
+          @keyframes gradient-flow {
+            0%   { background-position: 0%   50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0%   50%; }
+          }
+          @keyframes text-shimmer {
+            0%   { background-position: -200% center; }
+            100% { background-position:  200% center; }
+          }
+          @keyframes border-glow {
+            0%,100% { opacity: 0.5; }
+            50%     { opacity: 1;   }
+          }
+
+          /* ── 3D Card hover tilt (desktop) ── */
+          .ls-card {
+            transform-style: preserve-3d;
+            will-change: transform;
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1),
+                        box-shadow 0.28s cubic-bezier(0.4,0,0.2,1);
+          }
+          @media (hover: hover) {
+            .ls-card:hover {
+              transform: perspective(900px) rotateX(-2deg) rotateY(1deg) translateY(-6px) scale(1.015);
+              box-shadow: 0 24px 60px rgba(15,23,42,0.16),
+                          0 8px  20px rgba(15,23,42,0.08),
+                          0 0   0 1px rgba(99,102,241,0.10);
+            }
+            html.dark .ls-card:hover {
+              box-shadow: 0 24px 60px rgba(0,0,0,0.55),
+                          0 0   40px rgba(99,102,241,0.07),
+                          0 0   0 1px rgba(255,255,255,0.06);
+            }
+          }
+          /* Mobile card tap ripple */
+          @media (hover: none) {
+            .ls-card:active {
+              transform: scale(0.975);
+              transition: transform 0.1s;
+            }
+          }
+
+          /* ── Glassmorphism helper ── */
+          .ls-glass {
+            background: rgba(255,255,255,0.72) !important;
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255,255,255,0.6) !important;
+          }
+          html.dark .ls-glass {
+            background: rgba(22,27,34,0.78) !important;
+            border: 1px solid rgba(255,255,255,0.09) !important;
+          }
+
+          /* ── Gradient text ── */
+          .ls-gradient-text {
+            background: linear-gradient(135deg, #6366f1 0%, #818cf8 50%, #a78bfa 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+          }
+
+          /* ── Shimmer text ── */
+          .ls-text-shimmer {
+            background: linear-gradient(90deg, #6366f1 0%, #a78bfa 25%, #6366f1 50%, #818cf8 75%, #6366f1 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: text-shimmer 3s linear infinite;
+          }
+
+          /* ── Animated gradient border card ── */
+          .ls-card-glow {
+            position: relative;
+          }
+          .ls-card-glow::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: inherit;
+            background: linear-gradient(135deg, rgba(99,102,241,0.6), rgba(139,92,246,0.3), rgba(99,102,241,0.1));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+            animation: border-glow 3s ease-in-out infinite;
+          }
+
+          /* ── Primary button upgrades ── */
+          .ls-btn-primary:not(:disabled) {
+            box-shadow: 0 4px 18px rgba(99,102,241,0.42), 0 0 0 0 rgba(99,102,241,0);
+            transition: opacity .15s, transform .15s cubic-bezier(0.34,1.56,0.64,1), box-shadow .2s !important;
+          }
+          .ls-btn-primary:not(:disabled):hover {
+            opacity: 1 !important;
+            transform: translateY(-2px) scale(1.02) !important;
+            box-shadow: 0 10px 32px rgba(99,102,241,0.58), 0 0 60px rgba(99,102,241,0.18) !important;
+          }
+          .ls-btn-primary:not(:disabled):active {
+            transform: scale(0.95) translateY(1px) !important;
+            box-shadow: 0 2px 10px rgba(99,102,241,0.38) !important;
+          }
+
+          /* ── Page fade-in ── */
+          .ls-page { animation: fadeIn 0.3s ease; }
+
+          /* ── Float animation utility ── */
+          .ls-float { animation: float 5s ease-in-out infinite; }
+
+          /* ── Glow ring utility ── */
+          .ls-glow-btn { animation: glow-pulse 2.5s ease-in-out infinite; }
+
+          /* ── Mobile header blur bar ── */
+          .ls-topbar-glass {
+            background: rgba(255,255,255,0.7);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+          }
+          html.dark .ls-topbar-glass {
+            background: rgba(7,9,16,0.78);
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+          }
+
+          /* ── Stat card mobile micro-interaction ── */
+          @media (max-width: 640px) {
+            .ls-card {
+              border-radius: 18px !important;
+            }
+          }
         `}</style>
       </head>
       <body>
         <SessionWrapper>{children}</SessionWrapper>
+        <script dangerouslySetInnerHTML={{ __html: `
+          /* Interactive 3D tilt for .ls-card on desktop */
+          (function() {
+            var STRENGTH = 12;
+            function attach(card) {
+              if (card._tiltBound) return;
+              card._tiltBound = true;
+              card.addEventListener('mousemove', function(e) {
+                var r = card.getBoundingClientRect();
+                var x = (e.clientX - r.left) / r.width  - 0.5;
+                var y = (e.clientY - r.top)  / r.height - 0.5;
+                card.style.transform = 'perspective(900px) rotateY(' + (x*STRENGTH) + 'deg) rotateX(' + (-y*STRENGTH*0.7) + 'deg) translateY(-6px) scale(1.015)';
+                card.style.transition = 'transform 0.08s ease, box-shadow 0.08s';
+              });
+              card.addEventListener('mouseleave', function() {
+                card.style.transform = '';
+                card.style.transition = 'transform 0.35s cubic-bezier(0.4,0,0.2,1), box-shadow 0.35s';
+              });
+            }
+            function scan() {
+              if (window.matchMedia('(hover: none)').matches) return;
+              document.querySelectorAll('.ls-card').forEach(attach);
+            }
+            scan();
+            var obs = new MutationObserver(scan);
+            obs.observe(document.body, { childList: true, subtree: true });
+          })();
+        `}}/>
       </body>
     </html>
   )
