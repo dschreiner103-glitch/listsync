@@ -2,7 +2,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
 import { PlatformBadge, StatusBadge, PLATFORMS, fmt, profit, CARD_COLORS } from '@/components/Badge'
 
 // ── Period helpers ────────────────────────────────────────────────────────────
@@ -769,7 +768,7 @@ export default function Dashboard() {
 
         </div>
       </main>
-      <MobileNav/>
+      
     </div>
   )
 }

@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
 import { PLATFORMS } from '@/components/Badge'
 
 function fmt(n) { return (n || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) }
@@ -234,7 +233,7 @@ export default function Belege() {
 
         </div>
       </main>
-      <MobileNav />
+      
     </div>
   )
 }

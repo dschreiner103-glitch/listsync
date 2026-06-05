@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
 
 // ── Helpers ──────────────────────────────────────────────────────────
 function parsePlatz(platz) {
@@ -491,7 +490,7 @@ export default function LagerPage() {
 
         </div>
       </main>
-      <MobileNav/>
+      
       {assign && assign.id !== '__new__' && (
         <AssignModal listing={assign} tree={tree} onSave={updateListing} onClose={()=>setAssign(null)}/>
       )}

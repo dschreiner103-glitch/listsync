@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, StatusBadge, PLATFORMS, CONDITIONS, fmt, profit, CARD_COLORS } from '@/components/Badge'
 import { calcScore, scoreColor, scoreLabel } from '@/lib/score'
@@ -88,8 +87,12 @@ export default function Listings() {
   const [bulkMode, setBulkMode]           = useState(false)
   const [bulkModal, setBulkModal]         = useState(false)
   const [allPlätze, setAllPlätze]         = useState([])
+  const [accounts, setAccounts]           = useState([])
+  const [accountFilter, setAccountFilter] = useState('alle')
+  const [selAccounts, setSelAccounts]     = useState({}) // { platform: accountId }
 
   useEffect(() => {
+    fetch('/api/accounts').then(r => r.json()).then(d => setAccounts(Array.isArray(d) ? d : []))
     fetch('/api/listings').then(r => r.json()).then(d => {
       const ls = Array.isArray(d) ? d : []
       setListings(ls)
@@ -269,11 +272,13 @@ export default function Listings() {
     const newStatus = isDraft ? 'entwurf' : 'aktiv'
     const nowIso = new Date().toISOString()
     // Beim Hochladen (nicht Entwurf) relistedAt setzen → erscheint im "Relisted"-Tab
+    const accountIds = {}
+    selPlatforms.forEach(p => { if (selAccounts[p]) accountIds[p] = selAccounts[p] })
     const patch = isDraft
-      ? { platforms: selPlatforms, status: newStatus }
-      : { platforms: selPlatforms, status: newStatus, relistedAt: nowIso }
+      ? { platforms: selPlatforms, status: newStatus, account_ids: accountIds }
+      : { platforms: selPlatforms, status: newStatus, relistedAt: nowIso, account_ids: accountIds }
     await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
-    setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms, status: newStatus, ...(isDraft ? {} : { relistedAt: nowIso }) } : l))
+    setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms, status: newStatus, account_ids: accountIds, ...(isDraft ? {} : { relistedAt: nowIso }) } : l))
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
     setModal(null)
     if (extPlatforms.length > 0 && listing) {
@@ -306,6 +311,7 @@ export default function Listings() {
   const filtered = listings.filter(l =>
     (filter === 'alle' || (filter === 'relisted' ? !!l.relistedAt : l.status === filter)) &&
     (pltFilter === 'alle' || (l.platforms || []).includes(pltFilter)) &&
+    (accountFilter === 'alle' || Object.values(l.account_ids || {}).map(Number).includes(Number(accountFilter))) &&
     (!search || l.title.toLowerCase().includes(search.toLowerCase()) ||
                 (l.description || '').toLowerCase().includes(search.toLowerCase()))
   )
@@ -575,6 +581,42 @@ export default function Listings() {
             </div>
           )}
 
+          {/* ── Account filter chips ── */}
+          {accounts.length > 0 && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: 2 }}>Account:</span>
+              <button onClick={() => setAccountFilter('alle')}
+                style={{
+                  padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
+                  border: `1.5px solid ${accountFilter === 'alle' ? '#818cf8' : 'var(--border)'}`,
+                  background: accountFilter === 'alle' ? 'rgba(99,102,241,0.1)' : 'var(--surface)',
+                  color: accountFilter === 'alle' ? '#6366f1' : 'var(--text-3)',
+                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
+                }}>
+                Alle
+              </button>
+              {accounts.map(acc => {
+                const p = PLATFORMS[acc.platform]
+                const active = accountFilter === String(acc.id)
+                return (
+                  <button key={acc.id} onClick={() => setAccountFilter(String(acc.id))}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
+                      border: `1.5px solid ${active ? (p?.dot || '#818cf8') : 'var(--border)'}`,
+                      background: active ? `${p?.dot || '#6366f1'}18` : 'var(--surface)',
+                      color: active ? (p?.dot || '#6366f1') : 'var(--text-3)',
+                      cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
+                    }}>
+                    {p?.dot && <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.dot, display: 'inline-block' }}/>}
+                    {acc.name}
+                    {acc.username && <span style={{ fontWeight: 500, opacity: 0.7 }}>@{acc.username}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           {/* ── Listing cards ── */}
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -669,6 +711,16 @@ export default function Listings() {
                             </span>
                           )}
                           {l.platforms.map(p => <PlatformBadge key={p} plt={p} />)}
+                          {l.account_ids && Object.entries(l.account_ids).map(([plt, accId]) => {
+                            const acc = accounts.find(a => a.id === Number(accId))
+                            if (!acc || !l.platforms.includes(plt)) return null
+                            const dot = PLATFORMS[plt]?.dot
+                            return (
+                              <span key={plt} style={{ fontSize: 11, fontWeight: 700, color: dot || '#6366f1', background: `${dot || '#6366f1'}15`, padding: '2px 7px', borderRadius: 7, border: `1px solid ${dot || '#6366f1'}30` }}>
+                                👤 {acc.name}
+                              </span>
+                            )
+                          })}
                           {l.lagerplatz && (
                             <span style={{ fontSize: 11.5, color: '#6366f1', fontWeight: 700, background: 'rgba(99,102,241,0.08)', padding: '2px 7px', borderRadius: 7, border: '1px solid rgba(99,102,241,0.15)' }}>
                               📦 {l.lagerplatz}
@@ -689,7 +741,7 @@ export default function Listings() {
                           style={actionBtn(aged ? 'var(--warn-bg)' : 'var(--row-hover)', aged ? '#d97706' : 'var(--text-2)', aged ? 'var(--warn-border)' : 'var(--border)')}>
                           {ICONS.relist} Relisten
                         </button>
-                        <button onClick={() => { setSelPlatforms([...l.platforms]); setModal({ type: 'crosspost', id: l.id }) }}
+                        <button onClick={() => { setSelPlatforms([...l.platforms]); setSelAccounts(l.account_ids || {}); setModal({ type: 'crosspost', id: l.id }) }}
                           style={actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)')}>
                           {ICONS.crosspost} Crossposten
                         </button>
@@ -719,7 +771,7 @@ export default function Listings() {
 
                     {l.status === 'entwurf' && (
                       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)', display: 'flex', gap: 8 }}>
-                        <button onClick={() => { setSelPlatforms(l.platforms.length ? [...l.platforms] : ['vinted','kleinanzeigen','ebay']); setModal({ type: 'crosspost', id: l.id }) }}
+                        <button onClick={() => { setSelPlatforms(l.platforms.length ? [...l.platforms] : ['vinted','kleinanzeigen','ebay']); setSelAccounts(l.account_ids || {}); setModal({ type: 'crosspost', id: l.id }) }}
                           style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 1 }}>
                           {ICONS.crosspost} Hochladen
                         </button>
@@ -759,7 +811,7 @@ export default function Listings() {
         </div>
       </main>
 
-      <MobileNav />
+      
 
       {/* ── Relist Modal ── */}
       {modal?.type === 'relist' && modalListing && (
@@ -835,13 +887,44 @@ export default function Listings() {
                     <PlatformBadge plt={id} />
                   </div>
                   {sel && (
-                    <div style={{ margin: '6px 0 0 2px', padding: '10px 14px', borderRadius: 12, background: 'var(--row-hover)', border: '1px solid var(--border)' }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>Optimierter Titel</p>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>
-                        {id === 'ebay' ? (modalListing.title + ' | Top Zustand ✅').substring(0, 80)
-                          : id === 'vinted' ? modalListing.title.substring(0, 60)
-                          : modalListing.title + ' (VHB)'}
-                      </p>
+                    <div style={{ margin: '6px 0 0 2px', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                      {/* Account picker for this platform */}
+                      {(() => {
+                        const pltAccounts = accounts.filter(a => a.platform === id)
+                        if (pltAccounts.length === 0) return null
+                        return (
+                          <div style={{ padding: '10px 14px', background: 'var(--row-hover)', borderBottom: '1px solid var(--border)' }}>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px' }}>Account</p>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              {pltAccounts.map(acc => {
+                                const isSelAcc = selAccounts[id] === acc.id
+                                return (
+                                  <button key={acc.id}
+                                    onClick={() => setSelAccounts(s => ({ ...s, [id]: isSelAcc ? undefined : acc.id }))}
+                                    style={{
+                                      padding: '5px 11px', borderRadius: 9, fontSize: 12, fontWeight: 700,
+                                      border: `1.5px solid ${isSelAcc ? (PLATFORMS[id]?.dot || '#6366f1') : 'var(--border)'}`,
+                                      background: isSelAcc ? `${PLATFORMS[id]?.dot || '#6366f1'}18` : 'var(--surface)',
+                                      color: isSelAcc ? (PLATFORMS[id]?.dot || '#6366f1') : 'var(--text-2)',
+                                      cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
+                                    }}>
+                                    {isSelAcc && '✓ '}{acc.name}
+                                    {acc.username && <span style={{ fontWeight: 500, opacity: 0.7, marginLeft: 3 }}>@{acc.username}</span>}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                      <div style={{ padding: '10px 14px', background: 'var(--row-hover)' }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>Optimierter Titel</p>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>
+                          {id === 'ebay' ? (modalListing.title + ' | Top Zustand ✅').substring(0, 80)
+                            : id === 'vinted' ? modalListing.title.substring(0, 60)
+                            : modalListing.title + ' (VHB)'}
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>

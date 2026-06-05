@@ -2,7 +2,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
 import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, seoTitle, fmt } from '@/components/Badge'
 import CategoryPicker from '@/components/CategoryPicker'
@@ -275,8 +274,9 @@ export default function NewListing() {
   }
 
   // ── KI-Anprobe (Virtual Try-On) ──────────────────────────────────────────────
-  const [tryon, setTryon] = useState({ open:false, piece:null, model:null, result:null, loading:false, error:'', type:'upper' })
+  const [tryon, setTryon] = useState({ open:false, piece:null, model:null, result:null, loading:false, error:'', type:'upper', elapsed:0 })
   const setT = (patch) => setTryon(t => ({ ...t, ...patch }))
+  const tryonTimerRef = useRef(null)
 
   // Bild verkleinern + als DataURL (spart Upload & KI-Kosten)
   const fileToDataURL = (file, max=1024) => new Promise((resolve, reject) => {
@@ -309,19 +309,61 @@ export default function NewListing() {
     catch { setT({ error:'Bild konnte nicht geladen werden' }) }
   }
 
+  const stopTryonTimer = () => {
+    clearInterval(tryonTimerRef.current)
+    tryonTimerRef.current = null
+  }
+
+  const pollTryon = async (predId) => {
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 2000))
+      try {
+        const res = await fetch(`/api/ai/tryon?id=${predId}`)
+        const data = await res.json()
+        if (data.status === 'succeeded' && data.image) {
+          stopTryonTimer()
+          setT({ result: data.image, loading:false, elapsed:0 })
+          return
+        }
+        if (data.status === 'failed') {
+          stopTryonTimer()
+          setT({ error: data.error || 'Generierung fehlgeschlagen', loading:false, elapsed:0 })
+          return
+        }
+      } catch {}
+    }
+    stopTryonTimer()
+    setT({ error:'Zeitüberschreitung (2 Min.). Bitte erneut versuchen.', loading:false, elapsed:0 })
+  }
+
   const generateTryon = async () => {
     if (!tryon.piece || !tryon.model) { setT({ error:'Bitte beide Bilder hochladen.' }); return }
-    setT({ loading:true, error:'', result:null })
+    stopTryonTimer()
+    let secs = 0
+    tryonTimerRef.current = setInterval(() => {
+      secs++
+      setTryon(t => ({ ...t, elapsed: secs }))
+    }, 1000)
+    setT({ loading:true, error:'', result:null, elapsed:0 })
     try {
       const res = await fetch('/api/ai/tryon', {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ piece: tryon.piece, model: tryon.model, type: tryon.type }),
       })
       const data = await res.json()
-      if (!res.ok) { setT({ error: data.error || 'Generierung fehlgeschlagen', loading:false }); return }
-      setT({ result: data.image, loading:false })
+      if (!res.ok) { stopTryonTimer(); setT({ error: data.error || 'Generierung fehlgeschlagen', loading:false, elapsed:0 }); return }
+      if (data.image) {
+        stopTryonTimer()
+        setT({ result: data.image, loading:false, elapsed:0 })
+      } else if (data.id) {
+        await pollTryon(data.id)
+      } else {
+        stopTryonTimer()
+        setT({ error: data.error || 'Unbekannter Fehler', loading:false, elapsed:0 })
+      }
     } catch {
-      setT({ error:'Netzwerkfehler', loading:false })
+      stopTryonTimer()
+      setT({ error:'Netzwerkfehler', loading:false, elapsed:0 })
     }
   }
 
@@ -330,7 +372,7 @@ export default function NewListing() {
     const ext = tryon.result.startsWith('data:image/png') ? 'png' : 'jpg'
     const file = dataURLtoFile(tryon.result, `tryon-${Date.now()}.${ext}`)
     await uploadFiles([file])
-    setT({ open:false, piece:null, model:null, result:null })
+    setT({ open:false, piece:null, model:null, result:null, elapsed:0 })
   }
 
   const removeImg = (i) => setImgs(x => x.filter((_,j)=>j!==i))
@@ -852,7 +894,7 @@ export default function NewListing() {
                         style={{ padding:'13px', borderRadius:13, border:'none', cursor:(tryon.loading||!tryon.piece||!tryon.model)?'default':'pointer',
                           background:(tryon.loading||!tryon.piece||!tryon.model)?'var(--border)':'linear-gradient(135deg,#6366f1,#8b5cf6)',
                           color:(tryon.loading||!tryon.piece||!tryon.model)?'var(--text-3)':'#fff', fontSize:14.5, fontWeight:700, fontFamily:'inherit' }}>
-                        {tryon.loading ? '🪄 Generiere… (gratis, kann 30–60s + Warteschlange dauern)' : '🪄 Anprobe generieren'}
+                        {tryon.loading ? `🪄 Generiere… ${tryon.elapsed > 0 ? `(${tryon.elapsed}s)` : ''}` : '🪄 Anprobe generieren'}
                       </button>
                     )}
 
@@ -986,7 +1028,7 @@ export default function NewListing() {
           </div>
         </div>
       </main>
-      <MobileNav/>
+      
       {mobileHelper && (
         <MobilePostHelper
           listing={mobileHelper.listing}

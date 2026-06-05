@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSession } from 'next-auth/react'
 import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
 
 // ── Config ────────────────────────────────────────────────────────────
 const CHANNELS = [
@@ -548,7 +547,7 @@ export default function CommunityPage() {
         </div>
 
       </main>
-      <MobileNav/>
+      
 
       {/* Profile Modal — on @mention click */}
       {profileUser && (() => {

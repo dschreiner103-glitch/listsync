@@ -2,7 +2,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
 import { PLATFORMS } from '@/components/Badge'
 
 function Ic({ children, size = 16, sw = 1.8 }) {
@@ -54,6 +53,10 @@ export default function Settings() {
   const [portalLoading, setPortalLoading] = useState(false)
   const [confirmDeleteAll, setConfirmDeleteAll] = useState(false)
   const [deletingAll, setDeletingAll] = useState(false)
+  const [accounts, setAccounts]     = useState([])
+  const [accModal, setAccModal]     = useState(null) // { platform } | null
+  const [accForm, setAccForm]       = useState({ name: '', username: '' })
+  const [accSaving, setAccSaving]   = useState(false)
 
   const router = useRouter()
 
@@ -63,6 +66,7 @@ export default function Settings() {
       if (s.relistDays !== undefined) setRelistDays(s.relistDays)
       setBusiness({ shopName: s.shopName||'', address: s.address||'', taxId: s.taxId||'', kleinunternehmer: s.kleinunternehmer !== false })
     })
+    fetch('/api/accounts').then(r=>r.json()).then(d => setAccounts(Array.isArray(d) ? d : []))
     fetch('/api/platforms').then(r=>r.json()).then(list=>{
       const map = {}
       list.forEach(p => { map[p.platform] = p })
@@ -122,6 +126,36 @@ export default function Settings() {
       setModal(null)
       showToast(`✅ ${PLATFORMS[id].name} verbunden!`)
     } catch { showToast('Fehler beim Verbinden', 'error') }
+  }
+
+  const addAccount = async () => {
+    if (!accModal || !accForm.name.trim()) return
+    setAccSaving(true)
+    try {
+      const res = await fetch('/api/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: accModal.platform, name: accForm.name.trim(), username: accForm.username.trim() }),
+      })
+      const acc = await res.json()
+      setAccounts(a => [...a, acc])
+      setAccModal(null)
+      setAccForm({ name: '', username: '' })
+      showToast(`✅ Account "${acc.name}" hinzugefügt`)
+    } catch { showToast('Fehler beim Hinzufügen', 'error') }
+    finally { setAccSaving(false) }
+  }
+
+  const removeAccount = async (id) => {
+    try {
+      await fetch('/api/accounts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      setAccounts(a => a.filter(x => x.id !== id))
+      showToast('Account entfernt')
+    } catch { showToast('Fehler beim Löschen', 'error') }
   }
 
   const deleteAllListings = async () => {
@@ -303,6 +337,55 @@ export default function Settings() {
             </div>
           </Section>
 
+          {/* ── Multi-Account Management ── */}
+          <Section title="👤 Meine Accounts">
+            <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+              Füge mehrere Accounts pro Plattform hinzu. Beim Crossposten kannst du auswählen, welcher Account verwendet werden soll.
+            </p>
+            {Object.entries(PLATFORMS).map(([plt, p]) => {
+              const pltAccounts = accounts.filter(a => a.platform === plt)
+              return (
+                <div key={plt} style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: pltAccounts.length ? 10 : 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.dot, display: 'inline-block' }}/>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)' }}>{p.name}</span>
+                      {pltAccounts.length > 0 && (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+                          {pltAccounts.length} Account{pltAccounts.length > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => { setAccModal({ platform: plt }); setAccForm({ name: '', username: '' }) }}
+                      style={{ padding: '5px 12px', borderRadius: 9, border: '1px solid rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.07)', color: '#6366f1', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
+                      Hinzufügen
+                    </button>
+                  </div>
+                  {pltAccounts.map(acc => (
+                    <div key={acc.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', borderRadius: 11, background: 'var(--row-hover)', border: '1px solid var(--border)', marginBottom: 6 }}>
+                      <div style={{ width: 30, height: 30, borderRadius: 10, background: `${p.dot}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, color: p.dot, flexShrink: 0 }}>
+                        {acc.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text-1)', margin: 0 }}>{acc.name}</p>
+                        {acc.username && <p style={{ fontSize: 11.5, color: 'var(--text-3)', margin: 0 }}>@{acc.username}</p>}
+                      </div>
+                      <button onClick={() => removeAccount(acc.id)}
+                        style={{ width: 28, height: 28, borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  ))}
+                  {pltAccounts.length === 0 && (
+                    <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '6px 0 0', fontStyle: 'italic' }}>Noch kein Account — klicke Hinzufügen</p>
+                  )}
+                </div>
+              )
+            })}
+          </Section>
+
           {/* ── Platform accounts ── */}
           <Section title="Plattform-Konten">
             {Object.entries(PLATFORMS).map(([id, p]) => {
@@ -379,7 +462,69 @@ export default function Settings() {
 
         </div>
       </main>
-      <MobileNav />
+      
+
+      {/* ── Add Account Modal ── */}
+      {accModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 50, padding: '16px',
+          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          background: 'rgba(15,23,42,0.55)', backdropFilter: 'blur(6px)',
+        }}
+          className="md:items-center"
+          onClick={e => { if (e.target === e.currentTarget) setAccModal(null) }}>
+          <div style={{
+            background: 'var(--surface)', borderRadius: 24, width: '100%', maxWidth: 420,
+            padding: '24px', boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', margin: 0 }}>
+                {PLATFORMS[accModal.platform]?.name}-Account hinzufügen
+              </h3>
+              <button onClick={() => setAccModal(null)}
+                style={{ width: 32, height: 32, borderRadius: 10, background: 'var(--modal-close)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-2)' }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>Name / Bezeichnung *</label>
+                <input
+                  autoFocus
+                  value={accForm.name}
+                  onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="z.B. Haupt-Account, Winterkleidung…"
+                  style={inputStyle}
+                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', display: 'block', marginBottom: 6 }}>Benutzername (optional)</label>
+                <input
+                  value={accForm.username}
+                  onChange={e => setAccForm(f => ({ ...f, username: e.target.value }))}
+                  placeholder={`Dein ${PLATFORMS[accModal.platform]?.name}-Benutzername`}
+                  style={inputStyle}
+                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+              <button onClick={() => setAccModal(null)}
+                style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
+                Abbrechen
+              </button>
+              <button onClick={addAccount} disabled={!accForm.name.trim() || accSaving}
+                className="ls-btn-primary"
+                style={{ flex: 1, padding: '12px', borderRadius: 13, fontSize: 14, opacity: (!accForm.name.trim() || accSaving) ? 0.5 : 1 }}>
+                {accSaving ? 'Speichern…' : 'Account hinzufügen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Connect Modal ── */}
       {modal && (

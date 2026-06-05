@@ -2,7 +2,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
-import MobileNav from '@/components/MobileNav'
 import { PLATFORMS } from '@/components/Badge'
 
 function fmtEur(n) { return (n||0).toLocaleString('de-DE',{style:'currency',currency:'EUR'}) }
@@ -176,12 +175,16 @@ export default function Buchhaltung() {
   const [statusFilter, setStatus]   = useState('alle')
   const [sort, setSort]             = useState({ col: 'date', dir: 'desc' })
   const [isMobile, setIsMobile]     = useState(false)
+  const [accounts, setAccounts]     = useState([])
+  const [accountFilter, setAccountFilter] = useState('alle')
 
   useEffect(() => {
+    fetch('/api/accounts').then(r => r.json()).then(d => setAccounts(Array.isArray(d) ? d : []))
     fetch('/api/listings').then(r => r.json()).then(d => {
       setListings(Array.isArray(d) ? d.map(l => ({
         ...l,
         platforms: Array.isArray(l.platforms) ? l.platforms : JSON.parse(l.platforms||'[]'),
+        account_ids: l.account_ids ? (typeof l.account_ids === 'string' ? JSON.parse(l.account_ids) : l.account_ids) : {},
       })) : [])
       setLoading(false)
     })
@@ -204,8 +207,9 @@ export default function Buchhaltung() {
     if (year  && String(d.getFullYear()) !== year) return false
     if (month && String(d.getMonth()+1).padStart(2,'0') !== month) return false
     if (statusFilter !== 'alle' && l.status !== statusFilter) return false
+    if (accountFilter !== 'alle' && !Object.values(l.account_ids || {}).map(Number).includes(Number(accountFilter))) return false
     return true
-  }), [listings, year, month, statusFilter])
+  }), [listings, year, month, statusFilter, accountFilter])
 
   const sorted = useMemo(() => {
     const arr = [...filtered]
@@ -367,6 +371,16 @@ export default function Buchhaltung() {
               <option value="">Alle Monate</option>
               {MONTHS.map((m,i) => <option key={i} value={String(i+1).padStart(2,'0')}>{m}</option>)}
             </select>
+            {accounts.length > 0 && (
+              <select value={accountFilter} onChange={e => setAccountFilter(e.target.value)} style={selStyle}>
+                <option value="alle">Alle Accounts</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={String(acc.id)}>
+                    {PLATFORMS[acc.platform]?.name || acc.platform}: {acc.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <span style={{ fontSize: 13, color: 'var(--text-3)', marginLeft: 'auto', fontWeight: 600 }}>{sorted.length} Einträge</span>
           </div>
 
@@ -511,7 +525,7 @@ export default function Buchhaltung() {
 
         </div>
       </main>
-      <MobileNav />
+      
     </div>
   )
 }
