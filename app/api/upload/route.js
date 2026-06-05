@@ -22,6 +22,9 @@ export async function POST(req) {
               'image/gif', 'image/webp', 'image/heic', 'image/heif',
             ],
             maximumSizeInBytes: 15 * 1024 * 1024, // 15 MB
+            // WICHTIG: gleicher Dateiname (z.B. "image.jpg" vom Handy) würde sonst
+            // das Bild eines anderen Artikels überschreiben → eindeutige URL erzwingen
+            addRandomSuffix: true,
           }),
           onUploadCompleted: async ({ blob }) => {
             console.log('[Upload] ✓', blob.url)
