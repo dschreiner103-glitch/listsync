@@ -87,62 +87,55 @@ function scrapeDescription() {
 
 function scrapeImages() {
   const urls = []
-
-  // 1. og:image meta-Tags – von Vinted server-side gerendert, volle Auflösung
-  for (const m of document.querySelectorAll('meta[property="og:image"]')) {
-    if (m.content && /vinted/.test(m.content)) urls.push(m.content)
-  }
-
-  // 2. __NEXT_DATA__ JSON (Next.js – enthält photos in voller Auflösung)
-  try {
-    const nd = document.getElementById('__NEXT_DATA__')
-    if (nd) {
-      const json = nd.textContent
-      // Alle full_size_url / url die nach Vinted-Fotos aussehen rausziehen
-      const matches = json.match(/"(full_size_url|url)":"(https:\\?\/\\?\/[^"]*vinted[^"]*?)"/g) || []
-      for (const m of matches) {
-        const u = m.match(/:"(.+)"$/)?.[1]?.replace(/\\\//g, '/')
-        if (u && /\.(jpe?g|png|webp)/.test(u)) urls.push(u)
-      }
-    }
-  } catch {}
-
-  // 3. Alle img-Tags (inkl. lazy-load Attribute, srcset)
-  for (const i of document.querySelectorAll('img')) {
-    const cands = [i.src, i.getAttribute('data-src'), i.getAttribute('data-original')]
-    const srcset = i.srcset || i.getAttribute('srcset') || ''
+  for (const img of document.querySelectorAll('img')) {
+    // Avatar / Profil / Header / Breadcrumb-Bilder überspringen
+    if (img.closest('[class*="circ"], [class*="avatar"], [class*="Avatar"], header, nav, [class*="breadcrumb"]')) continue
+    let src = img.src || ''
+    // srcset für höchste Auflösung
+    const srcset = img.srcset || img.getAttribute('srcset') || ''
     if (srcset) {
       const best = srcset.split(',').map(s => s.trim().split(' '))
         .sort((a, b) => parseFloat(b[1] || 0) - parseFloat(a[1] || 0))[0]?.[0]
-      if (best) cands.unshift(best)
+      if (best) src = best
     }
-    for (const src of cands) {
-      if (src && !src.startsWith('data:') && /vinted\.net|vinted-cdn|cloudfront|ce-cdn/.test(src)) {
-        urls.push(src)
-      }
-    }
+    if (!src || src.startsWith('data:')) continue
+    // Nur Vinted-Produktfoto-CDN
+    if (!/images\d*\.vinted\.net/.test(src)) continue
+    urls.push(src)
   }
 
-  // Deduplizieren über Foto-ID im Pfad (gleiche Bilder in versch. Größen filtern)
+  // Dedup über den EINDEUTIGEN Pfad-Hash zwischen /t/ und der Größe.
+  // WICHTIG: die Zahl am Ende (z.B. 1774202794) ist ein gemeinsamer Timestamp,
+  // KEIN eindeutiger Foto-Identifier – darüber zu dedupen lässt nur 1 Bild übrig.
   const seen = new Set()
   const result = []
   for (const u of urls) {
-    // Foto-ID = letzte Zahlfolge vor der Endung
-    const idMatch = u.match(/\/(\d{6,})[^/]*\.(jpe?g|png|webp)/i)
-    const key = idMatch ? idMatch[1] : u.split('?')[0]
-    if (!seen.has(key)) { seen.add(key); result.push(u) }
+    const hash = u.match(/\/t\/([^/]+)\//)?.[1] || u.split('?')[0]
+    if (!seen.has(hash)) { seen.add(hash); result.push(u) }
   }
   console.log('[ListSync IMAGES]', result.length, 'Bilder')
   return result.slice(0, 12)
 }
 
 function scrapeCategory() {
-  // Breadcrumb-Navigation lesen
-  const crumbs = [...document.querySelectorAll(
-    '[data-testid*="breadcrumb"] a, nav a[href*="catalog"], [class*="breadcrumb"] a, [class*="Breadcrumb"] a'
-  )].map(a => a.textContent.trim()).filter(t => t && !['Vinted', 'Startseite', 'Home'].includes(t))
-  if (crumbs.length) return crumbs.join(' – ')
-  return 'Sonstiges'
+  // Echter Breadcrumb-Container (.breadcrumbs) – NICHT die Hashtag-Links in der Beschreibung
+  const bc = document.querySelector('.breadcrumbs, [class*="breadcrumbs--"]')
+  if (bc) {
+    let items = [...bc.querySelectorAll('a')]
+      .map(a => a.textContent.trim())
+      .filter(t => t && !t.startsWith('#') && !['Vinted', 'Startseite', 'Home'].includes(t))
+    // Letzter Eintrag ist oft marken-spezifisch ("Ralph Lauren Daunenjacken") → raus
+    const brand = scrapeBrand()
+    if (items.length > 1 && brand && items[items.length - 1].includes(brand)) {
+      items = items.slice(0, -1)
+    }
+    if (items.length) return items.join(' – ')
+  }
+  // Fallback
+  const crumbs = [...document.querySelectorAll('[class*="breadcrumb"] a')]
+    .map(a => a.textContent.trim())
+    .filter(t => t && !t.startsWith('#') && !['Vinted', 'Startseite', 'Home'].includes(t))
+  return crumbs.length ? crumbs.slice(0, 5).join(' – ') : 'Sonstiges'
 }
 
 function scrapeCondition() {
@@ -196,39 +189,36 @@ function scrapeDetailMap() {
 
 function findValueForLabel(labelEl) {
   const labelText = (labelEl.textContent || '').trim()
-  const clean = (s) => {
-    if (!s) return ''
-    // entferne Label selbst, Info-Icon-Text, Whitespace
-    let t = s.replace(labelText, '').trim()
-    // nur erste sinnvolle Zeile
-    t = t.split('\n')[0].trim()
-    return t
-  }
+  // Bekannte Müll-Suffixe die Vinted in versteckten Menü-/Tooltip-Elementen anhängt
+  const scrub = (s) => (s || '')
+    .replace(/Marken-Menü|Größen-?Menü|Menü|mehr erfahren|Mehr Informationen/gi, '')
+    .replace(/\s+/g, ' ')
+    .split('\n')[0].trim()
 
-  // Strategie 1: direkter nächster Sibling
-  let sib = labelEl.nextElementSibling
-  if (sib) { const v = sib.textContent.trim(); if (v && v !== labelText) return clean(v) }
-
-  // Strategie 2: im gemeinsamen Eltern-Container ein Geschwister mit anderem Text
-  // Gehe bis zu 3 Ebenen hoch und suche eine "Zeile" mit Label + Wert
+  // Den umgebenden "Zeilen"-Container finden (Label + Wert)
   let node = labelEl
   for (let depth = 0; depth < 4; depth++) {
     const parent = node.parentElement
     if (!parent) break
-    // Alle Blatt-Texte im Parent sammeln, die nicht das Label sind
+
+    // Bevorzugt: ein <a>-Link im Container (z.B. Marke "Ralph Lauren") – sauberster Wert
+    const link = parent.querySelector('a')
+    if (link) {
+      const lt = scrub(link.textContent)
+      if (lt && lt.toLowerCase() !== labelText.toLowerCase()) return lt
+    }
+
+    // Sonst: alle Blatt-Texte sammeln die nicht das Label sind
     const candidates = []
     const walker = document.createTreeWalker(parent, NodeFilter.SHOW_TEXT)
     let tn
     while ((tn = walker.nextNode())) {
       const t = tn.textContent.trim()
-      if (t && t !== labelText && t.toLowerCase() !== labelText.toLowerCase()) candidates.push(t)
+      if (t && t.toLowerCase() !== labelText.toLowerCase()) candidates.push(t)
     }
-    if (candidates.length === 1) return candidates[0]
-    if (candidates.length > 1) {
-      // Nimm den ersten der nicht nur ein Icon/Zahl-Info ist
-      const real = candidates.find(c => c.length > 1 && !/^\(/.test(c))
-      if (real) return real
-    }
+    const real = candidates.find(c => { const s = scrub(c); return s.length > 0 && !/^\(/.test(s) })
+    if (real) return scrub(real)
+
     node = parent
   }
   return ''
@@ -346,50 +336,31 @@ async function runSyncQueue() {
   showSyncBanner(`Lese Artikel ${scraped.length + 1}/${total} aus…`)
 
   // Warten bis die Artikelseite gerendert ist
-  try { await waitForEl('h1, [data-testid="item-title"], [itemprop="name"]', 9000) } catch {}
+  try { await waitForEl('h1, [data-testid="item-title"], [itemprop="name"], .breadcrumbs', 9000) } catch {}
   await new Promise(r => setTimeout(r, 1500))
 
-  // ── API-Daten holen (zuverlässig für Marke, Größe, Farbe, Material, Bilder) ──
-  let api = null
-  try {
-    const res = await fetch(`https://www.vinted.de/api/v2/items/${currentId}`, {
-      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-      credentials: 'include',
-    })
-    if (res.ok) { const j = await res.json(); api = j?.item || j }
-  } catch {}
-  if (scraped.length === 0 && api) console.log('[ListSync ITEM-API]', JSON.stringify(api, null, 2))
+  // Bilder laden lazy → einmal runter- und wieder hochscrollen triggert das Laden
+  window.scrollTo(0, 600)
+  await new Promise(r => setTimeout(r, 1200))
+  window.scrollTo(0, 0)
+  await new Promise(r => setTimeout(r, 800))
 
-  // ── DOM-Scrape (gut für Beschreibung + Kategorie) ──
-  const domDesc = scrapeDescription()
-  const domCat  = scrapeCategory()
-
-  // ── Hybrid-Merge: API bevorzugt für strukturierte Felder, DOM als Fallback ──
-  const apiBrand = api?.brand_dto?.title || (typeof api?.brand === 'string' ? api.brand : '') || api?.brand?.title || ''
-  const apiSize  = api?.size_title || (typeof api?.size === 'string' ? api.size : '') || api?.size?.title || ''
-  const apiCond  = api?.status || api?.condition || api?.item_condition?.title || ''
-  const apiColor = [api?.color1 || api?.color1_title, api?.color2 || api?.color2_title].filter(Boolean).join(', ')
-  const apiMat   = api?.composition || (typeof api?.material === 'string' ? api.material : '') || api?.material?.title || ''
-  const apiImgs  = Array.isArray(api?.photos)
-    ? api.photos.map(p => p.full_size_url || p.url || (p.thumbnails && p.thumbnails[p.thumbnails.length-1]?.url) || '').filter(Boolean)
-    : []
-  const apiShip  = api?.package_size?.title || api?.package_size_title || ''
-
-  // DOM-Werte (sichtbar in der Detail-Tabelle → zuverlässig)
+  // ── Alles aus dem DOM scrapen (Vinted-API gibt HTML zurück, nicht nutzbar) ──
+  _detailMapCache = null // Cache pro Seite zurücksetzen
   const domImgs = scrapeImages()
   const queueItem = queue.find(q => q.vintedId === currentId) || {}
   const listing = {
-    title:       scrapeTitle() || api?.title || `Artikel ${currentId}`,
-    description: domDesc || api?.description || '',
-    price:       scrapePrice() || parseFloat(api?.price?.amount || api?.price_numeric) || 0,
-    images:      domImgs.length ? domImgs : apiImgs,        // DOM zuerst, API-Fallback
-    category:    domCat !== 'Sonstiges' ? domCat : 'Sonstiges',
-    condition:   scrapeCondition() || apiCond  || 'Gut',
-    brand:       scrapeBrand()     || apiBrand,
-    size:        scrapeSize()      || apiSize,
-    color:       scrapeColor()     || apiColor,
-    material:    scrapeMaterial()  || apiMat,
-    shipSize:    apiShip,
+    title:       scrapeTitle() || `Artikel ${currentId}`,
+    description: scrapeDescription() || '',
+    price:       scrapePrice() || 0,
+    images:      domImgs,
+    category:    scrapeCategory(),
+    condition:   scrapeCondition() || 'Gut',
+    brand:       scrapeBrand(),
+    size:        scrapeSize(),
+    color:       scrapeColor(),
+    material:    scrapeMaterial(),
+    shipSize:    '',
     status:      'aktiv',
     platforms:   ['vinted'],
     vintedId:    currentId,

@@ -8,6 +8,7 @@
     "http://localhost:3000/*",
     "https://project-dle5b.vercel.app/*",
     "https://www.vinted.de/*",
+    "https://*.vinted.net/*",
     "https://www.kleinanzeigen.de/*",
     "https://www.ebay.de/*"
   ],
