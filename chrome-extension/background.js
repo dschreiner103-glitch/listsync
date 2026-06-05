@@ -4,6 +4,20 @@ const BASE_URL = 'https://project-dle5b.vercel.app'
 // tabId → { platform, listingId, listingTitle, isDraft, url }
 const trackedTabs = new Map()
 
+// ── Idempotenz-Schutz gegen doppelte POST_LISTING (Bridge-Retry) ─────────────
+// Key: listingId|platforms → Zeitstempel. Gleicher Post innerhalb 30s = Duplikat.
+const recentPosts = new Map()
+function isDuplicatePost(listing, platforms) {
+  const key = `${listing?.id ?? listing?.title}|${(platforms || []).slice().sort().join(',')}`
+  const now = Date.now()
+  const prev = recentPosts.get(key)
+  // Alte Einträge aufräumen
+  for (const [k, ts] of recentPosts) if (now - ts > 30000) recentPosts.delete(k)
+  if (prev && now - prev < 30000) return true
+  recentPosts.set(key, now)
+  return false
+}
+
 // Benachrichtigung anzeigen
 async function showNotification(id, opts) {
   return chrome.notifications.create(id, {
@@ -39,9 +53,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true
   }
   if (msg.type === 'POST_LISTING') {
-    handlePost(msg.listing, msg.platforms)
-      .then(() => sendResponse({ ok: true }))
-      .catch(e => sendResponse({ ok: false, error: e.message }))
+    // SOFORT acken – handlePost dauert 10-30s (Tabs + Bilder). Würde man darauf
+    // warten, schläft der MV3-Worker ein → Bridge sieht lastError → retryt →
+    // DOPPELTER Upload. Daher fire-and-forget + Idempotenz-Schutz unten.
+    const dup = isDuplicatePost(msg.listing, msg.platforms)
+    sendResponse({ ok: true, duplicate: dup })
+    if (!dup) {
+      handlePost(msg.listing, msg.platforms).catch(e => console.warn('[ListSync BG] handlePost Fehler:', e.message))
+    } else {
+      console.warn('[ListSync BG] Doppel-Post ignoriert:', msg.listing?.id)
+    }
     return true
   }
   if (msg.type === 'VINTED_SYNC_DATA') {
