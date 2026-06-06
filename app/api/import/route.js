@@ -32,8 +32,8 @@ function soldAtVal(value) {
   return isPostgres() ? d.toISOString() : d.getTime()
 }
 
-// Setzt Raw-SQL-Felder (likes, material, soldAt, listedAt) die der Prisma-Client evtl. noch nicht kennt
-async function setRawFields(listingId, { likes, material, soldAt, listedAt }) {
+// Setzt Raw-SQL-Felder (likes, material, soldAt, listedAt, boughtAt) die der Prisma-Client evtl. noch nicht kennt
+async function setRawFields(listingId, { likes, material, soldAt, listedAt, boughtAt }) {
   const pg = isPostgres()
   const updates = []
   const args = []
@@ -41,6 +41,7 @@ async function setRawFields(listingId, { likes, material, soldAt, listedAt }) {
   if (material)                              { updates.push('material');   args.push(material) }
   if (soldAt   !== undefined)                { updates.push('"soldAt"');   args.push(soldAt) }
   if (listedAt !== undefined)                { updates.push('"listedAt"'); args.push(listedAt) }
+  if (boughtAt !== undefined)                { updates.push('"boughtAt"'); args.push(boughtAt) }
   if (!updates.length) return
   const setClause = updates.map((f, i) => pg ? `${f} = $${i + 1}` : `${f} = ?`).join(', ')
   const idPlaceholder = pg ? `$${updates.length + 1}` : '?'
@@ -127,8 +128,9 @@ export async function POST(req) {
                 : {}),
             }
           })
-          // Echtes Verkaufsdatum speichern – KEIN "heute"-Fallback. Fehlt es, bleibt soldAt null.
-          await setRawFields(existing.id, { soldAt: soldAtVal(item.soldAt) })
+          // aktiv→verkauft Übergang: echtes Datum nutzen, sonst HEUTE (Extension hat den Verkauf
+          // gerade erkannt). Nur hier – nicht beim Bulk-Import historischer Verkäufe (create-Zweig unten).
+          await setRawFields(existing.id, { soldAt: soldAtVal(item.soldAt || new Date()) })
           await mergeAccountId(existing.id, 'vinted', vintedAccountId)
           updated++
         } else {
@@ -185,6 +187,7 @@ export async function POST(req) {
           updatedAt:   item.boughtAt ? new Date(item.boughtAt) : undefined,
         }
       })
+      await setRawFields(createdPurchase.id, { boughtAt: toIso(item.boughtAt) })
       await mergeAccountId(createdPurchase.id, 'vinted', vintedAccountId)
       created++
     }

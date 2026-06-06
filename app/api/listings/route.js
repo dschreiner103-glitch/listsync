@@ -35,6 +35,7 @@ export async function GET() {
     likes:        Number(l.likes || 0),
     soldAt:       l.soldAt       || null,
     listedAt:     l.listedAt     || null,
+    boughtAt:     l.boughtAt     || null,
     kaAdId:       l.kaAdId       || '',
     buyerName:    l.buyerName    || '',
     buyerAddress: l.buyerAddress || '',

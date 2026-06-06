@@ -204,10 +204,14 @@ export default function Buchhaltung() {
   const [month, setMonth]           = useState('')
   const [year, setYear]             = useState(String(new Date().getFullYear()))
   const [statusFilter, setStatus]   = useState('verkauft')
-  const [sort, setSort]             = useState({ col: 'date', dir: 'asc' })
+  // Default-Tab 'verkauft' → neueste Verkäufe oben (absteigend). Andere Tabs: neueste unten (aufsteigend).
+  const [sort, setSort]             = useState({ col: 'date', dir: 'desc' })
   const [isMobile, setIsMobile]     = useState(false)
   const [accounts, setAccounts]     = useState([])
   const [accountFilter, setAccountFilter] = useState('alle')
+  const [addOpen, setAddOpen]       = useState(false)
+  const [addSaving, setAddSaving]   = useState(false)
+  const [addForm, setAddForm]       = useState({ title: '', buyPrice: '', price: '', status: 'aktiv', boughtAt: '', soldAt: '' })
 
   useEffect(() => {
     fetch('/api/accounts').then(r => r.json()).then(d => setAccounts(Array.isArray(d) ? d : []))
@@ -339,6 +343,51 @@ export default function Buchhaltung() {
     setListings([])
   }
 
+  // Eigenes Listing manuell anlegen (ohne Account/Import). POST + danach Daten nachpatchen.
+  async function addListing() {
+    if (!addForm.title.trim()) return
+    setAddSaving(true)
+    try {
+      const res = await fetch('/api/listings', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: addForm.title.trim(),
+          buyPrice: parseFloat(String(addForm.buyPrice).replace(',', '.')) || 0,
+          price:    parseFloat(String(addForm.price).replace(',', '.')) || 0,
+          status:   addForm.status,
+          platforms: [], images: [],
+        }),
+      })
+      const created = await res.json()
+      if (!res.ok) { alert(created.upgrade ? 'Free-Limit erreicht – Upgrade auf Pro nötig.' : (created.error || 'Fehler beim Anlegen')); return }
+      // Datums-Felder nachtragen (raw-SQL-Felder, nicht im POST)
+      const dates = {}
+      if (addForm.boughtAt) dates.boughtAt = new Date(addForm.boughtAt).toISOString()
+      if (addForm.status === 'verkauft') dates.soldAt = new Date(addForm.soldAt || new Date()).toISOString()
+      let full = { ...created, account_ids: {}, boughtAt: dates.boughtAt || null, soldAt: dates.soldAt || null, listedAt: null }
+      if (Object.keys(dates).length) {
+        const r2 = await fetch(`/api/listings/${created.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dates),
+        })
+        const updated = await r2.json()
+        full = { ...full, ...updated, platforms: Array.isArray(updated.platforms) ? updated.platforms : JSON.parse(updated.platforms||'[]') }
+      }
+      setListings(prev => [{ ...full, platforms: Array.isArray(full.platforms) ? full.platforms : JSON.parse(full.platforms||'[]'), images: Array.isArray(full.images) ? full.images : JSON.parse(full.images||'[]') }, ...prev])
+      setAddOpen(false)
+      setAddForm({ title: '', buyPrice: '', price: '', status: 'aktiv', boughtAt: '', soldAt: '' })
+    } finally {
+      setAddSaving(false)
+    }
+  }
+
+  // Status ändern – wird ein Artikel auf "verkauft" gesetzt und hat noch kein Verkaufsdatum,
+  // automatisch HEUTE eintragen (genau der Moment des Verkaufs).
+  function changeStatus(l, newStatus) {
+    const data = { status: newStatus }
+    if (newStatus === 'verkauft' && !l.soldAt) data.soldAt = new Date().toISOString()
+    patch(l.id, data)
+  }
+
   // Aktuell zugeordnete Account-ID (erster Eintrag in account_ids) – '' wenn keiner
   function listingAccountId(l) {
     const vals = Object.values(l.account_ids || {})
@@ -389,6 +438,74 @@ export default function Buchhaltung() {
         </div>
       )}
 
+      {/* ── Manuelles Listing anlegen ── */}
+      {addOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', padding: '16px', backdropFilter: 'blur(4px)' }}
+          onClick={() => !addSaving && setAddOpen(false)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 22, padding: '24px', maxWidth: 420, width: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+            <h3 style={{ fontSize: 17, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 4px' }}>Eigenes Listing anlegen</h3>
+            <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '0 0 18px' }}>Manueller Eintrag – ohne Account/Import.</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {[
+                { k: 'title',    label: 'Titel',          type: 'text',   ph: 'z.B. Nike Hoodie grau' },
+              ].map(f => (
+                <label key={f.k} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f.label}</span>
+                  <input type={f.type} value={addForm[f.k]} placeholder={f.ph} autoFocus
+                    onChange={e => setAddForm(s => ({ ...s, [f.k]: e.target.value }))}
+                    style={{ padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit' }} />
+                </label>
+              ))}
+              <div style={{ display: 'flex', gap: 10 }}>
+                {[{ k: 'buyPrice', label: 'Einkauf (EK)' }, { k: 'price', label: 'Verkauf (VK)' }].map(f => (
+                  <label key={f.k} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{f.label}</span>
+                    <input type="number" step="0.01" value={addForm[f.k]} placeholder="0,00"
+                      onChange={e => setAddForm(s => ({ ...s, [f.k]: e.target.value }))}
+                      style={{ padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }} />
+                  </label>
+                ))}
+              </div>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</span>
+                <select value={addForm.status} onChange={e => setAddForm(s => ({ ...s, status: e.target.value }))}
+                  style={{ padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', cursor: 'pointer' }}>
+                  <option value="aktiv">aktiv</option>
+                  <option value="verkauft">verkauft</option>
+                  <option value="inaktiv">inaktiv</option>
+                </select>
+              </label>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Eingekauft am</span>
+                  <input type="date" value={addForm.boughtAt} onChange={e => setAddForm(s => ({ ...s, boughtAt: e.target.value }))}
+                    style={{ padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }} />
+                </label>
+                {addForm.status === 'verkauft' && (
+                  <label style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Verkauft am</span>
+                    <input type="date" value={addForm.soldAt} onChange={e => setAddForm(s => ({ ...s, soldAt: e.target.value }))}
+                      style={{ padding: '10px 12px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--input-bg)', color: 'var(--text-1)', fontSize: 14, fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }} />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setAddOpen(false)} disabled={addSaving}
+                style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit' }}>
+                Abbrechen
+              </button>
+              <button onClick={addListing} disabled={addSaving || !addForm.title.trim()}
+                style={{ flex: 1, padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: addSaving || !addForm.title.trim() ? 'default' : 'pointer', fontFamily: 'inherit', opacity: addSaving || !addForm.title.trim() ? 0.6 : 1, boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>
+                {addSaving ? 'Speichern…' : 'Anlegen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Sidebar />
       <main className="md:ml-60 ls-page-content">
         <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
@@ -402,6 +519,10 @@ export default function Buchhaltung() {
               </p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button onClick={() => setAddOpen(true)}
+                style={{ padding: '9px 16px', borderRadius: 12, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>
+                + Listing
+              </button>
               <button onClick={() => downloadCSV(sorted)}
                 style={{ padding: '9px 16px', borderRadius: 12, background: 'rgba(16,185,129,0.1)', color: '#059669', border: '1px solid rgba(16,185,129,0.2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 ⬇ CSV
@@ -427,7 +548,7 @@ export default function Buchhaltung() {
             ].map(t => {
               const active = statusFilter === t.id
               return (
-                <button key={t.id} onClick={() => setStatus(t.id)}
+                <button key={t.id} onClick={() => { setStatus(t.id); setSort({ col: 'date', dir: t.id === 'verkauft' ? 'desc' : 'asc' }) }}
                   style={{
                     padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700,
                     border: `1.5px solid ${active ? t.color : 'var(--border)'}`,
@@ -592,8 +713,9 @@ export default function Buchhaltung() {
                       {accounts.length > 0 && (
                         <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Account</th>
                       )}
+                      <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>Eingekauft am</th>
                       <SortTh label={statusFilter==='verkauft' ? 'Verkauft am' : statusFilter==='aktiv' ? 'Online seit' : 'Datum'} col="date" sort={sort} setSort={setSort}/>
-                      <th style={{ padding: '12px 10px' }}/>
+                      <th style={{ padding: '12px 10px', position: 'sticky', right: 0, background: 'var(--row-hover)', zIndex: 2 }}/>
                     </tr>
                   </thead>
                   <tbody>
@@ -610,7 +732,7 @@ export default function Buchhaltung() {
                           onMouseOver={e => e.currentTarget.style.background='var(--row-hover)'}
                           onMouseOut={e => e.currentTarget.style.background='transparent'}
                         >
-                          <td style={{ padding: '10px', color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 12 }}>{i+1}</td>
+                          <td style={{ padding: '10px', color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 12 }}>{sort.dir==='desc' ? sorted.length - i : i+1}</td>
                           <td style={{ padding: '10px', maxWidth: 240 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                               {l.images?.[0]
@@ -620,7 +742,7 @@ export default function Buchhaltung() {
                             </div>
                           </td>
                           <td style={{ padding: '10px' }}>
-                            <select value={l.status} onChange={e => patch(l.id, { status: e.target.value })}
+                            <select value={l.status} onChange={e => changeStatus(l, e.target.value)}
                               style={{
                                 fontSize: 11, fontWeight: 700, padding: '3px 20px 3px 8px', borderRadius: 8,
                                 border: 'none', cursor: 'pointer', background: sc.bg, color: sc.color,
@@ -672,13 +794,21 @@ export default function Buchhaltung() {
                           })()}
                           <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 12, whiteSpace: 'nowrap' }}>
                             <EditCell
+                              value={dateInputValue(l.boughtAt)}
+                              type="date"
+                              placeholder="Datum +"
+                              onSave={v => patch(l.id, { boughtAt: v ? new Date(v).toISOString() : null })}
+                            />
+                          </td>
+                          <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                            <EditCell
                               value={dateInputValue(rowDateIso(l))}
                               type="date"
                               placeholder={l.status === 'verkauft' ? 'Datum +' : '—'}
                               onSave={v => patch(l.id, { [rowDateField(l)]: v ? new Date(v).toISOString() : null })}
                             />
                           </td>
-                          <td style={{ padding: '10px' }}>
+                          <td style={{ padding: '10px', position: 'sticky', right: 0, background: 'var(--surface)', boxShadow: '-6px 0 8px -6px rgba(0,0,0,0.18)' }}>
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                               <button onClick={() => window.open(`/belege/${l.id}`, '_blank')}
                                 style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, background: 'rgba(99,102,241,0.07)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
@@ -703,7 +833,7 @@ export default function Buchhaltung() {
                       <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-1)' }}>{fmtEur(viewTotals.revenue)}</td>
                       <td style={{ padding: '12px 10px', fontWeight: 700, color: '#d97706' }}>{viewTotals.fees>0 ? `−${fmtEur(viewTotals.fees)}` : '—'}</td>
                       <td style={{ padding: '12px 10px', fontWeight: 800, color: viewTotals.profit>=0 ? '#10b981' : '#ef4444' }}>{fmtEur(viewTotals.profit)}</td>
-                      <td colSpan={accounts.length > 0 ? 5 : 4}/>
+                      <td colSpan={accounts.length > 0 ? 6 : 5}/>
                     </tr>
                   </tfoot>
                 </table>

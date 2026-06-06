@@ -78,6 +78,8 @@ export async function PATCH(req, { params }) {
   if (data.favorites     !== undefined) { rawUpdates.push('favorites');       rawArgs.push(Number(data.favorites)) }
   if (data.soldAt        !== undefined) { rawUpdates.push('"soldAt"');        rawArgs.push(dtVal(data.soldAt)) }
   if (data.listedAt      !== undefined) { rawUpdates.push('"listedAt"');      rawArgs.push(data.listedAt ? new Date(data.listedAt).toISOString() : null) }
+  // boughtAt = Einkaufsdatum (Reseller). Reine TEXT-Spalte (nicht im Prisma-Schema) → ISO-Text auf beiden DBs korrekt.
+  if (data.boughtAt      !== undefined) { rawUpdates.push('"boughtAt"');      rawArgs.push(data.boughtAt ? new Date(data.boughtAt).toISOString() : null) }
   if (data.kaAdId        !== undefined) { rawUpdates.push('"kaAdId"');        rawArgs.push(data.kaAdId) }
   if (data.buyerName     !== undefined) { rawUpdates.push('"buyerName"');     rawArgs.push(data.buyerName) }
   if (data.buyerAddress  !== undefined) { rawUpdates.push('"buyerAddress"');  rawArgs.push(data.buyerAddress) }
@@ -114,6 +116,7 @@ export async function PATCH(req, { params }) {
     favorites:     data.favorites     !== undefined ? Number(data.favorites) : Number(existing.favorites || 0),
     soldAt:        data.soldAt        !== undefined ? data.soldAt        : (existing.soldAt        || null),
     listedAt:      data.listedAt      !== undefined ? data.listedAt      : (existing.listedAt      || null),
+    boughtAt:      data.boughtAt      !== undefined ? data.boughtAt      : (existing.boughtAt      || null),
     kaAdId:        data.kaAdId        !== undefined ? data.kaAdId        : (existing.kaAdId        || ''),
     buyerName:     data.buyerName     !== undefined ? data.buyerName     : (existing.buyerName     || ''),
     buyerAddress:  data.buyerAddress  !== undefined ? data.buyerAddress  : (existing.buyerAddress  || ''),
