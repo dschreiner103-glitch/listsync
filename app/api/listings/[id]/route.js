@@ -62,6 +62,10 @@ export async function PATCH(req, { params }) {
   })
 
   // Update new fields via raw SQL (bypasses stale Prisma client validation)
+  const isPg = !!process.env.DATABASE_URL?.startsWith('postgres')
+  // soldAt ist ein Prisma-DateTime-Feld → DB-abhängig: SQLite epoch-ms (Integer),
+  // Postgres ISO-String (timestamp). Falscher Typ würde SELECT * bzw. die Spalte sprengen.
+  const dtVal = v => v ? (isPg ? new Date(v).toISOString() : new Date(v).getTime()) : null
   const rawUpdates = []
   const rawArgs    = []
   if (data.material      !== undefined) { rawUpdates.push('material');        rawArgs.push(data.material) }
@@ -72,14 +76,15 @@ export async function PATCH(req, { params }) {
   if (data.ebayCategory  !== undefined) { rawUpdates.push('"ebayCategory"');  rawArgs.push(data.ebayCategory) }
   if (data.lagerplatz    !== undefined) { rawUpdates.push('lagerplatz');      rawArgs.push(data.lagerplatz) }
   if (data.favorites     !== undefined) { rawUpdates.push('favorites');       rawArgs.push(Number(data.favorites)) }
-  if (data.soldAt        !== undefined) { rawUpdates.push('"soldAt"');        rawArgs.push(data.soldAt ? new Date(data.soldAt).toISOString() : null) }
+  if (data.soldAt        !== undefined) { rawUpdates.push('"soldAt"');        rawArgs.push(dtVal(data.soldAt)) }
+  if (data.listedAt      !== undefined) { rawUpdates.push('"listedAt"');      rawArgs.push(data.listedAt ? new Date(data.listedAt).toISOString() : null) }
   if (data.kaAdId        !== undefined) { rawUpdates.push('"kaAdId"');        rawArgs.push(data.kaAdId) }
   if (data.buyerName     !== undefined) { rawUpdates.push('"buyerName"');     rawArgs.push(data.buyerName) }
   if (data.buyerAddress  !== undefined) { rawUpdates.push('"buyerAddress"');  rawArgs.push(data.buyerAddress) }
+  if (data.account_ids  !== undefined) { rawUpdates.push('account_ids');     rawArgs.push(JSON.stringify(data.account_ids)) }
 
   if (rawUpdates.length) {
-    const isPostgres = !!process.env.DATABASE_URL?.startsWith('postgres')
-    if (isPostgres) {
+    if (isPg) {
       const setParts = rawUpdates.map((f, i) => `${f} = $${i + 1}`).join(', ')
       await prisma.$executeRawUnsafe(
         `UPDATE "Listing" SET ${setParts} WHERE id = $${rawUpdates.length + 1}`,
@@ -108,9 +113,11 @@ export async function PATCH(req, { params }) {
     lagerplatz:    data.lagerplatz    !== undefined ? data.lagerplatz    : (existing.lagerplatz    || ''),
     favorites:     data.favorites     !== undefined ? Number(data.favorites) : Number(existing.favorites || 0),
     soldAt:        data.soldAt        !== undefined ? data.soldAt        : (existing.soldAt        || null),
+    listedAt:      data.listedAt      !== undefined ? data.listedAt      : (existing.listedAt      || null),
     kaAdId:        data.kaAdId        !== undefined ? data.kaAdId        : (existing.kaAdId        || ''),
     buyerName:     data.buyerName     !== undefined ? data.buyerName     : (existing.buyerName     || ''),
     buyerAddress:  data.buyerAddress  !== undefined ? data.buyerAddress  : (existing.buyerAddress  || ''),
+    account_ids:   data.account_ids   !== undefined ? data.account_ids   : (existing.account_ids   ? (typeof existing.account_ids === 'string' ? JSON.parse(existing.account_ids) : existing.account_ids) : {}),
   })
 }
 

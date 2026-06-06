@@ -12,6 +12,33 @@ function margin(l) {
   return (netProfit(l) / l.price) * 100
 }
 
+// Das relevante Datum hängt vom Status ab:
+//   verkauft → soldAt (Verkaufsdatum, darf leer sein!)
+//   aktiv    → listedAt (online seit)
+//   sonst    → createdAt (z.B. Einkaufsdatum)
+function rowDateIso(l) {
+  if (l.status === 'verkauft') return l.soldAt   || ''
+  if (l.status === 'aktiv')    return l.listedAt || ''
+  return l.createdAt || ''
+}
+// Feld, in das eine manuelle Datums-Eingabe geschrieben wird
+function rowDateField(l) {
+  if (l.status === 'verkauft') return 'soldAt'
+  if (l.status === 'aktiv')    return 'listedAt'
+  return 'updatedAt'
+}
+// ISO → yyyy-mm-dd für <input type=date>, '' wenn kein/ungültiges Datum
+function dateInputValue(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0]
+}
+// Sortier-Key: relevantes Datum, Fallback createdAt, damit alles stabil ordnet
+function rowDateMs(l) {
+  const d = new Date(rowDateIso(l) || l.createdAt || l.updatedAt || 0)
+  return isNaN(d.getTime()) ? 0 : d.getTime()
+}
+
 function downloadCSV(rows) {
   const h = ['Nr.','Artikel','Status','EK','VK','Gebühr','Gewinn','Marge%','Plattform','Datum']
   const lines = [h.join(';'), ...rows.map((l,i) => [
@@ -24,7 +51,7 @@ function downloadCSV(rows) {
     netProfit(l).toFixed(2).replace('.',','),
     margin(l)!=null ? margin(l).toFixed(1).replace('.',',') : '',
     (l.platforms||[]).join(', '),
-    new Date(l.updatedAt||l.createdAt).toLocaleDateString('de'),
+    rowDateIso(l) ? new Date(rowDateIso(l)).toLocaleDateString('de') : '',
   ].join(';'))]
   const blob = new Blob(['﻿'+lines.join('\n')],{type:'text/csv;charset=utf-8;'})
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
@@ -32,7 +59,7 @@ function downloadCSV(rows) {
 }
 
 // ── Inline editable cell ─────────────────────────────────────────────────────
-function EditCell({ value, type='text', onSave }) {
+function EditCell({ value, type='text', placeholder='—', onSave }) {
   const [editing, setEditing] = useState(false)
   const [val, setVal] = useState(value)
   function start() { setVal(value); setEditing(true) }
@@ -57,12 +84,13 @@ function EditCell({ value, type='text', onSave }) {
       step={type==='number'?'0.01':undefined}
     />
   )
+  const isEmpty = value === '' || value == null
   return (
     <span onClick={start} title="Klicken zum Bearbeiten"
       style={{ cursor: 'pointer', borderRadius: 4, padding: '1px 4px', transition: 'background .1s' }}
       onMouseOver={e => e.currentTarget.style.background='rgba(99,102,241,0.07)'}
       onMouseOut={e => e.currentTarget.style.background='transparent'}
-    >{value} <span style={{ fontSize: 10, opacity: 0.4 }}>✏</span></span>
+    >{isEmpty ? <span style={{ color: 'var(--text-3)' }}>{placeholder}</span> : value} <span style={{ fontSize: 10, opacity: 0.4 }}>✏</span></span>
   )
 }
 
@@ -99,7 +127,10 @@ function MobileCard({ l, i, onDelete, deleting, onPatch }) {
       borderRadius: 18, padding: '16px', boxShadow: '0 1px 3px rgba(0,0,0,.04)',
     }}>
       {/* Top row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
+        {l.images?.[0]
+          ? <img src={l.images[0]} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
+          : <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: 'var(--row-hover)', border: '1px solid var(--border)' }} />}
         <div style={{ flex: 1, minWidth: 0 }}>
           <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)', margin: '0 0 4px', lineHeight: 1.3 }}>{l.title}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -133,7 +164,7 @@ function MobileCard({ l, i, onDelete, deleting, onPatch }) {
       {/* Date + actions */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-          {new Date(l.updatedAt||l.createdAt).toLocaleDateString('de')}
+          {rowDateIso(l) ? new Date(rowDateIso(l)).toLocaleDateString('de') : '—'}
         </span>
         <div style={{ display: 'flex', gap: 6 }}>
           <button
@@ -172,8 +203,8 @@ export default function Buchhaltung() {
   const [confirmClear, setConfirmClear] = useState(false)
   const [month, setMonth]           = useState('')
   const [year, setYear]             = useState(String(new Date().getFullYear()))
-  const [statusFilter, setStatus]   = useState('alle')
-  const [sort, setSort]             = useState({ col: 'date', dir: 'desc' })
+  const [statusFilter, setStatus]   = useState('verkauft')
+  const [sort, setSort]             = useState({ col: 'date', dir: 'asc' })
   const [isMobile, setIsMobile]     = useState(false)
   const [accounts, setAccounts]     = useState([])
   const [accountFilter, setAccountFilter] = useState('alle')
@@ -202,21 +233,33 @@ export default function Buchhaltung() {
 
   const MONTHS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
-  const filtered = useMemo(() => listings.filter(l => {
-    const d = new Date(l.updatedAt||l.createdAt)
+  // Basis-Filter (Zeitraum + Account) OHNE Status – Grundlage für die Tab-Counts
+  const baseFiltered = useMemo(() => listings.filter(l => {
+    const d = new Date(rowDateIso(l) || l.createdAt || l.updatedAt)
     if (year  && String(d.getFullYear()) !== year) return false
     if (month && String(d.getMonth()+1).padStart(2,'0') !== month) return false
-    if (statusFilter !== 'alle' && l.status !== statusFilter) return false
     if (accountFilter !== 'alle' && !Object.values(l.account_ids || {}).map(Number).includes(Number(accountFilter))) return false
     return true
-  }), [listings, year, month, statusFilter, accountFilter])
+  }), [listings, year, month, accountFilter])
+
+  // Anzahl pro Status-Tab (für die Pills)
+  const statusCounts = useMemo(() => ({
+    alle:     baseFiltered.length,
+    verkauft: baseFiltered.filter(l => l.status === 'verkauft').length,
+    aktiv:    baseFiltered.filter(l => l.status === 'aktiv').length,
+    inaktiv:  baseFiltered.filter(l => l.status === 'inaktiv').length,
+  }), [baseFiltered])
+
+  const filtered = useMemo(() =>
+    statusFilter === 'alle' ? baseFiltered : baseFiltered.filter(l => l.status === statusFilter),
+  [baseFiltered, statusFilter])
 
   const sorted = useMemo(() => {
     const arr = [...filtered]
     const { col, dir } = sort
     const mul = dir === 'asc' ? 1 : -1
     arr.sort((a, b) => {
-      if (col==='date')     return mul * (new Date(a.updatedAt||a.createdAt) - new Date(b.updatedAt||b.createdAt))
+      if (col==='date')     return mul * (rowDateMs(a) - rowDateMs(b))
       if (col==='title')    return mul * (a.title||'').localeCompare(b.title||'','de')
       if (col==='price')    return mul * ((a.price||0) - (b.price||0))
       if (col==='buyPrice') return mul * ((a.buyPrice||0) - (b.buyPrice||0))
@@ -229,12 +272,45 @@ export default function Buchhaltung() {
     return arr
   }, [filtered, sort])
 
+  // Summary-Cards: NUR verkaufte Artikel des Zeitraums (tab-unabhängig, damit der Umsatz
+  // beim Wechsel auf "Aktiv" nicht auf 0 fällt). Aktive/inaktive blähen die Zahlen nicht auf.
+  const soldOnly = useMemo(() => baseFiltered.filter(l => l.status === 'verkauft'), [baseFiltered])
   const totals = useMemo(() => ({
-    revenue:  filtered.reduce((s,l)=>s+(l.price||0),0),
+    revenue:  soldOnly.reduce((s,l)=>s+(l.price||0),0),
+    purchase: soldOnly.reduce((s,l)=>s+(l.buyPrice||0),0),
+    fees:     soldOnly.reduce((s,l)=>s+fee(l),0),
+    profit:   soldOnly.reduce((s,l)=>s+netProfit(l),0),
+  }), [soldOnly])
+
+  // Footer der Tabelle: summiert die GERADE angezeigten Zeilen (passt zum aktiven Tab)
+  const viewTotals = useMemo(() => ({
     purchase: filtered.reduce((s,l)=>s+(l.buyPrice||0),0),
+    revenue:  filtered.reduce((s,l)=>s+(l.price||0),0),
     fees:     filtered.reduce((s,l)=>s+fee(l),0),
     profit:   filtered.reduce((s,l)=>s+netProfit(l),0),
   }), [filtered])
+
+  // Account-Vergleich: pro zugeordnetem Account Umsatz/Gewinn/Verkäufe/aktiv/Verkaufsquote.
+  // Basis = Zeitraum-gefilterte Listings (ohne Status-Tab), damit der Vergleich vollständig ist.
+  const accountStats = useMemo(() => {
+    const map = {}
+    for (const l of baseFiltered) {
+      const ids = Object.values(l.account_ids || {}).map(Number).filter(Boolean)
+      for (const id of ids) {
+        const m = map[id] || (map[id] = { id, sold: 0, active: 0, revenue: 0, profit: 0 })
+        if (l.status === 'verkauft') { m.sold++; m.revenue += l.price||0; m.profit += netProfit(l) }
+        else if (l.status === 'aktiv') m.active++
+      }
+    }
+    return Object.values(map)
+      .map(m => ({ ...m, account: accounts.find(a => Number(a.id) === m.id),
+                   quote: (m.sold + m.active) ? m.sold / (m.sold + m.active) : 0 }))
+      .filter(m => m.account)
+      .sort((a,b) => b.revenue - a.revenue)
+  }, [baseFiltered, accounts])
+
+  const maxAccRevenue = useMemo(() => Math.max(1, ...accountStats.map(a => a.revenue)), [accountStats])
+  const assignedCount = useMemo(() => baseFiltered.filter(l => Object.keys(l.account_ids||{}).length).length, [baseFiltered])
 
   async function patch(id, data) {
     setSaving(id)
@@ -263,8 +339,16 @@ export default function Buchhaltung() {
     setListings([])
   }
 
-  function formatDateInput(l) {
-    return new Date(l.updatedAt||l.createdAt).toISOString().split('T')[0]
+  // Aktuell zugeordnete Account-ID (erster Eintrag in account_ids) – '' wenn keiner
+  function listingAccountId(l) {
+    const vals = Object.values(l.account_ids || {})
+    return vals.length ? Number(vals[0]) : ''
+  }
+  // Account einem Listing zuordnen (account_ids[platform] = id); leere Auswahl entfernt die Zuordnung
+  async function assignAccount(l, accountId) {
+    const acc = accounts.find(a => Number(a.id) === Number(accountId))
+    const next = (!accountId || !acc) ? {} : { ...(l.account_ids||{}), [acc.platform]: Number(accountId) }
+    await patch(l.id, { account_ids: next })
   }
 
   const selStyle = {
@@ -333,6 +417,36 @@ export default function Buchhaltung() {
             </div>
           </div>
 
+          {/* ── Status-Tabs ── */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {[
+              { id: 'verkauft', label: 'Verkauft', color: '#10b981' },
+              { id: 'aktiv',    label: 'Aktiv',    color: '#2563eb' },
+              { id: 'inaktiv',  label: 'Inaktiv',  color: '#6b7280' },
+              { id: 'alle',     label: 'Alle',     color: '#6366f1' },
+            ].map(t => {
+              const active = statusFilter === t.id
+              return (
+                <button key={t.id} onClick={() => setStatus(t.id)}
+                  style={{
+                    padding: '8px 14px', borderRadius: 12, fontSize: 13, fontWeight: 700,
+                    border: `1.5px solid ${active ? t.color : 'var(--border)'}`,
+                    background: active ? `${t.color}15` : 'var(--surface)',
+                    color: active ? t.color : 'var(--text-2)',
+                    cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
+                    display: 'flex', alignItems: 'center', gap: 7,
+                  }}>
+                  {t.label}
+                  <span style={{
+                    fontSize: 11, fontWeight: 800, padding: '1px 7px', borderRadius: 8,
+                    background: active ? `${t.color}22` : 'var(--row-hover)',
+                    color: active ? t.color : 'var(--text-3)',
+                  }}>{statusCounts[t.id] ?? 0}</span>
+                </button>
+              )
+            })}
+          </div>
+
           {/* ── Summary cards ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }} className="md:grid-cols-4">
             {[
@@ -351,18 +465,64 @@ export default function Buchhaltung() {
             ))}
           </div>
 
+          {/* ── Account-Vergleich ── */}
+          {accounts.length > 0 && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: '16px 18px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 12 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0 }}>
+                  Account-Vergleich
+                </p>
+                <span style={{ fontSize: 12, color: 'var(--text-3)', fontWeight: 600 }}>
+                  {assignedCount}/{baseFiltered.length} zugeordnet
+                </span>
+              </div>
+
+              {accountStats.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-3)', margin: 0, lineHeight: 1.5 }}>
+                  Noch keine Artikel einem Account zugeordnet. Beim nächsten Vinted-Sync passiert das automatisch –
+                  oder ordne sie unten in der Tabelle in der Spalte <strong>Account</strong> manuell zu.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {accountStats.map(a => (
+                    <div key={a.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: PLATFORMS[a.account.platform]?.dot || '#6366f1', flexShrink: 0 }} />
+                          <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {a.account.name}
+                          </span>
+                          <span style={{ fontSize: 11.5, color: 'var(--text-3)', fontWeight: 600 }}>
+                            {PLATFORMS[a.account.platform]?.name || a.account.platform}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 14, fontSize: 12.5, fontWeight: 700 }}>
+                          <span style={{ color: 'var(--text-1)' }}>{fmtEur(a.revenue)}</span>
+                          <span style={{ color: a.profit>=0 ? '#10b981' : '#ef4444' }}>{fmtEur(a.profit)}</span>
+                          <span style={{ color: 'var(--text-3)' }}>{a.sold}✓ · {a.active} aktiv</span>
+                          <span style={{ color: 'var(--text-2)' }}>{Math.round(a.quote*100)}%</span>
+                        </div>
+                      </div>
+                      {/* Umsatz-Balken relativ zum stärksten Account */}
+                      <div style={{ height: 6, borderRadius: 4, background: 'var(--row-hover)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.max(2, (a.revenue/maxAccRevenue)*100)}%`, background: PLATFORMS[a.account.platform]?.dot || '#6366f1', borderRadius: 4 }} />
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', gap: 14, fontSize: 10.5, color: 'var(--text-3)', fontWeight: 600, marginTop: 2, justifyContent: 'flex-end' }}>
+                    <span>Umsatz · Gewinn · verkauft/aktiv · Verkaufsquote</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Filters ── */}
           <div style={{
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 18, padding: '14px 16px',
             display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center',
           }}>
-            <select value={statusFilter} onChange={e => setStatus(e.target.value)} style={selStyle}>
-              <option value="alle">Alle Status</option>
-              <option value="verkauft">Verkauft</option>
-              <option value="aktiv">Aktiv</option>
-              <option value="inaktiv">Inaktiv</option>
-            </select>
             <select value={year} onChange={e => setYear(e.target.value)} style={selStyle}>
               <option value="">Alle Jahre</option>
               {years.map(y => <option key={y} value={y}>{y}</option>)}
@@ -429,7 +589,10 @@ export default function Buchhaltung() {
                       <SortTh label="Gewinn"   col="profit"   sort={sort} setSort={setSort}/>
                       <SortTh label="Marge"    col="margin"   sort={sort} setSort={setSort}/>
                       <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Plattform</th>
-                      <SortTh label="Datum"    col="date"     sort={sort} setSort={setSort}/>
+                      {accounts.length > 0 && (
+                        <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Account</th>
+                      )}
+                      <SortTh label={statusFilter==='verkauft' ? 'Verkauft am' : statusFilter==='aktiv' ? 'Online seit' : 'Datum'} col="date" sort={sort} setSort={setSort}/>
                       <th style={{ padding: '12px 10px' }}/>
                     </tr>
                   </thead>
@@ -448,8 +611,13 @@ export default function Buchhaltung() {
                           onMouseOut={e => e.currentTarget.style.background='transparent'}
                         >
                           <td style={{ padding: '10px', color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 12 }}>{i+1}</td>
-                          <td style={{ padding: '10px', maxWidth: 180 }}>
-                            <EditCell value={l.title} onSave={v => patch(l.id, { title: v })} />
+                          <td style={{ padding: '10px', maxWidth: 240 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                              {l.images?.[0]
+                                ? <img src={l.images[0]} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
+                                : <div style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0, background: 'var(--row-hover)', border: '1px solid var(--border)' }} />}
+                              <EditCell value={l.title} onSave={v => patch(l.id, { title: v })} />
+                            </div>
                           </td>
                           <td style={{ padding: '10px' }}>
                             <select value={l.status} onChange={e => patch(l.id, { status: e.target.value })}
@@ -487,8 +655,28 @@ export default function Buchhaltung() {
                           <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 12, whiteSpace: 'nowrap' }}>
                             {(l.platforms||[]).map(p => PLATFORMS[p]?.name || p).join(', ') || '—'}
                           </td>
+                          {accounts.length > 0 && (() => {
+                            const relevant = accounts.filter(a => (l.platforms||[]).includes(a.platform))
+                            const opts = relevant.length ? relevant : accounts
+                            return (
+                              <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>
+                                <select value={listingAccountId(l)} onChange={e => assignAccount(l, e.target.value)}
+                                  style={{ fontSize: 12, padding: '4px 22px 4px 8px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: listingAccountId(l) ? 'var(--text-1)' : 'var(--text-3)', cursor: 'pointer', fontFamily: 'inherit', maxWidth: 140 }}>
+                                  <option value="">— Account —</option>
+                                  {opts.map(a => (
+                                    <option key={a.id} value={a.id}>{PLATFORMS[a.platform]?.name || a.platform}: {a.name}</option>
+                                  ))}
+                                </select>
+                              </td>
+                            )
+                          })()}
                           <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 12, whiteSpace: 'nowrap' }}>
-                            <EditCell value={formatDateInput(l)} type="date" onSave={v => { if (v) patch(l.id, { updatedAt: new Date(v).toISOString() }) }} />
+                            <EditCell
+                              value={dateInputValue(rowDateIso(l))}
+                              type="date"
+                              placeholder={l.status === 'verkauft' ? 'Datum +' : '—'}
+                              onSave={v => patch(l.id, { [rowDateField(l)]: v ? new Date(v).toISOString() : null })}
+                            />
                           </td>
                           <td style={{ padding: '10px' }}>
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -509,13 +697,13 @@ export default function Buchhaltung() {
                   <tfoot>
                     <tr style={{ background: 'var(--row-hover)', borderTop: '2px solid var(--border)' }}>
                       <td colSpan={3} style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                        Gesamt ({sorted.length})
+                        {statusFilter==='verkauft' ? 'Verkauft' : statusFilter==='aktiv' ? 'Aktiv' : statusFilter==='inaktiv' ? 'Inaktiv' : 'Summe'} ({sorted.length})
                       </td>
-                      <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-2)' }}>{fmtEur(totals.purchase)}</td>
-                      <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-1)' }}>{fmtEur(totals.revenue)}</td>
-                      <td style={{ padding: '12px 10px', fontWeight: 700, color: '#d97706' }}>{totals.fees>0 ? `−${fmtEur(totals.fees)}` : '—'}</td>
-                      <td style={{ padding: '12px 10px', fontWeight: 800, color: totals.profit>=0 ? '#10b981' : '#ef4444' }}>{fmtEur(totals.profit)}</td>
-                      <td colSpan={4}/>
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-2)' }}>{fmtEur(viewTotals.purchase)}</td>
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-1)' }}>{fmtEur(viewTotals.revenue)}</td>
+                      <td style={{ padding: '12px 10px', fontWeight: 700, color: '#d97706' }}>{viewTotals.fees>0 ? `−${fmtEur(viewTotals.fees)}` : '—'}</td>
+                      <td style={{ padding: '12px 10px', fontWeight: 800, color: viewTotals.profit>=0 ? '#10b981' : '#ef4444' }}>{fmtEur(viewTotals.profit)}</td>
+                      <td colSpan={accounts.length > 0 ? 5 : 4}/>
                     </tr>
                   </tfoot>
                 </table>

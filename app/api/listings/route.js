@@ -34,9 +34,11 @@ export async function GET() {
     favorites:    Number(l.favorites  || 0),
     likes:        Number(l.likes || 0),
     soldAt:       l.soldAt       || null,
+    listedAt:     l.listedAt     || null,
     kaAdId:       l.kaAdId       || '',
     buyerName:    l.buyerName    || '',
     buyerAddress: l.buyerAddress || '',
+    account_ids:  l.account_ids  ? (typeof l.account_ids === 'string' ? JSON.parse(l.account_ids) : l.account_ids) : {},
   })))
 }
 

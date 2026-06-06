@@ -12,19 +12,77 @@ function buildDescription(description, vintedId) {
   return clean + tag
 }
 
-// Setzt Raw-SQL-Felder (likes, material) die der Prisma-Client evtl. noch nicht kennt
-async function setRawFields(listingId, { likes, material }) {
+// Normalisiert ein Datum aus dem Sync zu ISO-String – oder '' wenn keins/ungültig.
+// WICHTIG: niemals auf "heute" defaulten – fehlt das echte Datum, bleibt das Feld leer.
+// Für listedAt (TEXT-Spalte, nicht im Prisma-Schema) – ISO-String ist hier korrekt.
+function toIso(value) {
+  if (!value) return ''
+  const d = new Date(value)
+  return isNaN(d.getTime()) ? '' : d.toISOString()
+}
+
+// soldAt IST ein Prisma-DateTime-Feld (schema.prisma) → DB-abhängig schreiben:
+//   SQLite  → epoch-ms (Integer); ISO-Text würde SELECT * sprengen (Prisma-Mapping).
+//   Postgres→ ISO-String (timestamp); Integer-ms würde der timestamp-Spalte einen Typfehler werfen.
+// Kein echtes Datum → null (NICHT '' – leerer String bricht das DateTime-Mapping ebenfalls).
+function soldAtVal(value) {
+  if (!value) return null
+  const d = new Date(value)
+  if (isNaN(d.getTime())) return null
+  return isPostgres() ? d.toISOString() : d.getTime()
+}
+
+// Setzt Raw-SQL-Felder (likes, material, soldAt, listedAt) die der Prisma-Client evtl. noch nicht kennt
+async function setRawFields(listingId, { likes, material, soldAt, listedAt }) {
   const pg = isPostgres()
   const updates = []
   const args = []
-  if (likes !== undefined && likes !== null) { updates.push('likes'); args.push(Number(likes) || 0) }
-  if (material) { updates.push('material'); args.push(material) }
+  if (likes !== undefined && likes !== null) { updates.push('likes');     args.push(Number(likes) || 0) }
+  if (material)                              { updates.push('material');   args.push(material) }
+  if (soldAt   !== undefined)                { updates.push('"soldAt"');   args.push(soldAt) }
+  if (listedAt !== undefined)                { updates.push('"listedAt"'); args.push(listedAt) }
   if (!updates.length) return
   const setClause = updates.map((f, i) => pg ? `${f} = $${i + 1}` : `${f} = ?`).join(', ')
   const idPlaceholder = pg ? `$${updates.length + 1}` : '?'
   await prisma.$executeRawUnsafe(
     `UPDATE "Listing" SET ${setClause} WHERE id = ${idPlaceholder}`,
     ...args, listingId
+  )
+}
+
+// Findet die listing_accounts-ID für einen Account-Namen (vinted), legt ihn sonst an.
+// So bekommt jeder gesyncte Artikel eine Account-Zuordnung für den Account-Vergleich.
+async function resolveVintedAccountId(accountName) {
+  const name = (accountName || '').trim()
+  if (!name) return null
+  const pg = isPostgres()
+  const found = pg
+    ? await prisma.$queryRawUnsafe(`SELECT id FROM listing_accounts WHERE platform='vinted' AND (LOWER(name)=LOWER($1) OR LOWER(username)=LOWER($1)) LIMIT 1`, name)
+    : await prisma.$queryRawUnsafe(`SELECT id FROM listing_accounts WHERE platform='vinted' AND (LOWER(name)=LOWER(?) OR LOWER(username)=LOWER(?)) LIMIT 1`, name, name)
+  if (found?.length) return Number(found[0].id)
+  // Auto-anlegen
+  if (pg) {
+    const r = await prisma.$queryRawUnsafe(`INSERT INTO listing_accounts (platform, name, username) VALUES ('vinted', $1, $1) RETURNING id`, name)
+    return Number(r[0].id)
+  }
+  await prisma.$executeRawUnsafe(`INSERT INTO listing_accounts (platform, name, username) VALUES ('vinted', ?, ?)`, name, name)
+  const r = await prisma.$queryRawUnsafe(`SELECT last_insert_rowid() AS id`)
+  return Number(r[0].id)
+}
+
+// Setzt account_ids[platform] = accountId und behält andere Plattformen bei (Merge).
+async function mergeAccountId(listingId, platform, accountId) {
+  if (!accountId) return
+  const pg = isPostgres()
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT account_ids FROM "Listing" WHERE id = ${pg ? '$1' : '?'}`, listingId
+  )
+  let obj = {}
+  try { obj = JSON.parse(rows?.[0]?.account_ids || '{}') } catch {}
+  obj[platform] = accountId
+  await prisma.$executeRawUnsafe(
+    `UPDATE "Listing" SET account_ids = ${pg ? '$1' : '?'} WHERE id = ${pg ? '$2' : '?'}`,
+    JSON.stringify(obj), listingId
   )
 }
 
@@ -45,6 +103,9 @@ export async function POST(req) {
 
     const { sales = [], purchases = [], listings = [], account = '' } = await req.json()
 
+    // Account-Name → listing_accounts-ID (für account-genauen Vergleich); legt ihn bei Bedarf an
+    const vintedAccountId = await resolveVintedAccountId(account)
+
     let created = 0
     let skipped = 0
     let updated = 0
@@ -56,18 +117,19 @@ export async function POST(req) {
       if (existing) {
         // Listing existiert bereits → falls noch 'aktiv', auf 'verkauft' updaten
         if (existing.status === 'aktiv' || existing.status === 'entwurf') {
-          const soldDate = item.soldAt ? new Date(item.soldAt) : new Date()
           await prisma.listing.update({
             where: { id: existing.id },
             data: {
-              status:    'verkauft',
-              updatedAt: soldDate,
+              status: 'verkauft',
               // Bild updaten falls das bisherige leer war
               ...(item.images?.length && JSON.parse(existing.images || '[]').length === 0
                 ? { images: JSON.stringify(item.images.slice(0, 8)) }
                 : {}),
             }
           })
+          // Echtes Verkaufsdatum speichern – KEIN "heute"-Fallback. Fehlt es, bleibt soldAt null.
+          await setRawFields(existing.id, { soldAt: soldAtVal(item.soldAt) })
+          await mergeAccountId(existing.id, 'vinted', vintedAccountId)
           updated++
         } else {
           skipped++
@@ -75,7 +137,7 @@ export async function POST(req) {
         continue
       }
 
-      await prisma.listing.create({
+      const createdSale = await prisma.listing.create({
         data: {
           userId,
           title:       (item.title || '').substring(0, 200),
@@ -91,9 +153,11 @@ export async function POST(req) {
           condition:   item.condition || 'Gut',
           category:    'Sonstiges',
           createdAt:   item.soldAt ? new Date(item.soldAt) : undefined,
-          updatedAt:   item.soldAt ? new Date(item.soldAt) : undefined,
         }
       })
+      // Echtes Verkaufsdatum getrennt speichern – null, wenn der Sync keins liefert.
+      await setRawFields(createdSale.id, { soldAt: soldAtVal(item.soldAt) })
+      await mergeAccountId(createdSale.id, 'vinted', vintedAccountId)
       created++
     }
 
@@ -102,7 +166,7 @@ export async function POST(req) {
       const existing = await findByVintedId(userId, item.vintedId)
       if (existing) { skipped++; continue }
 
-      await prisma.listing.create({
+      const createdPurchase = await prisma.listing.create({
         data: {
           userId,
           title:       (item.title || '').substring(0, 200),
@@ -121,6 +185,7 @@ export async function POST(req) {
           updatedAt:   item.boughtAt ? new Date(item.boughtAt) : undefined,
         }
       })
+      await mergeAccountId(createdPurchase.id, 'vinted', vintedAccountId)
       created++
     }
 
@@ -140,12 +205,19 @@ export async function POST(req) {
         if (item.shipSize)      updateData.shipSize    = item.shipSize
         if (item.description)   updateData.description = buildDescription(item.description, item.vintedId)
         if (item.images?.length) updateData.images = JSON.stringify(item.images.slice(0, 8))
-        const hasRaw = item.likes > 0 || item.material
+        // Account-Zuordnung immer aktualisieren (auch wenn sonst nichts geändert wird)
+        await mergeAccountId(existing.id, 'vinted', vintedAccountId)
+        const listedIso = toIso(item.listedAt || item.createdAt)
+        const hasRaw = item.likes > 0 || item.material || listedIso
         if (Object.keys(updateData).length > 0 || hasRaw) {
           if (Object.keys(updateData).length > 0) {
             await prisma.listing.update({ where: { id: existing.id }, data: updateData })
           }
-          await setRawFields(existing.id, { likes: item.likes, material: item.material })
+          // listedAt nur setzen wenn echtes Datum vorliegt – sonst bestehendes nicht überschreiben
+          await setRawFields(existing.id, {
+            likes: item.likes, material: item.material,
+            listedAt: listedIso || undefined,
+          })
           updated++
         } else {
           skipped++
@@ -172,8 +244,12 @@ export async function POST(req) {
           views:       Number(item.views) || 0,
         }
       })
-      // likes + material via raw SQL (neue Felder)
-      await setRawFields(created_listing.id, { likes: item.likes, material: item.material })
+      // likes + material + Upload-Datum via raw SQL (neue Felder)
+      await setRawFields(created_listing.id, {
+        likes: item.likes, material: item.material,
+        listedAt: toIso(item.listedAt || item.createdAt),
+      })
+      await mergeAccountId(created_listing.id, 'vinted', vintedAccountId)
       created++
     }
 
