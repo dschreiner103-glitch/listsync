@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import Aurora from '@/components/Aurora'
 import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, StatusBadge, PLATFORMS, CONDITIONS, fmt, profit, CARD_COLORS } from '@/components/Badge'
 import { calcScore, scoreColor, scoreLabel } from '@/lib/score'
@@ -424,8 +425,9 @@ export default function Listings() {
 
   return (
     <div className="ls-page">
+      <Aurora />
       <Sidebar activeCount={listings.filter(l => l.status === 'aktiv').length} />
-      <main className="md:ml-60 ls-page-content">
+      <main className="md:ml-60 ls-page-content" style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: 820, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
 
           {/* ── Crosspost-Fortschritt Banner ── */}
@@ -455,7 +457,7 @@ export default function Listings() {
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Meine Listings</h1>
+              <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.03em' }}><span style={{ color: 'var(--text-1)' }}>Meine </span><span className="ls-text-shimmer">Listings</span></h1>
               <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>{filtered.length} Artikel</p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

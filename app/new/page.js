@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import Aurora from '@/components/Aurora'
 import MobilePostHelper from '@/components/MobilePostHelper'
 import { PlatformBadge, PLATFORMS, CONDITIONS, BRANDS, COLORS, MATERIALS, SHIPPING_OPTIONS, SHIP_SIZES, getSizes, optimizeTitle, seoTitle, fmt } from '@/components/Badge'
 import CategoryPicker from '@/components/CategoryPicker'
@@ -447,15 +448,16 @@ export default function NewListing() {
 
   return (
     <div className="ls-page">
+      <Aurora />
       <Sidebar/>
-      <main className="md:ml-60 ls-page-content">
+      <main className="md:ml-60 ls-page-content" style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth:560, margin:'0 auto', padding:'20px 16px 32px' }}>
 
           {/* Header */}
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:28 }}>
             <button onClick={()=>step>1?setStep(s=>s-1):router.push('/listings')}
               style={{ width:36, height:36, borderRadius:'50%', border:'none', cursor:'pointer', background:'var(--modal-close)', color:'var(--text-2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16, fontWeight:700, flexShrink:0 }}>←</button>
-            <h1 style={{ fontSize:20, fontWeight:800, color:'var(--text-1)', margin:0, letterSpacing:'-0.02em' }}>Neues Listing</h1>
+            <h1 style={{ fontSize:20, fontWeight:800, margin:0, letterSpacing:'-0.02em' }}><span style={{ color:'var(--text-1)' }}>Neues </span><span className="ls-text-shimmer">Listing</span></h1>
           </div>
 
           {/* Live Score Bar */}

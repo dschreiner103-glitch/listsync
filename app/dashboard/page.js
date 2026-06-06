@@ -1,8 +1,31 @@
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import Aurora from '@/components/Aurora'
 import { PlatformBadge, StatusBadge, PLATFORMS, fmt, profit, CARD_COLORS } from '@/components/Badge'
+
+// ── Count-up animation hook (ease-out cubic) ───────────────────────────────────
+function useCountUp(target, duration = 1000) {
+  const [val, setVal] = useState(0)
+  const prev = useRef(0)
+  useEffect(() => {
+    const from = prev.current, to = Number(target) || 0
+    if (from === to) { setVal(to); return }
+    let raf, start
+    const tick = (now) => {
+      if (start === undefined) start = now
+      const t = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      setVal(from + (to - from) * eased)
+      if (t < 1) raf = requestAnimationFrame(tick)
+      else prev.current = to
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [target, duration])
+  return val
+}
 
 // ── Period helpers ────────────────────────────────────────────────────────────
 
@@ -172,16 +195,28 @@ function LineChart({ data }) {
 function DonutGauge({ pct, label, sub }) {
   const r = 52, cx = 70, cy = 68
   const circ = Math.PI * r
-  const progress = Math.min(pct / 100, 1) * circ
+  const animPct = useCountUp(Math.min(pct, 999))
+  const progress = Math.min(animPct / 100, 1) * circ
   const d = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`
   return (
     <div style={{ textAlign: 'center' }}>
-      <svg width="140" height="78" viewBox="0 0 140 78" style={{ display: 'block', margin: '0 auto' }}>
+      <svg width="140" height="78" viewBox="0 0 140 78" style={{ display: 'block', margin: '0 auto', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#6366f1"/>
+            <stop offset="55%" stopColor="#8b5cf6"/>
+            <stop offset="100%" stopColor="#22c55e"/>
+          </linearGradient>
+          <filter id="gaugeGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3.5" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
         <path d={d} fill="none" style={{ stroke: 'var(--border)' }} strokeWidth="10" strokeLinecap="round"/>
-        <path d={d} fill="none" stroke="#3b82f6" strokeWidth="10" strokeLinecap="round"
-          strokeDasharray={`${progress} ${circ}`}/>
+        <path d={d} fill="none" stroke="url(#gaugeGrad)" strokeWidth="10" strokeLinecap="round"
+          filter="url(#gaugeGlow)" strokeDasharray={`${progress} ${circ}`}/>
       </svg>
-      <p style={{ fontSize: 26, fontWeight: 800, color: 'var(--text-1)', margin: '-8px 0 2px', letterSpacing: '-0.03em' }}>{Math.round(pct)}%</p>
+      <p className="ls-gradient-text" style={{ fontSize: 28, fontWeight: 900, margin: '-10px 0 2px', letterSpacing: '-0.03em' }}>{Math.round(animPct)}%</p>
       <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>{label}</p>
       {sub && <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '2px 0 0' }}>{sub}</p>}
     </div>
@@ -190,23 +225,28 @@ function DonutGauge({ pct, label, sub }) {
 
 // ── Stat Card with period chips ───────────────────────────────────────────────
 
-function StatCard({ title, icon, iconBg, iconColor, computeValue, computeSub, sold }) {
+function StatCard({ title, icon, accent = '#6366f1', compute, format, computeSub, sold, primary }) {
   const [period, setPeriod] = useState(30)
   const filtered = filterByPeriod(sold, period)
-  const value = computeValue(filtered)
-  const sub   = computeSub ? computeSub(filtered) : null
+  const raw      = compute(filtered)
+  const animated = useCountUp(raw)
+  const sub      = computeSub ? computeSub(filtered) : null
 
   return (
-    <div className="ls-card" style={{ padding: 20, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <div style={{ width: 30, height: 30, borderRadius: 8, background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: iconColor, flexShrink: 0 }}>
+    <div className="ls-card dash-stat" style={{ '--accent': accent, padding: 22, display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+      {/* corner glow blob */}
+      <div className="dash-stat-glow"/>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 16, position: 'relative', zIndex: 1 }}>
+        <div className="dash-icon ls-float" style={{ background: `linear-gradient(135deg, ${accent}, ${accent}b3)`, boxShadow: `0 8px 22px ${accent}59, inset 0 1px 0 rgba(255,255,255,.35)` }}>
           {icon}
         </div>
         <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-2)' }}>{title}</span>
       </div>
-      <p style={{ fontSize: 30, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 4px', letterSpacing: '-0.03em' }}>{value}</p>
-      {sub && <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: 0 }}>{sub}</p>}
-      <PeriodChips period={period} setPeriod={setPeriod} />
+      <p className={primary ? 'dash-num ls-gradient-text' : 'dash-num'} style={{ position: 'relative', zIndex: 1 }}>{format(animated)}</p>
+      {sub && <p style={{ fontSize: 12.5, color: 'var(--text-3)', margin: '5px 0 0', position: 'relative', zIndex: 1 }}>{sub}</p>}
+      <div style={{ position: 'relative', zIndex: 1 }}>
+        <PeriodChips period={period} setPeriod={setPeriod} />
+      </div>
     </div>
   )
 }
@@ -278,22 +318,70 @@ export default function Dashboard() {
   const totalRev = sold.reduce((s, l) => s + l.price, 0)
 
   return (
-    <div className="ls-page">
+    <div className="ls-page dash-3d">
+
+      <style>{`
+        /* ── Stat card 3D ── */
+        .dash-stat { isolation: isolate; }
+        .dash-stat-glow {
+          position: absolute; top: -50px; right: -50px; width: 170px; height: 170px;
+          border-radius: 50%; background: radial-gradient(circle, var(--accent), transparent 68%);
+          opacity: .14; pointer-events: none; z-index: 0;
+        }
+        html.dark .dash-stat-glow { opacity: .22; }
+        .dash-icon {
+          width: 40px; height: 40px; border-radius: 13px; flex-shrink: 0;
+          display: flex; align-items: center; justify-content: center; color: #fff;
+        }
+        .dash-icon svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
+        .dash-num {
+          font-size: 34px; font-weight: 900; color: var(--text-1);
+          margin: 0; letter-spacing: -0.035em; line-height: 1.05;
+          font-variant-numeric: tabular-nums;
+        }
+
+        /* ── Hero header ── */
+        .dash-hero-title {
+          font-size: clamp(26px, 4vw, 34px); font-weight: 900;
+          letter-spacing: -0.04em; margin: 0; line-height: 1.05;
+        }
+        .dash-live-pill {
+          display: inline-flex; align-items: center; gap: 7px;
+          background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.28);
+          border-radius: 99px; padding: 6px 13px; font-size: 12px; font-weight: 700; color: #16a34a;
+        }
+        html.dark .dash-live-pill { color: #4ade80; }
+        .dash-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 rgba(34,197,94,.5); animation: live-ping 2s ease-in-out infinite; }
+        @keyframes live-ping { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)} 70%{box-shadow:0 0 0 7px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
+
+        /* Respect reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+          .ls-float, .dash-live-dot { animation: none !important; }
+        }
+      `}</style>
+
+      <Aurora />
+
       <Sidebar activeCount={active.length} />
-      <main className="md:ml-60 ls-page-content">
+      <main className="md:ml-60 ls-page-content" style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: 900, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }} className="ls-content">
 
           {/* ── Header ── */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
             <div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 2px', letterSpacing: '-0.03em' }}>Dashboard</h1>
-              <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: 0, fontWeight: 500 }}>Dein Vinted-Business auf einen Blick</p>
+              <h1 className="dash-hero-title">
+                <span style={{ color: 'var(--text-1)' }}>Dein </span>
+                <span className="ls-text-shimmer">Business</span>
+              </h1>
+              <p style={{ fontSize: 13.5, color: 'var(--text-3)', margin: '4px 0 0', fontWeight: 500 }}>Alles auf einen Blick — live & in Echtzeit</p>
             </div>
-            {loading && (
+            {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: '#6366f1', animation: 'spin 0.7s linear infinite' }}/>
                 <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Lädt…</span>
               </div>
+            ) : (
+              <span className="dash-live-pill"><span className="dash-live-dot"/>{active.length} aktiv</span>
             )}
           </div>
 
@@ -341,9 +429,11 @@ export default function Dashboard() {
             <StatCard
               title="Einnahmen"
               sold={sold}
+              primary
+              accent="#6366f1"
               icon={<IcSm><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></IcSm>}
-              iconBg="rgba(59,130,246,0.1)" iconColor="#3b82f6"
-              computeValue={f => fmt(f.reduce((s, l) => s + l.price, 0))}
+              compute={f => f.reduce((s, l) => s + l.price, 0)}
+              format={v => fmt(v)}
               computeSub={f => `${f.length} Verkauf${f.length !== 1 ? 'e' : ''}`}
             />
 
@@ -351,12 +441,10 @@ export default function Dashboard() {
             <StatCard
               title="Gewinn"
               sold={sold}
+              accent="#22c55e"
               icon={<IcSm><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></IcSm>}
-              iconBg="rgba(34,197,94,0.1)" iconColor="#22c55e"
-              computeValue={f => {
-                const g = f.reduce((s, l) => s + (l.price - (l.buyPrice || 0)), 0)
-                return <span style={{ color: g > 0 ? '#16a34a' : 'var(--text-1)' }}>{fmt(g)}</span>
-              }}
+              compute={f => f.reduce((s, l) => s + (l.price - (l.buyPrice || 0)), 0)}
+              format={v => fmt(v)}
               computeSub={f => {
                 const rev = f.reduce((s, l) => s + l.price, 0)
                 const pro = f.reduce((s, l) => s + (l.price - (l.buyPrice || 0)), 0)

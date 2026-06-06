@@ -161,6 +161,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true })
     return true
   }
+  if (msg.type === 'DISMISS_PROGRESS') {
+    // Manuelles Ausblenden aus dem Popup
+    chrome.storage.local.get('crosspostProgress', r => {
+      const p = r.crosspostProgress || {}
+      if (msg.platform) delete p[msg.platform]
+      else for (const k of Object.keys(p)) delete p[k]
+      chrome.storage.local.set({ crosspostProgress: p })
+      forwardToListSyncBridge({ type: 'CROSSPOST_PROGRESS', progress: p }).catch(() => {})
+    })
+    sendResponse({ ok: true })
+    return true
+  }
   if (msg.type === 'INJECT_MAIN_IMAGES') {
     const tabId = sender.tab?.id
     if (!tabId) { sendResponse({ ok: false, error: 'Kein Tab' }); return true }
@@ -173,6 +185,22 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(e => sendResponse({ ok: false, error: e.message }))
     return true
   }
+})
+
+// ── Tab geschlossen → hängenden Progress (z.B. "Entwurf wird gespeichert…") räumen
+chrome.tabs.onRemoved.addListener(tabId => {
+  trackedTabs.delete(tabId)
+  chrome.storage.local.get('crosspostProgress', r => {
+    const prog = r.crosspostProgress || {}
+    let changed = false
+    for (const [plt, p] of Object.entries(prog)) {
+      if (p.tabId === tabId && !p.done) { delete prog[plt]; changed = true }
+    }
+    if (changed) {
+      chrome.storage.local.set({ crosspostProgress: prog })
+      forwardToListSyncBridge({ type: 'CROSSPOST_PROGRESS', progress: prog }).catch(() => {})
+    }
+  })
 })
 
 // ── ListSync-Bridge benachrichtigen ──────────────────────────────────────────

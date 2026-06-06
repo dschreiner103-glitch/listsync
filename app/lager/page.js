@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import Aurora from '@/components/Aurora'
 
 // ── Helpers ──────────────────────────────────────────────────────────
 function parsePlatz(platz) {
@@ -257,14 +258,15 @@ export default function LagerPage() {
 
   return (
     <div className="ls-page">
+      <Aurora />
       <Sidebar/>
-      <main className="md:ml-60 ls-page-content">
+      <main className="md:ml-60 ls-page-content" style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth:1000,margin:'0 auto',padding:'24px 16px 48px' }}>
 
           {/* ── Header ── */}
           <div style={{ display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:24,flexWrap:'wrap',gap:12 }}>
             <div>
-              <h1 style={{ fontSize:22,fontWeight:800,color:'var(--text-1)',margin:'0 0 3px',letterSpacing:'-0.02em' }}>📦 Lager</h1>
+              <h1 style={{ fontSize:22,fontWeight:800,margin:'0 0 3px',letterSpacing:'-0.02em' }}>📦 <span className="ls-text-shimmer">Lager</span></h1>
               <p style={{ fontSize:13,color:'var(--text-3)',margin:0 }}>3D Übersicht · Regal → Box → Fach</p>
             </div>
             <button onClick={()=>router.push('/new')} style={{ padding:'10px 18px',borderRadius:12,border:'none',background:'#6366f1',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>

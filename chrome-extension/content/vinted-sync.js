@@ -505,6 +505,24 @@ async function runOrdersSync(activeVintedAccount) {
     }
   })
 
+  // Sync-Modus: 'sold' = nur Verkäufe, 'active' = nur aktive, 'both' = beides
+  const { syncMode = 'both' } = await new Promise(r => chrome.storage.local.get('syncMode', r))
+
+  // Modus 'sold': Sales sofort senden, NICHT zum Profil navigieren
+  if (syncMode === 'sold') {
+    await chrome.storage.local.remove('syncMode')
+    setSyncStatus(`Importiere ${sales.length} Verkäufe…`)
+    chrome.runtime.sendMessage({
+      type: 'VINTED_SYNC_DATA',
+      data: { sales, purchases: [], listings: [], account: activeVintedAccount || 'Hauptaccount' }
+    }, response => {
+      setSyncStatus(response?.ok ? `✅ ${sales.length} Verkäufe importiert!` : '⚠️ Import fehlgeschlagen')
+      const banner = document.getElementById('ls-sync-banner')
+      if (banner) banner.style.background = response?.ok ? '#16a34a' : '#dc2626'
+    })
+    return
+  }
+
   // User-ID: gespeicherte Member-ID aus aktivem Account, sonst Auto-Detect
   setSyncStatus('Ermittle User-ID…')
   const { vintedAccounts = [], activeVintedAccount: savedAccountName } = await new Promise(r =>
@@ -630,7 +648,7 @@ async function scrapeActiveListings() {
 async function runProfileSync() {
   const { syncSoldData = [], syncAccount = 'Hauptaccount' } =
     await new Promise(r => chrome.storage.local.get(['syncSoldData', 'syncAccount'], r))
-  await chrome.storage.local.remove(['syncSoldData', 'syncAccount', 'syncPhase'])
+  await chrome.storage.local.remove(['syncSoldData', 'syncAccount', 'syncPhase', 'syncMode'])
 
   showSyncBanner('2/2 Lade aktive Listings vom Profil…')
   await wait(2000) // React rendering abwarten

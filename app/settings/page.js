@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import Aurora from '@/components/Aurora'
 import { PLATFORMS } from '@/components/Badge'
 
 function Ic({ children, size = 16, sw = 1.8 }) {
@@ -186,13 +187,14 @@ export default function Settings() {
 
   return (
     <div className="ls-page">
+      <Aurora />
       <Sidebar />
-      <main className="md:ml-60 ls-page-content">
+      <main className="md:ml-60 ls-page-content" style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: 520, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
 
           {/* Header */}
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Einstellungen</h1>
+            <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.03em' }} className="ls-text-shimmer">Einstellungen</h1>
             <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>App-Konfiguration und Geschäftsinfos</p>
           </div>
 

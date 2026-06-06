@@ -388,6 +388,40 @@ export default function RootLayout({ children }) {
               border-radius: 18px !important;
             }
           }
+
+          /* ══════════════════════════════════════════
+             ── Aurora background (app-wide) ──
+          ══════════════════════════════════════════ */
+          .ls-aurora { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+          .ls-aurora .ao { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .18; }
+          html.dark .ls-aurora .ao { opacity: .36; }
+          .ls-aurora .ao1 { width: 560px; height: 560px; background: radial-gradient(circle, #6366f1, transparent 70%); top: -140px; left: -60px;  animation: lsao-a 20s ease-in-out infinite; }
+          .ls-aurora .ao2 { width: 480px; height: 480px; background: radial-gradient(circle, #22c55e, transparent 70%); bottom: -160px; right: -40px; animation: lsao-b 26s ease-in-out infinite; }
+          .ls-aurora .ao3 { width: 440px; height: 440px; background: radial-gradient(circle, #a78bfa, transparent 70%); top: 38%; right: 28%; animation: lsao-c 30s ease-in-out infinite; }
+          @keyframes lsao-a { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(60px,40px) scale(1.15)} }
+          @keyframes lsao-b { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-50px,-30px) scale(1.1)} }
+          @keyframes lsao-c { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-40px,50px) scale(0.9)} }
+
+          /* 3D gradient icon orb (app-wide) */
+          .ls-icon-3d {
+            width: 40px; height: 40px; border-radius: 13px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center; color: #fff;
+          }
+          .ls-icon-3d svg { filter: drop-shadow(0 1px 2px rgba(0,0,0,.25)); }
+
+          /* Live pill (app-wide) */
+          .ls-live-pill {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.28);
+            border-radius: 99px; padding: 6px 13px; font-size: 12px; font-weight: 700; color: #16a34a;
+          }
+          html.dark .ls-live-pill { color: #4ade80; }
+          .ls-live-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; animation: live-ping 2s ease-in-out infinite; }
+          @keyframes live-ping { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)} 70%{box-shadow:0 0 0 7px rgba(34,197,94,0)} 100%{box-shadow:0 0 0 0 rgba(34,197,94,0)} }
+
+          @media (prefers-reduced-motion: reduce) {
+            .ls-aurora .ao, .ls-float, .ls-live-dot { animation: none !important; }
+          }
         `}</style>
       </head>
       <body>

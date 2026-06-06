@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import Aurora from '@/components/Aurora'
 import { PLATFORMS } from '@/components/Badge'
 
 function fmt(n) { return (n || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) }
@@ -82,8 +83,9 @@ export default function Belege() {
 
   if (loading) return (
     <div className="ls-page">
+      <Aurora />
       <Sidebar />
-      <main className="md:ml-60 ls-page-content">
+      <main className="md:ml-60 ls-page-content" style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
           {[1,2,3].map(i => (
             <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 18, padding: 16 }}>
@@ -98,14 +100,15 @@ export default function Belege() {
 
   return (
     <div className="ls-page">
+      <Aurora />
       <Sidebar />
-      <main className="md:ml-60 ls-page-content">
+      <main className="md:ml-60 ls-page-content" style={{ position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: 720, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
 
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
-              <h1 style={{ fontSize: 24, fontWeight: 800, color: 'var(--text-1)', margin: 0, letterSpacing: '-0.03em' }}>Belege</h1>
+              <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: '-0.03em' }} className="ls-text-shimmer">Belege</h1>
               <p style={{ fontSize: 13, color: 'var(--text-3)', margin: '3px 0 0', fontWeight: 500 }}>Finanzamt-konforme Belege für Einkäufe & Verkäufe</p>
             </div>
             {!settings.shopName && (
