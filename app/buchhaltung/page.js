@@ -508,7 +508,7 @@ export default function Buchhaltung() {
 
       <Sidebar />
       <main className="md:ml-60 ls-page-content">
-        <div style={{ maxWidth: 1100, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
+        <div style={{ maxWidth: 1400, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 14 }} className="ls-content">
 
           {/* ── Header ── */}
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -709,7 +709,9 @@ export default function Buchhaltung() {
                       <SortTh label="Gebühr"   col="fee"      sort={sort} setSort={setSort}/>
                       <SortTh label="Gewinn"   col="profit"   sort={sort} setSort={setSort}/>
                       <SortTh label="Marge"    col="margin"   sort={sort} setSort={setSort}/>
-                      <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Plattform</th>
+                      {accounts.length === 0 && (
+                        <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Plattform</th>
+                      )}
                       {accounts.length > 0 && (
                         <th style={{ padding: '12px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Account</th>
                       )}
@@ -733,7 +735,7 @@ export default function Buchhaltung() {
                           onMouseOut={e => e.currentTarget.style.background='transparent'}
                         >
                           <td style={{ padding: '10px', color: 'var(--text-3)', fontFamily: 'monospace', fontSize: 12 }}>{sort.dir==='desc' ? sorted.length - i : i+1}</td>
-                          <td style={{ padding: '10px', maxWidth: 240 }}>
+                          <td style={{ padding: '10px', maxWidth: 200 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                               {l.images?.[0]
                                 ? <img src={l.images[0]} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }} />
@@ -774,9 +776,11 @@ export default function Buchhaltung() {
                               }}>{mg.toFixed(0)}%</span>
                             ) : '—'}
                           </td>
-                          <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 12, whiteSpace: 'nowrap' }}>
-                            {(l.platforms||[]).map(p => PLATFORMS[p]?.name || p).join(', ') || '—'}
-                          </td>
+                          {accounts.length === 0 && (
+                            <td style={{ padding: '10px', color: 'var(--text-3)', fontSize: 12, whiteSpace: 'nowrap' }}>
+                              {(l.platforms||[]).map(p => PLATFORMS[p]?.name || p).join(', ') || '—'}
+                            </td>
+                          )}
                           {accounts.length > 0 && (() => {
                             const relevant = accounts.filter(a => (l.platforms||[]).includes(a.platform))
                             const opts = relevant.length ? relevant : accounts
@@ -833,7 +837,7 @@ export default function Buchhaltung() {
                       <td style={{ padding: '12px 10px', fontWeight: 700, color: 'var(--text-1)' }}>{fmtEur(viewTotals.revenue)}</td>
                       <td style={{ padding: '12px 10px', fontWeight: 700, color: '#d97706' }}>{viewTotals.fees>0 ? `−${fmtEur(viewTotals.fees)}` : '—'}</td>
                       <td style={{ padding: '12px 10px', fontWeight: 800, color: viewTotals.profit>=0 ? '#10b981' : '#ef4444' }}>{fmtEur(viewTotals.profit)}</td>
-                      <td colSpan={accounts.length > 0 ? 6 : 5}/>
+                      <td colSpan={5}/>
                     </tr>
                   </tfoot>
                 </table>
