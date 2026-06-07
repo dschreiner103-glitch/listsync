@@ -33,6 +33,8 @@ export async function GET() {
     ebayCategory: l.ebayCategory || '',
     favorites:    Number(l.favorites  || 0),
     likes:        Number(l.likes || 0),
+    prevLikes:    Number(l.prevLikes || 0),
+    reuploadCount:Number(l.reuploadCount || 0),
     soldAt:       l.soldAt       || null,
     listedAt:     l.listedAt     || null,
     boughtAt:     l.boughtAt     || null,

@@ -30,11 +30,28 @@ export async function POST(req) {
         data: { views: Number(s.views) || 0 }
       })
       const pg = isPostgres()
-      await prisma.$executeRawUnsafe(
-        pg ? `UPDATE "Listing" SET likes = $1 WHERE id = $2`
-           : `UPDATE "Listing" SET likes = ? WHERE id = ?`,
-        Number(s.likes) || 0, existing.id
+      // Alten likes-Stand roh lesen (Prisma-Client kennt das Feld evtl. nicht)
+      const cur = await prisma.$queryRawUnsafe(
+        pg ? `SELECT likes FROM "Listing" WHERE id = $1` : `SELECT likes FROM "Listing" WHERE id = ?`,
+        existing.id
       )
+      const oldLikes = Number(cur?.[0]?.likes || 0)
+      const newLikes = Number(s.likes) || 0
+      // Steigt die Favoriten-Zahl, alten Stand als prevLikes festhalten → Karte zeigt "+N neu".
+      // Sinkt/gleich → prevLikes unangetastet (sonst verschwindet das Badge zu früh).
+      if (newLikes > oldLikes) {
+        await prisma.$executeRawUnsafe(
+          pg ? `UPDATE "Listing" SET likes = $1, "prevLikes" = $2 WHERE id = $3`
+             : `UPDATE "Listing" SET likes = ?, "prevLikes" = ? WHERE id = ?`,
+          newLikes, oldLikes, existing.id
+        )
+      } else {
+        await prisma.$executeRawUnsafe(
+          pg ? `UPDATE "Listing" SET likes = $1 WHERE id = $2`
+             : `UPDATE "Listing" SET likes = ? WHERE id = ?`,
+          newLikes, existing.id
+        )
+      }
       updated++
     }
 

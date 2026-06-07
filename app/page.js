@@ -285,17 +285,38 @@ export default function LandingPage() {
                     ))}
                   </div>
                   {activeScreen==='dashboard' && (
-                    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
-                      <p style={{ fontSize:16, fontWeight:800, color:'#f9fafb', margin:0 }}>Dashboard</p>
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10 }}>
-                        {[['💰','1.240 €','Einnahmen'],['📈','340 €','Gewinn'],['🎯','87%','Ziel']].map(([ic,v,l]) => (
-                          <div key={l} style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:14, padding:14 }}><span style={{ fontSize:20 }}>{ic}</span><p style={{ fontSize:19, fontWeight:800, color:'#f1f5f9', margin:'8px 0 2px' }}>{v}</p><p style={{ fontSize:11, color:'#6b7280', margin:0 }}>{l}</p></div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:11 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                        <p style={{ fontSize:16, fontWeight:800, color:'#f9fafb', margin:0 }}>Dashboard</p>
+                        <span style={{ fontSize:10, color:'#64748b', fontWeight:600 }}>Juni 2025</span>
+                      </div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:9 }}>
+                        {[['💰','1.240 €','Einnahmen','▲ 8%'],['📈','340 €','Gewinn','▲ 12%'],['🎯','87%','Monatsziel','']].map(([ic,v,l,d]) => (
+                          <div key={l} style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:13, padding:'12px 12px' }}>
+                            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}><span style={{ fontSize:17 }}>{ic}</span>{d && <span style={{ fontSize:9, fontWeight:800, color:'#10b981' }}>{d}</span>}</div>
+                            <p style={{ fontSize:18, fontWeight:800, color:'#f1f5f9', margin:'7px 0 1px', letterSpacing:'-0.02em' }}>{v}</p>
+                            <p style={{ fontSize:10.5, color:'#6b7280', margin:0 }}>{l}</p>
+                          </div>
                         ))}
                       </div>
-                      <div style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:14, padding:14 }}>
-                        <p style={{ fontSize:11, color:'#6b7280', fontWeight:700, textTransform:'uppercase', margin:'0 0 10px' }}>Aktive Listings</p>
-                        {[['Nike Air Max 90','89€','Vinted'],["Levi's 501",'45€','KA'],['Adidas Hoodie','35€','eBay']].map(([t,p,pl]) => (
-                          <div key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'7px 0', borderBottom:'1px solid rgba(255,255,255,.04)' }}><div style={{ width:28, height:28, borderRadius:8, background:'rgba(var(--glow),.2)' }}/><span style={{ fontSize:12, color:'#e2e8f0', flex:1 }}>{t}</span><span style={{ fontSize:11, color:'#9ca3af' }}>{pl}</span><span style={{ fontSize:11, fontWeight:700, color:'#f1f5f9' }}>{p}</span></div>
+                      <div style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:13, padding:13 }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}><p style={{ fontSize:10.5, color:'#6b7280', fontWeight:700, textTransform:'uppercase', margin:0, letterSpacing:'.05em' }}>Umsatz · 7 Tage</p><span style={{ fontSize:10.5, fontWeight:800, color:'#10b981' }}>▲ 12%</span></div>
+                        <div style={{ display:'flex', alignItems:'flex-end', gap:6, height:46 }}>
+                          {[42,64,50,78,58,90,72].map((h,i) => <div key={i} style={{ flex:1, height:h+'%', borderRadius:'4px 4px 0 0', background:i===5?'linear-gradient(180deg,var(--a),rgba(var(--glow),.3))':'rgba(var(--glow),.25)' }}/>)}
+                        </div>
+                      </div>
+                      <div style={{ background:'#161b22', border:'1px solid rgba(255,255,255,.06)', borderRadius:13, padding:13 }}>
+                        <p style={{ fontSize:10.5, color:'#6b7280', fontWeight:700, textTransform:'uppercase', margin:'0 0 6px', letterSpacing:'.05em' }}>Aktive Listings</p>
+                        {[['Nike Air Max 90','89 €','Vinted','#0d9488','👟'],["Levi's 501",'45 €','Kleinanz.','#ea580c','👖'],['Adidas Hoodie','35 €','eBay','#ca8a04','🧥']].map(([t,p,pl,c,ic]) => (
+                          <div key={t} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 0', borderBottom:'1px solid rgba(255,255,255,.04)' }}>
+                            <div style={{ width:30, height:30, borderRadius:8, background:'linear-gradient(135deg,rgba(var(--glow),.28),rgba(255,255,255,.05))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:15 }}>{ic}</div>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <p style={{ fontSize:12, color:'#e8edf3', margin:0, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t}</p>
+                              <div style={{ display:'flex', alignItems:'center', gap:5, marginTop:2 }}><span style={{ width:6, height:6, borderRadius:'50%', background:c }}/><span style={{ fontSize:10, color:'#9ca3af' }}>{pl}</span></div>
+                            </div>
+                            <span style={{ fontSize:9, fontWeight:800, color:'#10b981', background:'rgba(16,185,129,.12)', padding:'2px 6px', borderRadius:6 }}>Aktiv</span>
+                            <span style={{ fontSize:12.5, fontWeight:800, color:'#f1f5f9' }}>{p}</span>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -424,6 +445,19 @@ export default function LandingPage() {
           <p className="swipe-hint" style={{ fontSize:11, color:'rgba(var(--glow),.7)', marginTop:14, fontWeight:700, letterSpacing:'.06em' }}>← SWIPE →</p>
         </div>
         <div className="modules-grid" style={{ gap:20 }}>{MODULES.map((m,i) => <ModuleCard key={m.title} {...m} delay={(i%4)*0.08}/>)}</div>
+      </section>
+
+      {/* ── Chrome Extension ── */}
+      <section className="section" style={{ padding:'70px 24px' }}>
+        <div className="ext-card" style={{ maxWidth:920, margin:'0 auto', background:'linear-gradient(135deg,rgba(var(--glow),.12),rgba(255,255,255,.02))', border:'1px solid rgba(var(--glow),.3)', borderRadius:24, padding:'36px 40px', display:'flex', alignItems:'center', gap:32, flexWrap:'wrap' }}>
+          <div style={{ width:88, height:88, borderRadius:22, background:'linear-gradient(135deg,var(--a),var(--aDeep))', display:'flex', alignItems:'center', justifyContent:'center', fontSize:46, boxShadow:'0 0 40px rgba(var(--glow),.35)', flexShrink:0 }}>🧩</div>
+          <div style={{ flex:1, minWidth:260 }}>
+            <Eyebrow>Chrome Extension</Eyebrow>
+            <h2 className="h-cap" style={{ fontSize:'clamp(23px,3.4vw,36px)', margin:'12px 0 12px' }}>Crossposten mit <span className="grad-text">einem Klick</span></h2>
+            <p style={{ fontSize:15, color:'#94a3b8', margin:'0 0 20px', lineHeight:1.6, maxWidth:520 }}>Die ListSync-Extension füllt Vinted, Kleinanzeigen & eBay automatisch aus — Bilder inklusive. Du klickst nur noch „Crossposten". Kostenlos im Chrome Web Store.</p>
+            <a href="https://chromewebstore.google.com/detail/listsync/nphcgkjlogciccdjkjiocciooknjfhho" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ display:'inline-block', textDecoration:'none' }}>Zur Chrome Extension →</a>
+          </div>
+        </div>
       </section>
 
       {/* ── Level / Bonuses ── */}

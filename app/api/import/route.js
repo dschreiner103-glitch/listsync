@@ -37,7 +37,15 @@ async function setRawFields(listingId, { likes, material, soldAt, listedAt, boug
   const pg = isPostgres()
   const updates = []
   const args = []
-  if (likes !== undefined && likes !== null) { updates.push('likes');     args.push(Number(likes) || 0) }
+  if (likes !== undefined && likes !== null) {
+    const newLikes = Number(likes) || 0
+    updates.push('likes'); args.push(newLikes)
+    // Favoriten gestiegen? alten Stand als prevLikes merken → "+N neu"-Badge
+    const cur = await prisma.$queryRawUnsafe(
+      pg ? `SELECT likes FROM "Listing" WHERE id = $1` : `SELECT likes FROM "Listing" WHERE id = ?`, listingId)
+    const oldLikes = Number(cur?.[0]?.likes || 0)
+    if (newLikes > oldLikes) { updates.push('"prevLikes"'); args.push(oldLikes) }
+  }
   if (material)                              { updates.push('material');   args.push(material) }
   if (soldAt   !== undefined)                { updates.push('"soldAt"');   args.push(soldAt) }
   if (listedAt !== undefined)                { updates.push('"listedAt"'); args.push(listedAt) }

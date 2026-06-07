@@ -6,16 +6,29 @@ const trackedTabs = new Map()
 
 // ── Idempotenz-Schutz gegen doppelte POST_LISTING (Bridge-Retry) ─────────────
 // Key: listingId|platforms → Zeitstempel. Gleicher Post innerhalb 30s = Duplikat.
-const recentPosts = new Map()
-function isDuplicatePost(listing, platforms) {
-  const key = `${listing?.id ?? listing?.title}|${(platforms || []).slice().sort().join(',')}`
+// Idempotenz-Schutz gegen doppelte Posts. Der eigentliche Doppel-Upload entsteht beim
+// MV3-Worker-Neustart: Worker stirbt mitten in handlePost (Tabs schon offen) → Bridge sieht
+// geschlossenen Port → retryt POST_LISTING → in-memory Schutz ist nach Neustart leer → 2. Lauf.
+// Lösung: Dedup-Stand in chrome.storage.local (überlebt Neustart). Schlüssel ist die pro Klick
+// eindeutige postId; fehlt sie (alte App-Version), Fallback auf listingId+platforms.
+const seenKeys = new Set()        // schnelle Duplikate im selben Worker-Leben
+const DEDUP_MS = 120000
+async function isDuplicatePost(postId, listing, platforms) {
+  const key = postId
+    ? `id:${postId}`
+    : `lp:${listing?.id ?? listing?.title}|${(platforms || []).slice().sort().join(',')}`
+  if (seenKeys.has(key)) return true
+  seenKeys.add(key)
+  const STORE_KEY = 'recentPostIds'
   const now = Date.now()
-  const prev = recentPosts.get(key)
-  // Alte Einträge aufräumen
-  for (const [k, ts] of recentPosts) if (now - ts > 30000) recentPosts.delete(k)
-  if (prev && now - prev < 30000) return true
-  recentPosts.set(key, now)
-  return false
+  const store = await chrome.storage.local.get(STORE_KEY)
+  const map = store[STORE_KEY] || {}
+  let dup = false
+  if (map[key] && now - map[key] < DEDUP_MS) dup = true
+  for (const k of Object.keys(map)) if (now - map[k] > DEDUP_MS) delete map[k]
+  map[key] = now
+  await chrome.storage.local.set({ [STORE_KEY]: map })
+  return dup
 }
 
 // Benachrichtigung anzeigen
@@ -56,13 +69,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // SOFORT acken – handlePost dauert 10-30s (Tabs + Bilder). Würde man darauf
     // warten, schläft der MV3-Worker ein → Bridge sieht lastError → retryt →
     // DOPPELTER Upload. Daher fire-and-forget + Idempotenz-Schutz unten.
-    const dup = isDuplicatePost(msg.listing, msg.platforms)
-    sendResponse({ ok: true, duplicate: dup })
-    if (!dup) {
-      handlePost(msg.listing, msg.platforms).catch(e => console.warn('[ListSync BG] handlePost Fehler:', e.message))
-    } else {
-      console.warn('[ListSync BG] Doppel-Post ignoriert:', msg.listing?.id)
-    }
+    isDuplicatePost(msg.postId, msg.listing, msg.platforms).then(dup => {
+      sendResponse({ ok: true, duplicate: dup })
+      if (!dup) {
+        handlePost(msg.listing, msg.platforms).catch(e => console.warn('[ListSync BG] handlePost Fehler:', e.message))
+      } else {
+        console.warn('[ListSync BG] Doppel-Post ignoriert (postId):', msg.postId, msg.listing?.id)
+      }
+    })
     return true
   }
   if (msg.type === 'VINTED_SYNC_DATA') {
@@ -215,12 +229,40 @@ async function forwardToListSyncBridge(msg) {
 
 // ── Image loader ──────────────────────────────────────────────────────────────
 
-async function fetchImageAsBase64(url) {
+// Verändert ein Bild beim Reupload so, dass Datei- und Bild-Hash anders sind,
+// optisch aber kaum sichtbar. WICHTIG: wird IMMER auf das Original angewandt
+// (seed = reuploadCount), nie auf eine vorherige Ausgabe → kein kumulativer Verfall.
+async function transformImageBlob(blob, seed) {
+  try {
+    const bmp = await createImageBitmap(blob)
+    const w = bmp.width, h = bmp.height
+    // 1–2 % von allen Rändern wegschneiden (rotierend), zurück auf Originalgröße skalieren
+    const cropPct = 0.01 + (seed % 2) * 0.01
+    const cx = Math.round(w * cropPct), cy = Math.round(h * cropPct)
+    const sw = Math.max(1, w - 2 * cx), sh = Math.max(1, h - 2 * cy)
+    const canvas = new OffscreenCanvas(w, h)
+    const ctx = canvas.getContext('2d')
+    const bright   = [1.0, 1.02, 0.98, 1.03, 0.97][seed % 5]
+    const contrast = [1.0, 1.01, 0.99][seed % 3]
+    ctx.filter = `brightness(${bright}) contrast(${contrast})`
+    // bei ungeradem seed horizontal spiegeln
+    if (seed % 2 === 1) { ctx.translate(w, 0); ctx.scale(-1, 1) }
+    ctx.drawImage(bmp, cx, cy, sw, sh, 0, 0, w, h)
+    bmp.close?.()
+    const q = [0.92, 0.9, 0.88, 0.91][seed % 4]
+    return await canvas.convertToBlob({ type: 'image/jpeg', quality: q })
+  } catch (e) {
+    console.warn('[ListSync BG] Bild-Transformation fehlgeschlagen, nutze Original:', e.message)
+    return blob
+  }
+}
+
+async function fetchImageAsBase64(url, transformSeed = null) {
   try {
     const res  = await fetch(url)
     if (!res.ok) return null
-    const blob = await res.blob()
-    const mime = blob.type || 'image/jpeg'
+    let blob = await res.blob()
+    let mime = blob.type || 'image/jpeg'
 
     // HEIC/HEIF werden von Chrome nicht dekodiert
     if (mime.includes('heic') || mime.includes('heif')) {
@@ -230,6 +272,12 @@ async function fetchImageAsBase64(url) {
     if (blob.size > 15 * 1024 * 1024) {
       console.warn('[ListSync BG] Bild zu groß (>15MB):', url)
       return null
+    }
+
+    // Reupload: Bild frisch aus dem Original transformieren
+    if (transformSeed !== null) {
+      blob = await transformImageBlob(blob, Number(transformSeed) || 1)
+      mime = 'image/jpeg'
     }
     return await new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -253,6 +301,8 @@ function cleanDescription(desc) {
 }
 
 async function handlePost(listing, platforms) {
+  // Doppelte Plattform-Einträge entfernen (z.B. ['vinted','vinted'] → 1 Tab statt 2)
+  platforms = [...new Set((platforms || []).filter(Boolean))]
   const bgMode = await isBackgroundMode()
 
   // Im Hintergrund-Modus: aktuellen Tab merken um danach Fokus zurückzusetzen
@@ -281,6 +331,9 @@ async function handlePost(listing, platforms) {
         listingId:    cleanListing.id,
         listingTitle: cleanListing.title || 'Listing',
         isDraft:      cleanListing.status === 'entwurf',
+        // Reupload: alte Vinted-ID merken, um sie nach dem Posten zu ersetzen/löschen
+        regenerate:   !!cleanListing.regenerate,
+        oldVintedId:  cleanListing.oldVintedId || '',
       })
       // Timeout: nach 10min ohne LISTING_POSTED → Fehler-Notification
       setTimeout(() => {
@@ -297,10 +350,12 @@ async function handlePost(listing, platforms) {
   })
 
   // 3. Bilder parallel laden (während Vinted-Tab lädt, spart ~2-5s)
+  // Beim Reupload (regenerate) jedes Bild frisch transformieren – Seed = reuploadCount
+  const transformSeed = cleanListing.regenerate ? (Number(cleanListing.reuploadCount) || 1) : null
   const imageData = (await Promise.all(
     (cleanListing.images || []).slice(0, 8).map(url => {
       const fullUrl = url.startsWith('http') ? url : `${BASE_URL}${url}`
-      return fetchImageAsBase64(fullUrl)
+      return fetchImageAsBase64(fullUrl, transformSeed)
     })
   )).filter(Boolean)
 
@@ -309,6 +364,59 @@ async function handlePost(listing, platforms) {
   console.log('[ListSync BG] Bilder geladen:', imageData.length, '– ID:', cleanListing.id)
 
   await Promise.all(tabPromises)
+}
+
+// ── Reupload-Abschluss: neue Vinted-ID einfangen, App umschreiben, altes Item löschen ──────
+// Nach "Hochladen" navigiert Vinted auf /items/NEUE_ID. Diesen Tab-Wechsel fangen wir ab.
+const handledRelistTabs = new Set()
+chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
+  if (info.status !== 'complete') return
+  const t = trackedTabs.get(tabId)
+  if (!t || t.platform !== 'vinted' || !t.regenerate) return
+  const m = (tab.url || '').match(/vinted\.de\/items\/(\d+)/)
+  if (!m) return                                   // /items/new o.ä. → noch nicht fertig
+  const newVintedId = m[1]
+  if (String(newVintedId) === String(t.oldVintedId)) return
+  if (handledRelistTabs.has(tabId)) return
+  handledRelistTabs.add(tabId)
+  finishRelist(tabId, t.listingId, t.oldVintedId, newVintedId)
+    .catch(e => console.warn('[ListSync BG] finishRelist Fehler:', e.message))
+    .finally(() => setTimeout(() => handledRelistTabs.delete(tabId), 60000))
+})
+
+async function finishRelist(tabId, listingId, oldVintedId, newVintedId) {
+  console.log('[ListSync BG] Reupload fertig – neue Vinted-ID:', newVintedId, 'alt:', oldVintedId)
+  // 1. App: [vintedId]-Tag auf neue ID umschreiben → nächster Sync matcht denselben Datensatz (kein Duplikat)
+  if (listingId) {
+    try {
+      await fetch(`${BASE_URL}/api/listings/${listingId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newVintedId }), credentials: 'include',
+      })
+    } catch (e) { console.warn('[ListSync BG] newVintedId-PATCH fehlgeschlagen:', e.message) }
+  }
+  // 2. Altes Vinted-Item löschen (best effort, im Seiten-Origin mit Session-Cookies)
+  if (oldVintedId && String(oldVintedId) !== String(newVintedId)) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId }, world: 'MAIN',
+        func: deleteVintedItemInPage, args: [String(oldVintedId)],
+      })
+    } catch (e) { console.warn('[ListSync BG] Lösch-Injection fehlgeschlagen:', e.message) }
+  }
+  trackedTabs.delete(tabId)
+}
+
+// Läuft im MAIN-World auf vinted.de → korrekte Session/Cookies/Origin für die Delete-API
+function deleteVintedItemInPage(itemId) {
+  try {
+    const headers = { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content
+    if (csrf) headers['X-CSRF-Token'] = csrf
+    fetch(`https://www.vinted.de/api/v2/items/${itemId}`, { method: 'DELETE', headers, credentials: 'include' })
+      .then(r => console.log('[ListSync] Alte Anzeige gelöscht:', itemId, '→ HTTP', r.status))
+      .catch(e => console.warn('[ListSync] Löschen der alten Anzeige fehlgeschlagen:', e.message))
+  } catch (e) { console.warn('[ListSync] Delete-Fehler:', e) }
 }
 
 // Merkt sich den aktuellen Tab vor dem Crosspost

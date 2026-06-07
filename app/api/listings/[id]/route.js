@@ -56,6 +56,14 @@ export async function PATCH(req, { params }) {
     }
   }
 
+  // newVintedId: nach erfolgreichem Reupload den [vintedId]-Tag auf die neue Vinted-ID umschreiben,
+  // damit der Sync weiter denselben Datensatz matcht (statt ein Duplikat anzulegen).
+  if (data.newVintedId !== undefined && data.newVintedId !== null && String(data.newVintedId) !== '') {
+    const base    = (update.description !== undefined ? update.description : (existing.description || ''))
+    const cleaned = base.replace(/\n?\[vintedId:\d+\]/g, '').trimEnd()
+    update.description = `${cleaned}\n[vintedId:${data.newVintedId}]`
+  }
+
   const listing = await prisma.listing.update({
     where: { id: Number(params.id) },
     data: update,
@@ -84,6 +92,14 @@ export async function PATCH(req, { params }) {
   if (data.buyerName     !== undefined) { rawUpdates.push('"buyerName"');     rawArgs.push(data.buyerName) }
   if (data.buyerAddress  !== undefined) { rawUpdates.push('"buyerAddress"');  rawArgs.push(data.buyerAddress) }
   if (data.account_ids  !== undefined) { rawUpdates.push('account_ids');     rawArgs.push(JSON.stringify(data.account_ids)) }
+  if (data.prevLikes    !== undefined) { rawUpdates.push('"prevLikes"');     rawArgs.push(Number(data.prevLikes) || 0) }
+  // ackLikes: Favoriten als "gesehen" markieren → prevLikes = aktueller likes-Stand (Badge verschwindet)
+  if (data.ackLikes) {
+    const cur = await prisma.$queryRawUnsafe(
+      isPg ? `SELECT likes FROM "Listing" WHERE id = $1` : `SELECT likes FROM "Listing" WHERE id = ?`,
+      Number(params.id))
+    rawUpdates.push('"prevLikes"'); rawArgs.push(Number(cur?.[0]?.likes || 0))
+  }
 
   if (rawUpdates.length) {
     if (isPg) {

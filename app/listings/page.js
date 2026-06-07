@@ -159,6 +159,17 @@ export default function Listings() {
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
+  // Eindeutige Post-ID pro Klick → Background dedupt darauf (verhindert Doppel-Upload bei Worker-Neustart/Retry)
+  const newPostId = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+  // Favoriten als "gesehen" markieren → prevLikes = likes, Badge verschwindet
+  const ackLikes = async (id) => {
+    setListings(ls => ls.map(l => l.id === id ? { ...l, prevLikes: l.likes } : l))
+    try { await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ackLikes: true }) }) } catch {}
+  }
+
   const timeAgo = (date) => {
     if (!date) return ''
     const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000)
@@ -179,25 +190,39 @@ export default function Listings() {
   const openRelistModal = (id) => {
     const listing = listings.find(l => l.id === id)
     setSelPlatforms(listing?.platforms || [])
+    setCrosspostMode('publish') // Standard: hochladen
     setModal({ type: 'relist', id })
   }
 
   const doRelist = async (id) => {
-    const listing = listings.find(l => l.id === id)
-    const res     = await fetch(`/api/listings/${id}/relist`, { method: 'POST' })
+    const listing  = listings.find(l => l.id === id)
+    const isDraft   = crosspostMode === 'draft'
+    const newStatus = isDraft ? 'entwurf' : 'aktiv'
+    const res     = await fetch(`/api/listings/${id}/relist`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: crosspostMode }),
+    })
     const updated = await res.json()
-    setListings(ls => ls.map(l => l.id === id ? { ...l, days: 0, relistedAt: updated.relistedAt, status: 'aktiv' } : l))
+    // Variierten Titel/Beschreibung + Reupload-Zähler in die Liste übernehmen (relistedAt nur beim Hochladen)
+    setListings(ls => ls.map(l => l.id === id
+      ? { ...l, title: updated.title, description: updated.description, days: 0, status: newStatus, reuploadCount: updated.reuploadCount, ...(isDraft ? {} : { relistedAt: updated.relistedAt }) }
+      : l))
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
     setModal(null)
+    // Listing für die Extension: variierter Text + Original-Bilder (werden frisch transformiert) + Modus (Entwurf/Hochladen)
+    const postListing = {
+      ...(listing || {}),
+      title: updated.title, description: updated.description, images: updated.images, status: newStatus,
+      regenerate: true, reuploadCount: updated.reuploadCount, oldVintedId: updated.oldVintedId,
+    }
     if (extPlatforms.length > 0 && listing) {
       if (await checkExtension()) {
-        window.postMessage({ type: 'LISTSYNC_POST', listing, platforms: extPlatforms }, '*')
-        showToast(`Relisten auf ${extPlatforms.join(' & ')}…`)
+        window.postMessage({ type: 'LISTSYNC_POST', listing: postListing, platforms: extPlatforms, postId: newPostId() }, '*')
+        showToast(isDraft ? `Entwurf auf ${extPlatforms.join(' & ')} speichern…` : `Relisten auf ${extPlatforms.join(' & ')}…`)
       } else {
-        setMobileHelper({ listing, platforms: extPlatforms })
+        setMobileHelper({ listing: postListing, platforms: extPlatforms })
       }
     } else {
-      showToast('Erneut gelistet – Timer zurückgesetzt')
+      showToast(isDraft ? 'Als Entwurf gespeichert' : 'Erneut gelistet – Timer zurückgesetzt')
     }
   }
 
@@ -286,7 +311,7 @@ export default function Listings() {
       // Status-Override mitgeben damit Extension den richtigen Button klickt
       const listingWithMode = { ...listing, status: newStatus }
       if (await checkExtension()) {
-        window.postMessage({ type: 'LISTSYNC_POST', listing: listingWithMode, platforms: extPlatforms }, '*')
+        window.postMessage({ type: 'LISTSYNC_POST', listing: listingWithMode, platforms: extPlatforms, postId: newPostId() }, '*')
         showToast(isDraft ? `Entwurf auf ${extPlatforms.join(' & ')} speichern…` : `Öffne ${extPlatforms.join(' & ')}…`)
       } else {
         setMobileHelper({ listing: listingWithMode, platforms: extPlatforms })
@@ -425,6 +450,7 @@ export default function Listings() {
 
   return (
     <div className="ls-page">
+      <style>{`@keyframes ls-fav-pulse{0%{box-shadow:0 0 0 0 rgba(244,63,94,.5)}70%{box-shadow:0 0 0 7px rgba(244,63,94,0)}100%{box-shadow:0 0 0 0 rgba(244,63,94,0)}}`}</style>
       <Aurora />
       <Sidebar activeCount={listings.filter(l => l.status === 'aktiv').length} />
       <main className="md:ml-60 ls-page-content" style={{ position: 'relative', zIndex: 1 }}>
@@ -728,9 +754,18 @@ export default function Listings() {
                               📦 {l.lagerplatz}
                             </span>
                           )}
-                          {l.likes > 0 && (
-                            <span style={{ fontSize: 12, color: '#ec4899', fontWeight: 600 }}>♥ {l.likes}</span>
-                          )}
+                          {l.likes > 0 && (() => {
+                            const delta = l.likes - (l.prevLikes || 0)
+                            return delta > 0 ? (
+                              <span onClick={(e) => { e.stopPropagation(); ackLikes(l.id) }}
+                                title="Neuer Favorit – klicken zum Quittieren"
+                                style={{ fontSize: 11.5, fontWeight: 800, color: '#fff', background: 'linear-gradient(135deg,#ec4899,#f43f5e)', padding: '2px 9px', borderRadius: 8, cursor: 'pointer', animation: 'ls-fav-pulse 1.6s ease-out infinite' }}>
+                                🔥 +{delta} neue{delta > 1 ? '' : 'r'} Favorit{delta > 1 ? 'en' : ''}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 12, color: '#ec4899', fontWeight: 600 }}>♥ {l.likes}</span>
+                            )
+                          })()}
                           <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 'auto' }}>{l.views > 0 ? `${l.views} Views` : ''}</span>
                         </div>
                       </div>
@@ -820,20 +855,55 @@ export default function Listings() {
         <ModalWrap>
           <ModalHeader title="Erneut listen" />
           <ListingPreview l={modalListing} />
+
+          {/* Entwurf / Hochladen Auswahl */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
+            {[
+              { id:'publish', icon:'🚀', label:'Hochladen',   desc:'Direkt neu veröffentlichen' },
+              { id:'draft',   icon:'📝', label:'Als Entwurf', desc:'Nur speichern, nicht posten' },
+            ].map(opt => {
+              const sel = crosspostMode === opt.id
+              return (
+                <div key={opt.id} onClick={()=>setCrosspostMode(opt.id)}
+                  style={{ padding:'12px 10px', borderRadius:14, cursor:'pointer', textAlign:'center',
+                    border:`2px solid ${sel?(opt.id==='publish'?'#6366f1':'#f59e0b'):'var(--border)'}`,
+                    background:sel?(opt.id==='publish'?'rgba(99,102,241,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
+                    transition:'all .15s' }}>
+                  <div style={{ fontSize:22, marginBottom:4 }}>{opt.icon}</div>
+                  <p style={{ fontSize:12.5, fontWeight:700, margin:'0 0 2px', color:sel?(opt.id==='publish'?'#6366f1':'#d97706'):'var(--text-1)' }}>{opt.label}</p>
+                  <p style={{ fontSize:10.5, color:'var(--text-3)', margin:0 }}>{opt.desc}</p>
+                </div>
+              )
+            })}
+          </div>
+
           <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 12px' }}>Auf welchen Plattformen?</p>
           <PlatformPicker l={modalListing} />
-          <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-border)', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
-            <p style={{ fontSize: 12.5, color: 'var(--warn-text)', margin: 0 }}>Timer wird zurückgesetzt – nächste Erinnerung in <strong>{relistDays} Tagen</strong></p>
-          </div>
+          {crosspostMode === 'publish' && (
+            <div style={{ background: 'var(--warn-bg)', border: '1px solid var(--warn-border)', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
+              <p style={{ fontSize: 12.5, color: 'var(--warn-text)', margin: 0 }}>Timer wird zurückgesetzt – nächste Erinnerung in <strong>{relistDays} Tagen</strong></p>
+            </div>
+          )}
+          {crosspostMode === 'draft' && (
+            <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, padding: '12px 14px', marginBottom: 18 }}>
+              <p style={{ fontSize: 12.5, color: '#d97706', margin: 0 }}>Wird als <strong>Entwurf</strong> gespeichert – nicht veröffentlicht.</p>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={() => setModal(null)}
               style={{ flex: 1, padding: '13px', borderRadius: 13, border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 700, fontSize: 14, color: 'var(--text-1)', cursor: 'pointer', fontFamily: 'inherit' }}>
               Abbrechen
             </button>
             <button onClick={() => doRelist(modalListing.id)} disabled={selPlatforms.length === 0}
-              className="ls-btn-primary"
-              style={{ flex: 1, padding: '12px', borderRadius: 13, fontSize: 14 }}>
-              {selPlatforms.length > 0 ? `Auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''} listen` : 'Plattform wählen'}
+              style={{ flex: 1, padding: '13px', borderRadius: 13, fontSize: 14, fontWeight: 700, border: 'none', fontFamily: 'inherit',
+                cursor: selPlatforms.length === 0 ? 'default' : 'pointer',
+                background: selPlatforms.length === 0 ? 'var(--modal-close)' : (crosspostMode === 'draft' ? 'rgba(245,158,11,0.15)' : 'linear-gradient(135deg,#6366f1,#818cf8)'),
+                color: selPlatforms.length === 0 ? 'var(--text-3)' : (crosspostMode === 'draft' ? '#d97706' : '#fff') }}>
+              {selPlatforms.length === 0
+                ? 'Plattform wählen'
+                : crosspostMode === 'draft'
+                ? `📝 Als Entwurf auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''}`
+                : `🚀 Auf ${selPlatforms.length} Plattform${selPlatforms.length > 1 ? 'en' : ''} listen`}
             </button>
           </div>
         </ModalWrap>
@@ -1164,7 +1234,7 @@ export default function Listings() {
                 <button onClick={() => {
                   if (bPlatforms.length === 0) return
                   selectedListings.forEach(l => {
-                    window.postMessage({ type:'LISTSYNC_POST', listing:l, platforms:bPlatforms }, '*')
+                    window.postMessage({ type:'LISTSYNC_POST', listing:l, platforms:bPlatforms, postId: newPostId() }, '*')
                   })
                   setBulkModal(false); setBulkMode(false); setBulkSelected(new Set())
                   showToast(`🚀 ${selectedListings.length} Listings werden crossgepostet`)

@@ -40,6 +40,7 @@ window.addEventListener('message', (event) => {
       type: 'POST_LISTING',
       listing: event.data.listing,
       platforms: event.data.platforms,
+      postId: event.data.postId,
     })
     return
   }
