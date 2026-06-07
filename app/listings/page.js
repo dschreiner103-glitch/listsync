@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import Aurora from '@/components/Aurora'
@@ -159,6 +159,9 @@ export default function Listings() {
 
   const showToast = (msg, type = 'success') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
+  // Synchroner Re-Entry-Schutz gegen Doppelklick auf Posten/Relisten (verhindert doppelte Uploads)
+  const postingRef = useRef(false)
+
   // Eindeutige Post-ID pro Klick → Background dedupt darauf (verhindert Doppel-Upload bei Worker-Neustart/Retry)
   const newPostId = () => (typeof crypto !== 'undefined' && crypto.randomUUID)
     ? crypto.randomUUID()
@@ -195,6 +198,10 @@ export default function Listings() {
   }
 
   const doRelist = async (id) => {
+    if (postingRef.current) return            // Doppelklick abblocken
+    postingRef.current = true
+    setModal(null)                            // Modal sofort zu → Button kann nicht 2× gedrückt werden
+    setTimeout(() => { postingRef.current = false }, 1500)
     const listing  = listings.find(l => l.id === id)
     const isDraft   = crosspostMode === 'draft'
     const newStatus = isDraft ? 'entwurf' : 'aktiv'
@@ -207,7 +214,6 @@ export default function Listings() {
       ? { ...l, title: updated.title, description: updated.description, days: 0, status: newStatus, reuploadCount: updated.reuploadCount, ...(isDraft ? {} : { relistedAt: updated.relistedAt }) }
       : l))
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
-    setModal(null)
     // Listing für die Extension: variierter Text + Original-Bilder (werden frisch transformiert) + Modus (Entwurf/Hochladen)
     const postListing = {
       ...(listing || {}),
@@ -292,6 +298,10 @@ export default function Listings() {
   }
 
   const doPost = async (id) => {
+    if (postingRef.current) return            // Doppelklick abblocken
+    postingRef.current = true
+    setModal(null)                            // Modal sofort zu → Button kann nicht 2× gedrückt werden
+    setTimeout(() => { postingRef.current = false }, 1500)
     const listing = listings.find(l => l.id === id)
     const isDraft = crosspostMode === 'draft'
     // Status im DB aktualisieren
@@ -306,7 +316,6 @@ export default function Listings() {
     await fetch(`/api/listings/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
     setListings(ls => ls.map(l => l.id === id ? { ...l, platforms: selPlatforms, status: newStatus, account_ids: accountIds, ...(isDraft ? {} : { relistedAt: nowIso }) } : l))
     const extPlatforms = selPlatforms.filter(p => p === 'vinted' || p === 'kleinanzeigen' || p === 'ebay')
-    setModal(null)
     if (extPlatforms.length > 0 && listing) {
       // Status-Override mitgeben damit Extension den richtigen Button klickt
       const listingWithMode = { ...listing, status: newStatus }

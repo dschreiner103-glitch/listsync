@@ -12,11 +12,11 @@ const trackedTabs = new Map()
 // Lösung: Dedup-Stand in chrome.storage.local (überlebt Neustart). Schlüssel ist die pro Klick
 // eindeutige postId; fehlt sie (alte App-Version), Fallback auf listingId+platforms.
 const seenKeys = new Set()        // schnelle Duplikate im selben Worker-Leben
-const DEDUP_MS = 120000
+const DEDUP_MS = 25000
 async function isDuplicatePost(postId, listing, platforms) {
-  const key = postId
-    ? `id:${postId}`
-    : `lp:${listing?.id ?? listing?.title}|${(platforms || []).slice().sort().join(',')}`
+  // IMMER auf listingId+Plattformen deduppen – fängt Doppelklick, Bridge-Retry und doppelten Send,
+  // egal ob die postId gleich oder verschieden ist. Re-Post desselben Artikels erst nach 25s wieder.
+  const key = `lp:${listing?.id ?? listing?.title}|${(platforms || []).slice().sort().join(',')}`
   if (seenKeys.has(key)) return true
   seenKeys.add(key)
   const STORE_KEY = 'recentPostIds'
