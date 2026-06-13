@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 
 // Öffentliche Seiten (ohne Login erreichbar)
 const PUBLIC = ['/', '/login', '/register']
+// Für alle erreichbar — auch eingeloggte (kein Dashboard-Redirect)
+const NEUTRAL = ['/faq', '/privacy', '/features', '/vision', '/preise']
 // Das Plan-Auswahl-Gate
 const GATE = '/pricing'
 
@@ -24,12 +26,15 @@ export default function RouteGuard({ children }) {
   const onboardedRef = useRef(false)   // einmal true → bleibt true (kein Refetch nötig)
 
   const isPublic = PUBLIC.includes(pathname)
+  const isNeutral = NEUTRAL.includes(pathname)
 
   useEffect(() => {
     let active = true
     setReady(false)
 
     ;(async () => {
+      // Neutrale Seiten (FAQ etc.) immer rendern, egal ob ein-/ausgeloggt
+      if (isNeutral) { if (active) setReady(true); return }
       if (status === 'loading') return
 
       // ── Nicht eingeloggt ──
@@ -66,7 +71,7 @@ export default function RouteGuard({ children }) {
     return () => { active = false }
   }, [status, pathname])
 
-  // Öffentliche Seiten sofort rendern; geschützte erst nach Check
-  if (isPublic) return children
+  // Öffentliche/neutrale Seiten sofort rendern; geschützte erst nach Check
+  if (isPublic || isNeutral) return children
   return ready ? children : <Loader />
 }
