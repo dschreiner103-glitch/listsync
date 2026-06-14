@@ -4,13 +4,20 @@ import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
+const CREAM = '#ece7df'
+const INK = '#08080a'
+const ACC = '#f4511e'
+
 export default function RegisterPage() {
   const router = useRouter()
   const [name, setName]         = useState('')
   const [email, setEmail]       = useState('')
+  const [phone, setPhone]       = useState('')
   const [password, setPassword] = useState('')
+  const [showPw, setShowPw]     = useState(false)
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
+  const [gLoading, setGLoading] = useState(false)
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -20,7 +27,7 @@ export default function RegisterPage() {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password, name }),
+      body: JSON.stringify({ email, password, name, phone }),
     })
 
     if (!res.ok) {
@@ -36,114 +43,150 @@ export default function RegisterPage() {
     else router.push('/pricing')   // Nach Registrierung → Preis-Seite zum Plan wählen
   }
 
-  const inputStyle = {
-    width: '100%', padding: '13px 14px',
-    border: '1px solid var(--border)', borderRadius: 12, fontSize: 15,
-    background: 'var(--input-bg)', color: 'var(--text-1)',
-    fontFamily: 'inherit', transition: 'box-shadow .15s, border-color .15s',
-    boxSizing: 'border-box',
+  function handleGoogle() {
+    setGLoading(true)
+    signIn('google', { callbackUrl: '/pricing' })
   }
 
   return (
-    <div style={{
-      minHeight: '100vh', background: 'var(--bg)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '24px 16px',
-      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-    }}>
-      <div style={{ width: '100%', maxWidth: 380 }}>
+    <div className="lz-auth">
+      <style>{`
+        .lz-auth{ min-height:100vh; background:${INK}; color:${CREAM}; position:relative; overflow:hidden;
+          display:flex; align-items:center; justify-content:center; padding:40px 20px;
+          font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif; }
+        .lz-auth .orb{ position:absolute; border-radius:50%; filter:blur(90px); pointer-events:none; }
+        .lz-auth .orb1{ width:520px; height:520px; background:radial-gradient(circle,rgba(244,81,30,.32),transparent 68%); top:-160px; left:-120px; animation:lzfloat-a 22s ease-in-out infinite; }
+        .lz-auth .orb2{ width:460px; height:460px; background:radial-gradient(circle,rgba(200,30,30,.22),transparent 68%); bottom:-180px; right:-120px; animation:lzfloat-b 27s ease-in-out infinite; }
+        .lz-auth .orb3{ width:360px; height:360px; background:radial-gradient(circle,rgba(255,150,90,.14),transparent 70%); top:30%; right:24%; animation:lzfloat-c 31s ease-in-out infinite; }
+        @keyframes lzfloat-a{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(50px,40px)} }
+        @keyframes lzfloat-b{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(-40px,-50px)} }
+        @keyframes lzfloat-c{ 0%,100%{transform:translate(0,0)} 50%{transform:translate(30px,-30px)} }
+        @media(prefers-reduced-motion:reduce){ .lz-auth .orb{animation:none} }
 
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{
-            width: 60, height: 60, borderRadius: 18, margin: '0 auto 16px',
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(99,102,241,0.35)',
-          }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 6h11M9 12h11M9 18h11"/>
-              <circle cx="5" cy="6" r="1.5" fill="white" stroke="none"/>
-              <circle cx="5" cy="12" r="1.5" fill="white" stroke="none"/>
-              <circle cx="5" cy="18" r="1.5" fill="white" stroke="none"/>
-            </svg>
-          </div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 6px', letterSpacing: '-0.03em' }}>ListSync</h1>
-          <p style={{ fontSize: 14, color: 'var(--text-3)', margin: 0, fontWeight: 500 }}>Erstelle dein Konto</p>
-        </div>
+        .lz-auth .wrap{ position:relative; z-index:2; width:100%; max-width:400px; }
+        .lz-auth .brand{ display:flex; align-items:center; justify-content:center; gap:11px; margin-bottom:30px; }
+        .lz-auth .brand b{ width:38px; height:38px; border-radius:10px; background:${ACC}; display:grid; place-items:center; font-size:16px; font-weight:800; color:#fff; }
+        .lz-auth .brand span{ font-size:24px; font-weight:800; letter-spacing:-.04em; }
 
-        {/* Card */}
-        <div className="ls-card" style={{ padding: '28px 26px 24px' }}>
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        .lz-auth .card{ background:rgba(236,231,223,.035); border:1px solid rgba(236,231,223,.12);
+          border-radius:24px; padding:40px 34px 34px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+          box-shadow:0 30px 80px rgba(0,0,0,.5); }
+        .lz-auth h1{ font-size:30px; font-weight:800; letter-spacing:-.04em; margin:0 0 8px; line-height:1.05; }
+        .lz-auth h1 em{ font-style:italic; font-weight:300; color:${ACC}; }
+        .lz-auth .sub{ font-size:14.5px; color:rgba(236,231,223,.55); margin:0 0 28px; }
 
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 7 }}>
-                Name <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>(optional)</span>
-              </label>
-              <input
-                type="text"
-                autoComplete="name"
-                value={name} onChange={e => setName(e.target.value)}
-                placeholder="Dein Name"
-                style={inputStyle}
-                onFocus={e => { e.target.style.borderColor = '#818cf8'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)' }}
-                onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }}
-              />
+        .lz-auth label{ display:block; font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:rgba(236,231,223,.6); margin-bottom:8px; }
+        .lz-auth label .opt{ text-transform:none; letter-spacing:0; font-weight:500; color:rgba(236,231,223,.4); }
+        .lz-auth .field{ position:relative; margin-bottom:18px; }
+        .lz-auth input{ width:100%; box-sizing:border-box; padding:15px 16px; font-size:15px; font-family:inherit;
+          background:rgba(236,231,223,.05); border:1px solid rgba(236,231,223,.16); border-radius:14px;
+          color:${CREAM}; transition:border-color .2s, box-shadow .2s, background .2s; }
+        .lz-auth input::placeholder{ color:rgba(236,231,223,.3); }
+        .lz-auth input:focus{ outline:none; border-color:${ACC}; background:rgba(236,231,223,.07); box-shadow:0 0 0 3px rgba(244,81,30,.18); }
+        .lz-auth .pw-toggle{ position:absolute; right:6px; top:34px; background:none; border:none; color:rgba(236,231,223,.5);
+          font-size:12px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; padding:8px 10px; cursor:pointer; }
+        .lz-auth .pw-toggle:hover{ color:${CREAM}; }
+
+        .lz-auth .err{ background:rgba(244,81,30,.1); border:1px solid rgba(244,81,30,.35); color:#ff8a5e;
+          font-size:13px; border-radius:12px; padding:11px 14px; font-weight:600; margin-bottom:18px; }
+
+        .lz-auth .submit{ width:100%; padding:16px; border:none; border-radius:60px; font-size:15px; font-weight:700;
+          font-family:inherit; cursor:pointer; background:${ACC}; color:#fff; transition:transform .2s, opacity .2s, box-shadow .2s;
+          box-shadow:0 10px 30px rgba(244,81,30,.35); margin-top:4px; }
+        .lz-auth .submit:hover:not(:disabled){ transform:translateY(-2px); box-shadow:0 14px 38px rgba(244,81,30,.45); }
+        .lz-auth .submit:disabled{ opacity:.6; cursor:default; box-shadow:none; }
+
+        .lz-auth .divider{ display:flex; align-items:center; gap:14px; margin:24px 0; color:rgba(236,231,223,.4); font-size:12px; letter-spacing:.1em; text-transform:uppercase; }
+        .lz-auth .divider::before,.lz-auth .divider::after{ content:''; flex:1; height:1px; background:rgba(236,231,223,.14); }
+
+        .lz-auth .google{ width:100%; padding:15px; border-radius:60px; font-size:15px; font-weight:700; font-family:inherit; cursor:pointer;
+          background:${CREAM}; color:${INK}; border:none; display:flex; align-items:center; justify-content:center; gap:11px;
+          transition:transform .2s, opacity .2s; }
+        .lz-auth .google:hover:not(:disabled){ transform:translateY(-2px); }
+        .lz-auth .google:disabled{ opacity:.6; cursor:default; }
+
+        .lz-auth .foot{ text-align:center; font-size:14px; color:rgba(236,231,223,.5); margin-top:24px; }
+        .lz-auth .foot a{ color:${ACC}; font-weight:700; text-decoration:none; }
+        .lz-auth .foot a:hover{ text-decoration:underline; }
+        .lz-auth .terms{ text-align:center; font-size:12px; color:rgba(236,231,223,.38); margin-top:16px; line-height:1.5; }
+        .lz-auth .back{ position:absolute; top:26px; left:26px; z-index:3; color:rgba(236,231,223,.6); text-decoration:none; font-size:14px; font-weight:600; }
+        .lz-auth .back:hover{ color:${CREAM}; }
+        @media(max-width:480px){ .lz-auth .card{ padding:32px 24px 28px; } .lz-auth .back{ top:18px; left:18px; } }
+      `}</style>
+
+      <span className="orb orb1" /><span className="orb orb2" /><span className="orb orb3" />
+
+      <Link href="/" className="back">← Zurück</Link>
+
+      <div className="wrap">
+        <div className="brand"><b>LS</b><span>ListSync</span></div>
+
+        <div className="card">
+          <h1>Leg <em>los</em>.</h1>
+          <p className="sub">Erstelle dein kostenloses Konto in unter einer Minute.</p>
+
+          <button type="button" className="google" onClick={handleGoogle} disabled={gLoading}>
+            <GoogleIcon />
+            {gLoading ? 'Weiterleiten…' : 'Mit Google registrieren'}
+          </button>
+
+          <div className="divider">oder mit E-Mail</div>
+
+          <form onSubmit={handleSubmit}>
+            <div className="field">
+              <label>Name <span className="opt">(optional)</span></label>
+              <input type="text" autoComplete="name" value={name}
+                onChange={e => setName(e.target.value)} placeholder="Dein Name" />
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 7 }}>E-Mail</label>
-              <input
-                type="email" required autoComplete="email"
-                value={email} onChange={e => setEmail(e.target.value)}
-                placeholder="deine@email.de"
-                style={inputStyle}
-                onFocus={e => { e.target.style.borderColor = '#818cf8'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)' }}
-                onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }}
-              />
+            <div className="field">
+              <label>E-Mail</label>
+              <input type="email" required autoComplete="email" value={email}
+                onChange={e => setEmail(e.target.value)} placeholder="deine@email.de" />
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--text-2)', marginBottom: 7 }}>Passwort</label>
-              <input
-                type="password" required autoComplete="new-password"
-                value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="Mindestens 6 Zeichen"
-                style={inputStyle}
-                onFocus={e => { e.target.style.borderColor = '#818cf8'; e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)' }}
-                onBlur={e => { e.target.style.borderColor = 'var(--border)'; e.target.style.boxShadow = 'none' }}
-              />
+            <div className="field">
+              <label>Telefon <span className="opt">(optional)</span></label>
+              <input type="tel" autoComplete="tel" value={phone}
+                onChange={e => setPhone(e.target.value)} placeholder="+49 …" />
             </div>
 
-            {error && (
-              <div style={{
-                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
-                color: '#ef4444', fontSize: 13, borderRadius: 10, padding: '10px 14px', fontWeight: 600,
-              }}>{error}</div>
-            )}
+            <div className="field">
+              <label>Passwort</label>
+              <input type={showPw ? 'text' : 'password'} required autoComplete="new-password" value={password}
+                onChange={e => setPassword(e.target.value)} placeholder="Mindestens 6 Zeichen" />
+              <button type="button" className="pw-toggle" onClick={() => setShowPw(s => !s)} tabIndex={-1}>
+                {showPw ? 'Verbergen' : 'Zeigen'}
+              </button>
+            </div>
 
-            <button type="submit" disabled={loading}
-              style={{
-                width: '100%', padding: '14px',
-                background: loading ? 'rgba(99,102,241,0.5)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                color: '#fff', border: 'none', borderRadius: 14,
-                fontSize: 15, fontWeight: 700, cursor: loading ? 'default' : 'pointer',
-                boxShadow: loading ? 'none' : '0 4px 14px rgba(99,102,241,0.4)',
-                transition: 'opacity .15s',
-                fontFamily: 'inherit', marginTop: 4,
-              }}>
-              {loading ? 'Konto wird erstellt…' : 'Konto erstellen'}
+            {error && <div className="err">{error}</div>}
+
+            <button type="submit" className="submit" disabled={loading}>
+              {loading ? 'Konto wird erstellt…' : 'Konto erstellen →'}
             </button>
           </form>
+
+          <p className="terms">
+            Mit der Registrierung stimmst du unseren Nutzungsbedingungen und der Datenschutzerklärung zu.
+          </p>
         </div>
 
-        <p style={{ textAlign: 'center', fontSize: 13.5, color: 'var(--text-3)', marginTop: 20 }}>
-          Bereits registriert?{' '}
-          <Link href="/login" style={{ color: '#6366f1', fontWeight: 700, textDecoration: 'none' }}>
-            Anmelden
-          </Link>
+        <p className="foot">
+          Bereits registriert? <Link href="/login">Anmelden</Link>
         </p>
       </div>
     </div>
+  )
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.3-.4-3.5z"/>
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.6 39.6 16.2 44 24 44z"/>
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.1 5.6l6.2 5.2C40.9 35.7 44 30.3 44 24c0-1.3-.1-2.3-.4-3.5z"/>
+    </svg>
   )
 }

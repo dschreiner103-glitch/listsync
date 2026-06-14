@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
-import { prisma } from '@/lib/prisma'
+import { prisma, ensureMigrated } from '@/lib/prisma'
 
 export async function POST(req) {
   try {
-    const { email, password, name } = await req.json()
+    await ensureMigrated()
+    const { email, password, name, phone } = await req.json()
 
     if (!email || !password) {
       return NextResponse.json({ error: 'Email und Passwort erforderlich' }, { status: 400 })
@@ -22,6 +23,18 @@ export async function POST(req) {
     const user = await prisma.user.create({
       data: { email: email.toLowerCase(), password: hashed, name: name || null },
     })
+
+    // phone ist ein Raw-SQL-Feld (stale Prisma-Schema) → separat schreiben
+    if (phone) {
+      try {
+        const isPostgres = !!process.env.DATABASE_URL?.startsWith('postgres')
+        if (isPostgres) {
+          await prisma.$executeRawUnsafe(`UPDATE "User" SET phone = $1 WHERE id = $2`, String(phone).trim(), user.id)
+        } else {
+          await prisma.$executeRawUnsafe(`UPDATE "User" SET phone = ? WHERE id = ?`, String(phone).trim(), user.id)
+        }
+      } catch (e) { console.error('[Register] phone save failed', e) }
+    }
 
     return NextResponse.json({ id: user.id, email: user.email }, { status: 201 })
   } catch (err) {
