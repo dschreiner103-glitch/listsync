@@ -14,6 +14,7 @@ export default function AdminPage() {
   const [count, setCount]     = useState(0)
   const [state, setState]     = useState('locked')  // locked | loading | ok | error
   const [lockMsg, setLockMsg] = useState('')
+  const [errMsg, setErrMsg]   = useState('')
   const [tab, setTab]         = useState('users')
 
   const [subject, setSubject] = useState('')
@@ -32,7 +33,11 @@ export default function AdminPage() {
     try {
       const r = await fetch('/api/admin/users', { headers: { 'x-admin-code': tryCode } })
       if (r.status === 403) { setState('locked'); setLockMsg('Falscher Code.'); sessionStorage.removeItem('adminCode'); return }
-      if (!r.ok) { setState('error'); return }
+      if (!r.ok) {
+        let msg = 'HTTP ' + r.status
+        try { const d = await r.json(); if (d?.error) msg = d.error } catch {}
+        setErrMsg(msg); setState('error'); return
+      }
       const data = await r.json()
       setUsers(data.users || []); setCount(data.count || 0)
       setCode(tryCode); sessionStorage.setItem('adminCode', tryCode)
@@ -143,7 +148,13 @@ export default function AdminPage() {
           </div>
         )}
 
-        {state === 'error' && <div className="center">Fehler beim Laden.</div>}
+        {state === 'error' && (
+          <div className="center">
+            Fehler beim Laden.<br />
+            <span style={{ fontSize: 13, color: 'rgba(236,231,223,.5)' }}>{errMsg}</span><br /><br />
+            <button className="back" onClick={() => { setState('locked'); setErrMsg('') }}>Nochmal</button>
+          </div>
+        )}
 
         {state === 'ok' && <>
           <h1>Nutzer & <em>Broadcast</em></h1>
