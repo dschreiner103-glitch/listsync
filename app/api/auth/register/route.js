@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { hash } from 'bcryptjs'
 import { prisma, ensureMigrated } from '@/lib/prisma'
+import { ensureStripeCustomer } from '@/lib/stripe'
 
 export async function POST(req) {
   try {
@@ -35,6 +36,12 @@ export async function POST(req) {
         }
       } catch (e) { console.error('[Register] phone save failed', e) }
     }
+
+    // Stripe-Kunde anlegen → jeder Nutzer erscheint im Stripe-Dashboard.
+    // Darf die Registrierung nie blockieren, daher try/catch.
+    try {
+      await ensureStripeCustomer(user.id)
+    } catch (e) { console.error('[Register] Stripe customer failed', e) }
 
     return NextResponse.json({ id: user.id, email: user.email }, { status: 201 })
   } catch (err) {
