@@ -98,6 +98,12 @@ export default function AdminPage() {
         .adm .res.ok{ background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.3); color:#4ade80; }
         .adm .res.err{ background:rgba(244,81,30,.1); border:1px solid rgba(244,81,30,.35); color:#ff8a5e; }
         .adm .center{ text-align:center; padding:60px 20px; color:rgba(236,231,223,.6); }
+        .adm .stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+        @media(max-width:620px){ .adm .stats{ grid-template-columns:repeat(2,1fr); } }
+        .adm .stat{ background:rgba(236,231,223,.04); border:1px solid rgba(236,231,223,.12); border-radius:16px; padding:18px 20px; }
+        .adm .stat .n{ font-size:30px; font-weight:800; letter-spacing:-.03em; line-height:1; }
+        .adm .stat .l{ font-size:12px; color:rgba(236,231,223,.55); margin-top:6px; text-transform:uppercase; letter-spacing:.05em; }
+        .adm .stat.acc .n{ color:${ACC}; }
       `}</style>
 
       <div className="inner">
@@ -113,6 +119,20 @@ export default function AdminPage() {
         {state === 'ok' && <>
           <h1>Nutzer & <em>Broadcast</em></h1>
           <p className="muted">{count} registrierte Nutzer.</p>
+
+          {(() => {
+            const free     = users.filter(u => (u.plan || 'free') === 'free').length
+            const pro      = users.filter(u => u.plan === 'pro').length
+            const lifetime = users.filter(u => u.plan === 'lifetime').length
+            return (
+              <div className="stats">
+                <div className="stat"><div className="n">{count}</div><div className="l">Gesamt</div></div>
+                <div className="stat acc"><div className="n">{free}</div><div className="l">Free</div></div>
+                <div className="stat"><div className="n">{pro}</div><div className="l">Pro</div></div>
+                <div className="stat"><div className="n">{lifetime}</div><div className="l">Lifetime</div></div>
+              </div>
+            )
+          })()}
 
           <div className="tabs">
             <button className={'tab' + (tab === 'users' ? ' on' : '')} onClick={() => setTab('users')}>Nutzer ({count})</button>

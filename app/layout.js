@@ -1,4 +1,5 @@
 import SessionWrapper from '@/components/SessionWrapper'
+import { Analytics } from '@vercel/analytics/react'
 
 export const metadata = { title: 'ListSync', description: 'Crosslisting Tool für Reseller' }
 
@@ -426,6 +427,7 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         <SessionWrapper>{children}</SessionWrapper>
+        <Analytics />
         <script dangerouslySetInnerHTML={{ __html: `
           /* Interactive 3D tilt for .ls-card on desktop */
           (function() {
