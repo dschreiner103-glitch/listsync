@@ -1,17 +1,16 @@
 import { NextResponse } from 'next/server'
 import { prisma, ensureMigrated } from '@/lib/prisma'
-import { getAdminSession } from '@/lib/admin'
+import { checkAdminCode } from '@/lib/admin'
 
-export async function GET() {
-  const session = await getAdminSession()
-  if (!session) return NextResponse.json({ error: 'Kein Zugriff' }, { status: 403 })
+export async function GET(req) {
+  if (!checkAdminCode(req.headers.get('x-admin-code'))) {
+    return NextResponse.json({ error: 'Falscher Code' }, { status: 403 })
+  }
 
   await ensureMigrated()
-  const isPostgres = !!process.env.DATABASE_URL?.startsWith('postgres')
   const sql = `SELECT id, email, name, phone, plan, plan_status, stripe_customer_id, createdAt FROM "User" ORDER BY id DESC`
   const rows = await prisma.$queryRawUnsafe(sql)
 
-  // BigInt/Date robust serialisieren
   const users = rows.map(u => ({
     id: Number(u.id),
     email: u.email,

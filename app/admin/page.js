@@ -8,26 +8,37 @@ const ACC = '#f4511e'
 
 export default function AdminPage() {
   const router = useRouter()
-  const [users, setUsers]   = useState([])
-  const [count, setCount]   = useState(0)
-  const [state, setState]   = useState('loading')  // loading | ok | denied | error
-  const [tab, setTab]       = useState('users')     // users | broadcast
+  const [code, setCode]       = useState('')        // akzeptierter Code
+  const [codeInput, setCodeInput] = useState('')
+  const [users, setUsers]     = useState([])
+  const [count, setCount]     = useState(0)
+  const [state, setState]     = useState('locked')  // locked | loading | ok | error
+  const [lockMsg, setLockMsg] = useState('')
+  const [tab, setTab]         = useState('users')
 
   const [subject, setSubject] = useState('')
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [result, setResult]   = useState(null)
 
+  // Beim Laden: gespeicherten Code aus der Sitzung versuchen
   useEffect(() => {
-    fetch('/api/admin/users')
-      .then(async r => {
-        if (r.status === 403) { setState('denied'); return }
-        if (!r.ok) { setState('error'); return }
-        const data = await r.json()
-        setUsers(data.users || []); setCount(data.count || 0); setState('ok')
-      })
-      .catch(() => setState('error'))
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem('adminCode') : null
+    if (saved) unlock(saved)
   }, [])
+
+  async function unlock(tryCode) {
+    setState('loading'); setLockMsg('')
+    try {
+      const r = await fetch('/api/admin/users', { headers: { 'x-admin-code': tryCode } })
+      if (r.status === 403) { setState('locked'); setLockMsg('Falscher Code.'); sessionStorage.removeItem('adminCode'); return }
+      if (!r.ok) { setState('error'); return }
+      const data = await r.json()
+      setUsers(data.users || []); setCount(data.count || 0)
+      setCode(tryCode); sessionStorage.setItem('adminCode', tryCode)
+      setState('ok')
+    } catch { setState('error') }
+  }
 
   async function send(testOnly) {
     if (!subject.trim() || !message.trim()) { setResult({ error: 'Betreff und Nachricht ausfüllen.' }); return }
@@ -35,7 +46,8 @@ export default function AdminPage() {
     setSending(true); setResult(null)
     try {
       const r = await fetch('/api/admin/broadcast', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': code },
         body: JSON.stringify({ subject, message, testOnly }),
       })
       const data = await r.json()
@@ -54,26 +66,22 @@ export default function AdminPage() {
   return (
     <div className="adm">
       <style>{`
-        .adm{ min-height:100vh; background:${INK}; color:${CREAM}; font-family:'Inter',-apple-system,sans-serif;
-          padding:40px 22px 80px; }
+        .adm{ min-height:100vh; background:${INK}; color:${CREAM}; font-family:'Inter',-apple-system,sans-serif; padding:40px 22px 80px; }
         .adm .inner{ max-width:980px; margin:0 auto; }
         .adm .top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:26px; flex-wrap:wrap; gap:14px; }
         .adm .brand{ display:flex; align-items:center; gap:10px; font-weight:800; font-size:20px; letter-spacing:-.03em; }
         .adm .brand b{ width:32px; height:32px; border-radius:9px; background:${ACC}; display:grid; place-items:center; font-size:14px; color:#fff; }
-        .adm .back{ background:none; border:1px solid rgba(236,231,223,.2); color:${CREAM}; border-radius:30px; padding:9px 18px;
-          font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+        .adm .back{ background:none; border:1px solid rgba(236,231,223,.2); color:${CREAM}; border-radius:30px; padding:9px 18px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
         .adm .back:hover{ border-color:${CREAM}; }
         .adm h1{ font-size:30px; font-weight:800; letter-spacing:-.04em; margin:0 0 4px; }
         .adm h1 em{ font-style:italic; font-weight:300; color:${ACC}; }
         .adm .muted{ color:rgba(236,231,223,.55); font-size:14px; margin:0 0 24px; }
         .adm .tabs{ display:flex; gap:8px; margin-bottom:22px; }
-        .adm .tab{ background:rgba(236,231,223,.05); border:1px solid rgba(236,231,223,.14); color:${CREAM};
-          border-radius:30px; padding:10px 20px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
+        .adm .tab{ background:rgba(236,231,223,.05); border:1px solid rgba(236,231,223,.14); color:${CREAM}; border-radius:30px; padding:10px 20px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
         .adm .tab.on{ background:${ACC}; border-color:${ACC}; color:#fff; }
         .adm .card{ background:rgba(236,231,223,.035); border:1px solid rgba(236,231,223,.12); border-radius:18px; padding:22px; }
         .adm table{ width:100%; border-collapse:collapse; font-size:13.5px; }
-        .adm th{ text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:rgba(236,231,223,.5);
-          padding:8px 10px; border-bottom:1px solid rgba(236,231,223,.14); }
+        .adm th{ text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:rgba(236,231,223,.5); padding:8px 10px; border-bottom:1px solid rgba(236,231,223,.14); }
         .adm td{ padding:11px 10px; border-bottom:1px solid rgba(236,231,223,.07); color:rgba(236,231,223,.9); }
         .adm tr:hover td{ background:rgba(236,231,223,.03); }
         .adm .pill{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.04em; }
@@ -81,11 +89,8 @@ export default function AdminPage() {
         .adm .pill.pro{ background:rgba(99,102,241,.2); color:#a5b4fc; }
         .adm .pill.lifetime{ background:rgba(244,81,30,.2); color:#ff8a5e; }
         .adm .yes{ color:#4ade80; font-weight:700; } .adm .no{ color:rgba(236,231,223,.35); }
-        .adm label{ display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
-          color:rgba(236,231,223,.6); margin:0 0 8px; }
-        .adm input,.adm textarea{ width:100%; box-sizing:border-box; padding:13px 14px; font-size:15px; font-family:inherit;
-          background:rgba(236,231,223,.05); border:1px solid rgba(236,231,223,.16); border-radius:12px; color:${CREAM};
-          margin-bottom:18px; }
+        .adm label{ display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:rgba(236,231,223,.6); margin:0 0 8px; }
+        .adm input,.adm textarea{ width:100%; box-sizing:border-box; padding:13px 14px; font-size:15px; font-family:inherit; background:rgba(236,231,223,.05); border:1px solid rgba(236,231,223,.16); border-radius:12px; color:${CREAM}; margin-bottom:18px; }
         .adm input:focus,.adm textarea:focus{ outline:none; border-color:${ACC}; box-shadow:0 0 0 3px rgba(244,81,30,.18); }
         .adm textarea{ min-height:170px; resize:vertical; line-height:1.5; }
         .adm .row{ display:flex; gap:12px; flex-wrap:wrap; }
@@ -104,6 +109,13 @@ export default function AdminPage() {
         .adm .stat .n{ font-size:30px; font-weight:800; letter-spacing:-.03em; line-height:1; }
         .adm .stat .l{ font-size:12px; color:rgba(236,231,223,.55); margin-top:6px; text-transform:uppercase; letter-spacing:.05em; }
         .adm .stat.acc .n{ color:${ACC}; }
+        /* Lock-Screen */
+        .adm .lock{ max-width:340px; margin:12vh auto 0; text-align:center; }
+        .adm .lock .ico{ width:56px; height:56px; border-radius:16px; background:${ACC}; display:grid; place-items:center; margin:0 auto 20px; font-size:24px; }
+        .adm .lock h2{ font-size:22px; font-weight:800; margin:0 0 8px; }
+        .adm .lock p{ color:rgba(236,231,223,.55); font-size:14px; margin:0 0 24px; }
+        .adm .lock input{ text-align:center; letter-spacing:.3em; font-size:20px; }
+        .adm .lock .err{ color:#ff8a5e; font-size:13px; font-weight:600; margin:-8px 0 14px; }
       `}</style>
 
       <div className="inner">
@@ -112,8 +124,25 @@ export default function AdminPage() {
           <button className="back" onClick={() => router.push('/dashboard')}>← Dashboard</button>
         </div>
 
-        {state === 'loading' && <div className="center">Lädt…</div>}
-        {state === 'denied' && <div className="center">🔒 Kein Zugriff. Diese Seite ist nur für Admins (deine E-Mail muss in <code>ADMIN_EMAILS</code> stehen).</div>}
+        {(state === 'locked' || state === 'loading') && (
+          <div className="lock">
+            <div className="ico">🔒</div>
+            <h2>Admin-Zugang</h2>
+            <p>Gib deinen Zugangscode ein.</p>
+            <form onSubmit={(e) => { e.preventDefault(); unlock(codeInput) }}>
+              <input
+                type="password" inputMode="numeric" autoFocus
+                value={codeInput} onChange={e => setCodeInput(e.target.value)}
+                placeholder="• • • • • •"
+              />
+              {lockMsg && <div className="err">{lockMsg}</div>}
+              <button type="submit" className="btn primary" style={{ width: '100%' }} disabled={state === 'loading'}>
+                {state === 'loading' ? 'Prüfe…' : 'Zugang'}
+              </button>
+            </form>
+          </div>
+        )}
+
         {state === 'error' && <div className="center">Fehler beim Laden.</div>}
 
         {state === 'ok' && <>
@@ -187,7 +216,7 @@ export default function AdminPage() {
               )}
               <p className="note">
                 Tipp: Erst „Testmail an mich" klicken und in deinem Postfach prüfen, dann an alle senden.<br />
-                Benötigt einen <code>RESEND_API_KEY</code> und einen Absender via <code>EMAIL_FROM</code> (verifizierte Domain) in den Vercel-Variablen.
+                Benötigt einen <code>RESEND_API_KEY</code> und einen Absender via <code>EMAIL_FROM</code> in den Vercel-Variablen.
               </p>
             </div>
           )}
