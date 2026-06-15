@@ -91,7 +91,7 @@ export default function AdminPage() {
         .adm tr:hover td{ background:rgba(236,231,223,.03); }
         .adm .pill{ font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.04em; }
         .adm .pill.free{ background:rgba(236,231,223,.1); color:rgba(236,231,223,.7); }
-        .adm .pill.pro{ background:rgba(99,102,241,.2); color:#a5b4fc; }
+        .adm .pill.pro{ background:rgba(244,81,30,.2); color:#ffb89e; }
         .adm .pill.lifetime{ background:rgba(244,81,30,.2); color:#ff8a5e; }
         .adm .yes{ color:#4ade80; font-weight:700; } .adm .no{ color:rgba(236,231,223,.35); }
         .adm label{ display:block; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:rgba(236,231,223,.6); margin:0 0 8px; }

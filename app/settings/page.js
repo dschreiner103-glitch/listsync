@@ -37,7 +37,7 @@ const inputStyle = {
 
 const PLAN_LABELS = {
   free:     { label: 'Free',     color: '#6b7280', bg: 'rgba(107,114,128,0.12)' },
-  pro:      { label: 'Pro',      color: '#6366f1', bg: 'rgba(99,102,241,0.12)' },
+  pro:      { label: 'Pro',      color: '#f4511e', bg: 'rgba(244,81,30,0.12)' },
   lifetime: { label: 'Lifetime', color: '#f59e0b', bg: 'rgba(245,158,11,0.12)' },
 }
 
@@ -213,7 +213,7 @@ export default function Settings() {
                 {plan === 'free' && (
                   <button onClick={() => router.push('/pricing')} style={{
                     padding: '8px 18px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                    background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff',
+                    background: 'linear-gradient(135deg,#f4511e,#ff7a4d)', color: '#fff',
                     fontSize: 13, fontWeight: 700,
                   }}>
                     Auf Pro upgraden
@@ -247,7 +247,7 @@ export default function Settings() {
                 onChange={e => setBusiness(b => ({ ...b, shopName: e.target.value }))}
                 placeholder="Dein Name oder Shopname"
                 style={inputStyle}
-                onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                 onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
               />
             </Field>
@@ -256,7 +256,7 @@ export default function Settings() {
                 onChange={e => setBusiness(b => ({ ...b, address: e.target.value }))}
                 placeholder={"Musterstraße 1\n12345 Musterstadt"}
                 style={{ ...inputStyle, resize: 'vertical' }}
-                onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                 onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
               />
             </Field>
@@ -265,15 +265,15 @@ export default function Settings() {
                 onChange={e => setBusiness(b => ({ ...b, taxId: e.target.value }))}
                 placeholder="12/345/67890"
                 style={inputStyle}
-                onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                 onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
               />
             </Field>
             <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
               <div style={{
                 width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-                border: `2px solid ${business.kleinunternehmer ? '#6366f1' : 'var(--border)'}`,
-                background: business.kleinunternehmer ? '#6366f1' : 'var(--input-bg)',
+                border: `2px solid ${business.kleinunternehmer ? '#f4511e' : 'var(--border)'}`,
+                background: business.kleinunternehmer ? '#f4511e' : 'var(--input-bg)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'all .15s', cursor: 'pointer',
               }}
@@ -295,7 +295,7 @@ export default function Settings() {
                 <input type="number" min="0" value={goals.day}
                   onChange={e => setGoals(g => ({ ...g, day: Number(e.target.value) }))}
                   style={{ ...inputStyle, textAlign: 'center', fontWeight: 700 }}
-                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                   onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
                 />
               </Field>
@@ -303,7 +303,7 @@ export default function Settings() {
                 <input type="number" min="0" value={goals.month}
                   onChange={e => setGoals(g => ({ ...g, month: Number(e.target.value) }))}
                   style={{ ...inputStyle, textAlign: 'center', fontWeight: 700 }}
-                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                   onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
                 />
               </Field>
@@ -317,7 +317,7 @@ export default function Settings() {
                 <input type="number" min="1" max="60" value={relistDays}
                   onChange={e => setRelistDays(Number(e.target.value))}
                   style={{ ...inputStyle, width: 80, textAlign: 'center', fontWeight: 700 }}
-                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                   onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
                 />
                 <span style={{ fontSize: 13.5, color: 'var(--text-2)', fontWeight: 500 }}>Tagen ohne Verkauf</span>
@@ -328,9 +328,9 @@ export default function Settings() {
                 <button key={d} onClick={() => setRelistDays(d)}
                   style={{
                     padding: '8px 16px', borderRadius: 11, fontSize: 13, fontWeight: 700,
-                    border: `1.5px solid ${relistDays === d ? '#6366f1' : 'var(--border)'}`,
-                    background: relistDays === d ? 'rgba(99,102,241,0.08)' : 'var(--surface)',
-                    color: relistDays === d ? '#6366f1' : 'var(--text-2)',
+                    border: `1.5px solid ${relistDays === d ? '#f4511e' : 'var(--border)'}`,
+                    background: relistDays === d ? 'rgba(244,81,30,0.08)' : 'var(--surface)',
+                    color: relistDays === d ? '#f4511e' : 'var(--text-2)',
                     cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
                   }}>
                   {d} Tage
@@ -353,14 +353,14 @@ export default function Settings() {
                       <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.dot, display: 'inline-block' }}/>
                       <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-1)' }}>{p.name}</span>
                       {pltAccounts.length > 0 && (
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 8, background: 'rgba(244,81,30,0.1)', color: '#f4511e' }}>
                           {pltAccounts.length} Account{pltAccounts.length > 1 ? 's' : ''}
                         </span>
                       )}
                     </div>
                     <button
                       onClick={() => { setAccModal({ platform: plt }); setAccForm({ name: '', username: '' }) }}
-                      style={{ padding: '5px 12px', borderRadius: 9, border: '1px solid rgba(99,102,241,0.25)', background: 'rgba(99,102,241,0.07)', color: '#6366f1', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      style={{ padding: '5px 12px', borderRadius: 9, border: '1px solid rgba(244,81,30,0.25)', background: 'rgba(244,81,30,0.07)', color: '#f4511e', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 5 }}>
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
                       Hinzufügen
                     </button>
@@ -400,8 +400,8 @@ export default function Settings() {
                     <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-1)' }}>{p.name}</span>
                     <span style={{
                       fontSize: 10.5, fontWeight: 700, padding: '2px 7px', borderRadius: 7,
-                      background: id === 'ebay' ? 'rgba(99,102,241,0.1)' : 'rgba(59,130,246,0.1)',
-                      color: id === 'ebay' ? '#6366f1' : '#3b82f6',
+                      background: id === 'ebay' ? 'rgba(244,81,30,0.1)' : 'rgba(59,130,246,0.1)',
+                      color: id === 'ebay' ? '#f4511e' : '#3b82f6',
                     }}>{id === 'ebay' ? 'API' : 'Login'}</span>
                     {connected && (
                       <span style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>
@@ -415,7 +415,7 @@ export default function Settings() {
                         Trennen
                       </button>
                     : <button onClick={() => openModal(id)}
-                        style={{ fontSize: 12.5, padding: '6px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.07)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                        style={{ fontSize: 12.5, padding: '6px 14px', borderRadius: 10, background: 'rgba(244,81,30,0.07)', color: '#f4511e', border: '1px solid rgba(244,81,30,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
                         Verbinden
                       </button>
                   }
@@ -428,13 +428,13 @@ export default function Settings() {
           <Section title="Plan">
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: 13.5, color: 'var(--text-2)', fontWeight: 500 }}>Aktueller Plan</span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 8, background: 'rgba(99,102,241,0.1)', color: '#6366f1' }}>Freemium</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 8, background: 'rgba(244,81,30,0.1)', color: '#f4511e' }}>Freemium</span>
             </div>
             <button style={{
               width: '100%', padding: '13px', borderRadius: 14,
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
+              background: 'linear-gradient(135deg, #f4511e, #ff7a4d)', color: '#fff',
               border: 'none', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: 'inherit',
-              boxShadow: '0 4px 14px rgba(99,102,241,0.35)',
+              boxShadow: '0 4px 14px rgba(244,81,30,0.35)',
             }}>
               ✨ Auf Pro upgraden – ab 9€/Monat
             </button>
@@ -497,7 +497,7 @@ export default function Settings() {
                   onChange={e => setAccForm(f => ({ ...f, name: e.target.value }))}
                   placeholder="z.B. Haupt-Account, Winterkleidung…"
                   style={inputStyle}
-                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                   onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
                 />
               </div>
@@ -508,7 +508,7 @@ export default function Settings() {
                   onChange={e => setAccForm(f => ({ ...f, username: e.target.value }))}
                   placeholder={`Dein ${PLATFORMS[accModal.platform]?.name}-Benutzername`}
                   style={inputStyle}
-                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                   onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
                 />
               </div>
@@ -556,7 +556,7 @@ export default function Settings() {
                 <input value={creds.apiKey} onChange={e => setCreds(c => ({ ...c, apiKey: e.target.value }))}
                   placeholder="App ID / Production Key"
                   style={inputStyle}
-                  onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                  onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                   onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
                 />
                 <p style={{ fontSize: 12, color: 'var(--text-3)', margin: 0 }}>Erhältlich unter developer.ebay.com → My Account → Application Keys</p>
@@ -568,7 +568,7 @@ export default function Settings() {
                   <input value={creds.username} onChange={e => setCreds(c => ({ ...c, username: e.target.value }))}
                     placeholder={`Dein ${modal.name}-Benutzername`}
                     style={inputStyle}
-                    onFocus={e => { e.target.style.borderColor='#818cf8'; e.target.style.boxShadow='0 0 0 3px rgba(99,102,241,0.12)' }}
+                    onFocus={e => { e.target.style.borderColor='#ff8a5c'; e.target.style.boxShadow='0 0 0 3px rgba(244,81,30,0.12)' }}
                     onBlur={e => { e.target.style.borderColor='var(--border)'; e.target.style.boxShadow='none' }}
                   />
                 </div>

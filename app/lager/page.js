@@ -27,7 +27,7 @@ function buildTree(listings) {
   return tree
 }
 
-const PALETTE = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6','#f97316']
+const PALETTE = ['#f4511e','#ff7a4d','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6','#f97316']
 function pickColor(str) {
   let h = 0
   for (let i = 0; i < str.length; i++) h = str.charCodeAt(i) + ((h << 5) - h)
@@ -38,7 +38,7 @@ function hexToRgb(hex) {
   return `${r},${g},${b}`
 }
 
-const STATUS_COLOR = { aktiv:'#10b981', verkauft:'#6366f1', entwurf:'#f59e0b', inaktiv:'#6b7280' }
+const STATUS_COLOR = { aktiv:'#10b981', verkauft:'#f4511e', entwurf:'#f59e0b', inaktiv:'#6b7280' }
 const STATUS_LABEL = { aktiv:'Aktiv', verkauft:'Verkauft', entwurf:'Entwurf', inaktiv:'Inaktiv' }
 
 // ── 3D Shelf Card ────────────────────────────────────────────────────
@@ -177,14 +177,14 @@ function AssignModal({ listing, tree, onSave, onClose }) {
           </div>
         </div>
         {regal && (
-          <div style={{ background:'rgba(99,102,241,.08)',border:'1px solid rgba(99,102,241,.2)',borderRadius:12,padding:'10px 14px',marginBottom:16,fontSize:12,color:'#6366f1',fontWeight:600 }}>
+          <div style={{ background:'rgba(244,81,30,.08)',border:'1px solid rgba(244,81,30,.2)',borderRadius:12,padding:'10px 14px',marginBottom:16,fontSize:12,color:'#f4511e',fontWeight:600 }}>
             📍 {[regal,box,fach].filter(Boolean).join(' → ') || regal}
           </div>
         )}
         <div style={{ display:'flex',gap:10 }}>
           <button onClick={onClose} style={{ flex:1,padding:'11px',borderRadius:12,border:'1px solid var(--border)',background:'var(--modal-close)',color:'var(--text-1)',fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>Abbrechen</button>
           <button onClick={handleSave} disabled={saving||!regal}
-            style={{ flex:1,padding:'11px',borderRadius:12,border:'none',background:saving||!regal?'var(--modal-close)':'#6366f1',color:saving||!regal?'var(--text-3)':'#fff',fontWeight:700,fontSize:13,cursor:saving||!regal?'default':'pointer',fontFamily:'inherit' }}>
+            style={{ flex:1,padding:'11px',borderRadius:12,border:'none',background:saving||!regal?'var(--modal-close)':'#f4511e',color:saving||!regal?'var(--text-3)':'#fff',fontWeight:700,fontSize:13,cursor:saving||!regal?'default':'pointer',fontFamily:'inherit' }}>
             {saving ? 'Speichert…' : 'Speichern'}
           </button>
         </div>
@@ -205,7 +205,7 @@ function QRModal({ platz, onClose }) {
         <p style={{ fontSize:11,color:'var(--text-3)',margin:'14px 0 18px' }}>Ausdrucken und an der Box befestigen</p>
         <div style={{ display:'flex',gap:10 }}>
           <button onClick={()=>window.open(qrUrl,'_blank')} style={{ flex:1,padding:'10px',borderRadius:12,border:'1px solid var(--border)',background:'var(--modal-close)',color:'var(--text-1)',fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>🖨️ Drucken</button>
-          <button onClick={onClose} style={{ flex:1,padding:'10px',borderRadius:12,border:'none',background:'#6366f1',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>Schließen</button>
+          <button onClick={onClose} style={{ flex:1,padding:'10px',borderRadius:12,border:'none',background:'#f4511e',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>Schließen</button>
         </div>
       </div>
     </div>
@@ -269,7 +269,7 @@ export default function LagerPage() {
               <h1 style={{ fontSize:22,fontWeight:800,margin:'0 0 3px',letterSpacing:'-0.02em' }}>📦 <span className="ls-text-shimmer">Lager</span></h1>
               <p style={{ fontSize:13,color:'var(--text-3)',margin:0 }}>3D Übersicht · Regal → Box → Fach</p>
             </div>
-            <button onClick={()=>router.push('/new')} style={{ padding:'10px 18px',borderRadius:12,border:'none',background:'#6366f1',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>
+            <button onClick={()=>router.push('/new')} style={{ padding:'10px 18px',borderRadius:12,border:'none',background:'#f4511e',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>
               + Neues Listing
             </button>
           </div>
@@ -342,8 +342,8 @@ export default function LagerPage() {
                   {i>0 && <span style={{ color:'var(--text-3)',fontSize:14 }}>›</span>}
                   <button onClick={c.onClick} style={{
                     padding:'5px 12px',borderRadius:20,border:'none',fontFamily:'inherit',cursor:'pointer',fontSize:13,fontWeight:i===crumbs.length-1?700:500,
-                    background: i===crumbs.length-1 ? 'rgba(99,102,241,.12)' : 'var(--modal-close)',
-                    color: i===crumbs.length-1 ? '#6366f1' : 'var(--text-2)',
+                    background: i===crumbs.length-1 ? 'rgba(244,81,30,.12)' : 'var(--modal-close)',
+                    color: i===crumbs.length-1 ? '#f4511e' : 'var(--text-2)',
                   }}>{c.label}</button>
                 </span>
               ))}
@@ -360,7 +360,7 @@ export default function LagerPage() {
                   <p style={{ fontSize:40,margin:'0 0 12px' }}>🏗️</p>
                   <p style={{ fontSize:15,fontWeight:700,color:'var(--text-1)',margin:'0 0 6px' }}>Noch kein Lager eingerichtet</p>
                   <p style={{ fontSize:13,color:'var(--text-3)',margin:'0 0 20px' }}>Erstelle Listings mit einem Lagerplatz (z.B. "Regal A/Box 1/Fach 2") um dein Lager zu strukturieren.</p>
-                  <button onClick={()=>router.push('/new')} style={{ padding:'11px 22px',borderRadius:12,border:'none',background:'#6366f1',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>Erstes Listing + Lagerplatz</button>
+                  <button onClick={()=>router.push('/new')} style={{ padding:'11px 22px',borderRadius:12,border:'none',background:'#f4511e',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>Erstes Listing + Lagerplatz</button>
                 </div>
               )}
               <div style={{ display:'flex',flexWrap:'wrap',gap:20,alignItems:'flex-start' }}>
@@ -387,7 +387,7 @@ export default function LagerPage() {
                 {/* Add new Regal hint */}
                 <div onClick={()=>router.push('/new')}
                   style={{ cursor:'pointer',width:150,border:'2px dashed var(--border)',borderRadius:14,padding:'40px 16px',textAlign:'center',color:'var(--text-3)',transition:'all .15s' }}
-                  onMouseEnter={e=>{e.currentTarget.style.borderColor='#6366f1';e.currentTarget.style.color='#6366f1'}}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor='#f4511e';e.currentTarget.style.color='#f4511e'}}
                   onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--text-3)'}}>
                   <p style={{ fontSize:24,margin:'0 0 6px' }}>+</p>
                   <p style={{ fontSize:12,fontWeight:600,margin:0 }}>Neues Listing</p>

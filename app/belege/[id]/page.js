@@ -28,7 +28,7 @@ function EditField({ value, onSave, type = 'text', multiline = false, style = {}
   useEffect(() => { if (editing && inputRef.current) inputRef.current.focus() }, [editing])
 
   const baseInput = {
-    border: '1.5px solid #6366f1',
+    border: '1.5px solid #f4511e',
     borderRadius: 5,
     padding: '3px 7px',
     fontSize: 'inherit',
@@ -36,7 +36,7 @@ function EditField({ value, onSave, type = 'text', multiline = false, style = {}
     fontWeight: 'inherit',
     color: '#111827',
     outline: 'none',
-    background: '#eef2ff',
+    background: 'rgba(244,81,30,0.10)',
     width: '100%',
     boxSizing: 'border-box',
   }
@@ -154,7 +154,7 @@ function BelegContent() {
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f3f4f6; color: #111827; }
         .page { max-width: 680px; margin: 40px auto; background: white; padding: 48px; box-shadow: 0 4px 24px rgba(0,0,0,.08); border-radius: 12px; }
         .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 24px; border-bottom: 2px solid #f3f4f6; }
-        .brand { font-size: 26px; font-weight: 900; color: #4f46e5; letter-spacing: -1px; }
+        .brand { font-size: 26px; font-weight: 900; color: #e0451a; letter-spacing: -1px; }
         .brand span { font-size: 11px; font-weight: 600; color: #6b7280; display: block; letter-spacing: 0; margin-top: 2px; }
         .meta { text-align: right; }
         .meta h2 { font-size: 20px; font-weight: 800; color: #111827; }
@@ -179,14 +179,14 @@ function BelegContent() {
 
         /* Edit hint — screen only */
         .editable-field { border-radius: 4px; padding: 1px 4px; margin: -1px -4px; transition: background .15s; }
-        .editable-field:hover { background: #eef2ff; outline: 1.5px dashed #a5b4fc; }
-        .edit-hint { font-size: 10px; color: #a5b4fc; font-weight: 500; margin-bottom: 6px; user-select: none; }
+        .editable-field:hover { background: rgba(244,81,30,0.10); outline: 1.5px dashed #ffb89e; }
+        .edit-hint { font-size: 10px; color: #ffb89e; font-weight: 500; margin-bottom: 6px; user-select: none; }
 
         /* Print */
         .print-bar { position: fixed; bottom: 24px; right: 24px; display: flex; gap: 10px; z-index: 100; align-items: center; }
         .print-bar button { padding: 11px 22px; border-radius: 12px; border: none; font-size: 13px; font-weight: 700; cursor: pointer; }
-        .btn-print { background: #4f46e5; color: white; }
-        .btn-print:hover { background: #4338ca; }
+        .btn-print { background: #e0451a; color: white; }
+        .btn-print:hover { background: #c33d18; }
         .btn-close { background: #f3f4f6; color: #374151; }
         .btn-close:hover { background: #e5e7eb; }
         .save-msg { font-size: 12px; color: #16a34a; font-weight: 700; }

@@ -112,7 +112,7 @@ export default function MobileNav() {
             ? '1px solid rgba(255,255,255,0.09)'
             : '1px solid rgba(0,0,0,0.07)',
           boxShadow: dark
-            ? '0 12px 50px rgba(0,0,0,0.65), inset 0 0 0 0.5px rgba(255,255,255,0.05), 0 0 80px rgba(99,102,241,0.12)'
+            ? '0 12px 50px rgba(0,0,0,0.65), inset 0 0 0 0.5px rgba(255,255,255,0.05), 0 0 80px rgba(244,81,30,0.12)'
             : '0 12px 50px rgba(15,23,42,0.18), 0 3px 12px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.95)',
           padding: '8px 10px',
           paddingBottom: 'calc(8px + env(safe-area-inset-bottom, 0px))',
@@ -132,7 +132,7 @@ export default function MobileNav() {
               style={{
                 width: 54, height: 54,
                 flexShrink: 0,
-                background: 'linear-gradient(145deg, #818cf8 0%, #6366f1 45%, #4f46e5 100%)',
+                background: 'linear-gradient(145deg, #ff8a5c 0%, #f4511e 45%, #e0451a 100%)',
                 borderRadius: 20,
                 border: 'none',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -140,8 +140,8 @@ export default function MobileNav() {
                 cursor: 'pointer',
                 position: 'relative',
                 boxShadow: pressed === 'new'
-                  ? '0 2px 10px rgba(99,102,241,0.4)'
-                  : '0 5px 24px rgba(99,102,241,0.6), 0 0 50px rgba(99,102,241,0.25)',
+                  ? '0 2px 10px rgba(244,81,30,0.4)'
+                  : '0 5px 24px rgba(244,81,30,0.6), 0 0 50px rgba(244,81,30,0.25)',
                 transform: pressed === 'new'
                   ? 'scale(0.84) translateY(3px)'
                   : 'scale(1) translateY(0)',
@@ -150,14 +150,14 @@ export default function MobileNav() {
               <div style={{
                 position: 'absolute', inset: -6,
                 borderRadius: 26,
-                border: '2px solid rgba(99,102,241,0.55)',
+                border: '2px solid rgba(244,81,30,0.55)',
                 animation: 'pulse-ring 2.2s cubic-bezier(0.4,0,0.6,1) infinite',
                 pointerEvents: 'none',
               }}/>
               <div style={{
                 position: 'absolute', inset: -11,
                 borderRadius: 31,
-                border: '1.5px solid rgba(99,102,241,0.3)',
+                border: '1.5px solid rgba(244,81,30,0.3)',
                 animation: 'pulse-ring 2.2s cubic-bezier(0.4,0,0.6,1) 0.6s infinite',
                 pointerEvents: 'none',
               }}/>
@@ -178,7 +178,7 @@ export default function MobileNav() {
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
                 border: 'none', background: 'none', cursor: 'pointer',
                 padding: '9px 14px', borderRadius: 20,
-                color: active ? '#6366f1' : dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)',
+                color: active ? '#f4511e' : dark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)',
                 transform: pressed === n.href
                   ? 'scale(0.80)'
                   : active ? 'translateY(-1px)' : 'translateY(0)',
@@ -187,7 +187,7 @@ export default function MobileNav() {
                 minWidth: 0,
                 fontFamily: 'inherit',
                 background: active
-                  ? (dark ? 'rgba(99,102,241,0.14)' : 'rgba(99,102,241,0.08)')
+                  ? (dark ? 'rgba(244,81,30,0.14)' : 'rgba(244,81,30,0.08)')
                   : 'transparent',
               }}>
 
@@ -195,14 +195,14 @@ export default function MobileNav() {
               {active && (
                 <div style={{
                   position: 'absolute', inset: 0, borderRadius: 20,
-                  background: 'radial-gradient(ellipse at 50% 40%, rgba(99,102,241,0.28), transparent 70%)',
+                  background: 'radial-gradient(ellipse at 50% 40%, rgba(244,81,30,0.28), transparent 70%)',
                   pointerEvents: 'none',
                 }}/>
               )}
 
               {/* icon with drop-shadow glow when active */}
               <div style={{
-                filter: active ? 'drop-shadow(0 0 7px rgba(99,102,241,0.75))' : 'none',
+                filter: active ? 'drop-shadow(0 0 7px rgba(244,81,30,0.75))' : 'none',
                 transform: active ? 'scale(1.12)' : 'scale(1)',
                 transition: 'filter 0.3s, transform 0.35s cubic-bezier(0.34,1.56,0.64,1)',
                 animation: 'none',
@@ -221,8 +221,8 @@ export default function MobileNav() {
                   position: 'absolute', bottom: 4, left: '50%',
                   transform: 'translateX(-50%)',
                   width: 4, height: 4, borderRadius: '50%',
-                  background: '#6366f1',
-                  boxShadow: '0 0 10px rgba(99,102,241,0.9), 0 0 20px rgba(99,102,241,0.5)',
+                  background: '#f4511e',
+                  boxShadow: '0 0 10px rgba(244,81,30,0.9), 0 0 20px rgba(244,81,30,0.5)',
                   animation: 'popIn 0.4s cubic-bezier(0.34,1.56,0.64,1)',
                 }}/>
               )}

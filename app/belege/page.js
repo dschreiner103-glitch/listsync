@@ -125,10 +125,10 @@ export default function Belege() {
 
           {/* ── Summary cards ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <div style={{ background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 18, padding: '14px 16px' }}>
+            <div style={{ background: 'rgba(244,81,30,0.07)', border: '1px solid rgba(244,81,30,0.15)', borderRadius: 18, padding: '14px 16px' }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>Verkäufe im Zeitraum</p>
               <p style={{ fontSize: 22, fontWeight: 800, color: 'var(--text-1)', margin: '0 0 2px' }}>{sales.length}</p>
-              <p style={{ fontSize: 13, fontWeight: 700, color: '#6366f1', margin: 0 }}>{fmt(totalRevenue)} Umsatz</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: '#f4511e', margin: 0 }}>{fmt(totalRevenue)} Umsatz</p>
             </div>
             <div style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: 18, padding: '14px 16px' }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>Einkäufe im Zeitraum</p>
@@ -144,7 +144,7 @@ export default function Belege() {
             {/* Tab row */}
             <div style={{ display: 'flex', gap: 8 }}>
               {[
-                { id: 'verkauft', label: 'Verkaufsbelege', color: '#6366f1', bg: 'rgba(99,102,241,0.08)' },
+                { id: 'verkauft', label: 'Verkaufsbelege', color: '#f4511e', bg: 'rgba(244,81,30,0.08)' },
                 { id: 'einkauf',  label: 'Einkaufsbelege', color: '#10b981', bg: 'rgba(16,185,129,0.08)' },
               ].map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)}
@@ -178,10 +178,10 @@ export default function Belege() {
             <button onClick={openSammelbeleg} disabled={!shown.length}
               style={{
                 width: '100%', padding: '13px', borderRadius: 13,
-                background: shown.length ? 'linear-gradient(135deg,#6366f1,#4f46e5)' : 'var(--modal-close)',
+                background: shown.length ? 'linear-gradient(135deg,#f4511e,#e0451a)' : 'var(--modal-close)',
                 color: shown.length ? '#fff' : 'var(--text-3)',
                 border: 'none', fontWeight: 700, fontSize: 14, cursor: shown.length ? 'pointer' : 'default',
-                fontFamily: 'inherit', boxShadow: shown.length ? '0 4px 14px rgba(99,102,241,0.3)' : 'none',
+                fontFamily: 'inherit', boxShadow: shown.length ? '0 4px 14px rgba(244,81,30,0.3)' : 'none',
                 transition: 'all .15s',
               }}>
               🖨️ Sammelbeleg für {shown.length} {tab === 'verkauft' ? 'Verkäufe' : 'Einkäufe'} erstellen
@@ -223,8 +223,8 @@ export default function Belege() {
                       onClick={() => tab === 'verkauft' ? openBeleg(l) : openEinkaufBeleg(l)}
                       style={{
                         flexShrink: 0, padding: '7px 14px', borderRadius: 10, fontSize: 12.5, fontWeight: 700,
-                        background: 'rgba(99,102,241,0.07)', color: '#6366f1',
-                        border: '1px solid rgba(99,102,241,0.15)', cursor: 'pointer', fontFamily: 'inherit',
+                        background: 'rgba(244,81,30,0.07)', color: '#f4511e',
+                        border: '1px solid rgba(244,81,30,0.15)', cursor: 'pointer', fontFamily: 'inherit',
                       }}>
                       Beleg
                     </button>

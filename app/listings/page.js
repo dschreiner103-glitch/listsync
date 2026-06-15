@@ -434,15 +434,15 @@ export default function Listings() {
           <div key={id}
             onClick={() => setSelPlatforms(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])}
             style={{
-              border: `2px solid ${sel ? '#818cf8' : 'var(--border)'}`,
+              border: `2px solid ${sel ? '#ff8a5c' : 'var(--border)'}`,
               borderRadius: 14, padding: '12px 14px', cursor: 'pointer',
-              background: sel ? 'rgba(99,102,241,0.07)' : 'var(--surface)',
+              background: sel ? 'rgba(244,81,30,0.07)' : 'var(--surface)',
               display: 'flex', alignItems: 'center', gap: 12, transition: 'all .15s',
             }}>
             <div style={{
               width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-              border: `2px solid ${sel ? '#6366f1' : 'var(--border)'}`,
-              background: sel ? '#6366f1' : 'transparent',
+              border: `2px solid ${sel ? '#f4511e' : 'var(--border)'}`,
+              background: sel ? '#f4511e' : 'transparent',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
@@ -472,7 +472,7 @@ export default function Listings() {
               {Object.entries(crosspostProgress).map(([plt, p]) => {
                 const pct   = Math.min(100, Math.round(p.percent || 0))
                 const label = { vinted: '🟢 Vinted', kleinanzeigen: '🟠 Kleinanzeigen', ebay: '🟡 eBay' }[plt] || plt
-                const color = p.error ? '#ef4444' : p.done ? '#22c55e' : '#6366f1'
+                const color = p.error ? '#ef4444' : p.done ? '#22c55e' : '#f4511e'
                 return (
                   <div key={plt}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -511,12 +511,12 @@ export default function Listings() {
               )}
               {/* Bulk Mode Toggle */}
               <button onClick={() => { setBulkMode(m => !m); setBulkSelected(new Set()) }}
-                style={{ padding:'8px 12px', borderRadius:12, border:`1px solid ${bulkMode?'#6366f1':'var(--border)'}`, background:bulkMode?'rgba(99,102,241,.1)':'var(--surface)', color:bulkMode?'#6366f1':'var(--text-2)', fontWeight:700, fontSize:12.5, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:5 }}>
+                style={{ padding:'8px 12px', borderRadius:12, border:`1px solid ${bulkMode?'#f4511e':'var(--border)'}`, background:bulkMode?'rgba(244,81,30,.1)':'var(--surface)', color:bulkMode?'#f4511e':'var(--text-2)', fontWeight:700, fontSize:12.5, cursor:'pointer', fontFamily:'inherit', display:'flex', alignItems:'center', gap:5 }}>
                 {bulkMode ? `✓ ${bulkSelected.size} gewählt` : '☑ Auswählen'}
               </button>
               {bulkMode && bulkSelected.size > 0 && (
                 <button onClick={() => setBulkModal(true)}
-                  style={{ padding:'8px 14px', borderRadius:12, border:'none', background:'#6366f1', color:'#fff', fontWeight:700, fontSize:12.5, cursor:'pointer', fontFamily:'inherit' }}>
+                  style={{ padding:'8px 14px', borderRadius:12, border:'none', background:'#f4511e', color:'#fff', fontWeight:700, fontSize:12.5, cursor:'pointer', fontFamily:'inherit' }}>
                   🚀 Crossposten
                 </button>
               )}
@@ -590,7 +590,7 @@ export default function Listings() {
                   color: filter === t.id ? 'var(--text-1)' : 'var(--text-2)',
                   boxShadow: filter === t.id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
                 }}>
-                {t.label} <span style={{ color: filter === t.id ? '#6366f1' : 'var(--text-3)' }}>({t.count})</span>
+                {t.label} <span style={{ color: filter === t.id ? '#f4511e' : 'var(--text-3)' }}>({t.count})</span>
               </button>
             ))}
           </div>
@@ -606,9 +606,9 @@ export default function Listings() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5,
                     padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
-                    border: `1.5px solid ${pltFilter === p.id ? (p.dot || '#818cf8') : 'var(--border)'}`,
-                    background: pltFilter === p.id ? `${p.dot || '#6366f1'}15` : 'var(--surface)',
-                    color: pltFilter === p.id ? (p.dot || '#6366f1') : 'var(--text-3)',
+                    border: `1.5px solid ${pltFilter === p.id ? (p.dot || '#ff8a5c') : 'var(--border)'}`,
+                    background: pltFilter === p.id ? `${p.dot || '#f4511e'}15` : 'var(--surface)',
+                    color: pltFilter === p.id ? (p.dot || '#f4511e') : 'var(--text-3)',
                     cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
                   }}>
                   {p.dot && <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.dot, display: 'inline-block' }}/>}
@@ -625,9 +625,9 @@ export default function Listings() {
               <button onClick={() => setAccountFilter('alle')}
                 style={{
                   padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
-                  border: `1.5px solid ${accountFilter === 'alle' ? '#818cf8' : 'var(--border)'}`,
-                  background: accountFilter === 'alle' ? 'rgba(99,102,241,0.1)' : 'var(--surface)',
-                  color: accountFilter === 'alle' ? '#6366f1' : 'var(--text-3)',
+                  border: `1.5px solid ${accountFilter === 'alle' ? '#ff8a5c' : 'var(--border)'}`,
+                  background: accountFilter === 'alle' ? 'rgba(244,81,30,0.1)' : 'var(--surface)',
+                  color: accountFilter === 'alle' ? '#f4511e' : 'var(--text-3)',
                   cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
                 }}>
                 Alle
@@ -640,9 +640,9 @@ export default function Listings() {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 5,
                       padding: '5px 12px', borderRadius: 20, fontSize: 12.5, fontWeight: 700,
-                      border: `1.5px solid ${active ? (p?.dot || '#818cf8') : 'var(--border)'}`,
-                      background: active ? `${p?.dot || '#6366f1'}18` : 'var(--surface)',
-                      color: active ? (p?.dot || '#6366f1') : 'var(--text-3)',
+                      border: `1.5px solid ${active ? (p?.dot || '#ff8a5c') : 'var(--border)'}`,
+                      background: active ? `${p?.dot || '#f4511e'}18` : 'var(--surface)',
+                      color: active ? (p?.dot || '#f4511e') : 'var(--text-3)',
                       cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
                     }}>
                     {p?.dot && <span style={{ width: 6, height: 6, borderRadius: '50%', background: p.dot, display: 'inline-block' }}/>}
@@ -687,13 +687,13 @@ export default function Listings() {
                 const imgs = Array.isArray(l.images) ? l.images : []
                 const aged = needsRelist(l)
                 return (
-                  <div key={l.id} style={{ ...cardStyle(aged), outline: bulkSelected.has(l.id) ? '2px solid #6366f1' : 'none' }}
+                  <div key={l.id} style={{ ...cardStyle(aged), outline: bulkSelected.has(l.id) ? '2px solid #f4511e' : 'none' }}
                     onClick={bulkMode ? () => setBulkSelected(prev => { const n = new Set(prev); n.has(l.id) ? n.delete(l.id) : n.add(l.id); return n }) : undefined}
                     >
                     {/* Bulk checkbox */}
                     {bulkMode && (
                       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8 }}>
-                        <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${bulkSelected.has(l.id)?'#6366f1':'var(--border)'}`, background:bulkSelected.has(l.id)?'#6366f1':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <div style={{ width:20, height:20, borderRadius:6, border:`2px solid ${bulkSelected.has(l.id)?'#f4511e':'var(--border)'}`, background:bulkSelected.has(l.id)?'#f4511e':'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                           {bulkSelected.has(l.id) && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
                         </div>
                         <span style={{ fontSize:12, color:'var(--text-3)' }}>Auswählen</span>
@@ -753,13 +753,13 @@ export default function Listings() {
                             if (!acc || !l.platforms.includes(plt)) return null
                             const dot = PLATFORMS[plt]?.dot
                             return (
-                              <span key={plt} style={{ fontSize: 11, fontWeight: 700, color: dot || '#6366f1', background: `${dot || '#6366f1'}15`, padding: '2px 7px', borderRadius: 7, border: `1px solid ${dot || '#6366f1'}30` }}>
+                              <span key={plt} style={{ fontSize: 11, fontWeight: 700, color: dot || '#f4511e', background: `${dot || '#f4511e'}15`, padding: '2px 7px', borderRadius: 7, border: `1px solid ${dot || '#f4511e'}30` }}>
                                 👤 {acc.name}
                               </span>
                             )
                           })}
                           {l.lagerplatz && (
-                            <span style={{ fontSize: 11.5, color: '#6366f1', fontWeight: 700, background: 'rgba(99,102,241,0.08)', padding: '2px 7px', borderRadius: 7, border: '1px solid rgba(99,102,241,0.15)' }}>
+                            <span style={{ fontSize: 11.5, color: '#f4511e', fontWeight: 700, background: 'rgba(244,81,30,0.08)', padding: '2px 7px', borderRadius: 7, border: '1px solid rgba(244,81,30,0.15)' }}>
                               📦 {l.lagerplatz}
                             </span>
                           )}
@@ -788,7 +788,7 @@ export default function Listings() {
                           {ICONS.relist} Relisten
                         </button>
                         <button onClick={() => { setSelPlatforms([...l.platforms]); setSelAccounts(l.account_ids || {}); setModal({ type: 'crosspost', id: l.id }) }}
-                          style={actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)')}>
+                          style={actionBtn('rgba(244,81,30,0.07)', '#e0451a', 'rgba(244,81,30,0.15)')}>
                           {ICONS.crosspost} Crossposten
                         </button>
                         <button onClick={() => setModal({ type: 'sold', id: l.id })}
@@ -805,7 +805,7 @@ export default function Listings() {
                     {l.status === 'inaktiv' && (
                       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)', display: 'flex', gap: 8 }}>
                         <button onClick={() => openRelistModal(l.id)}
-                          style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 1 }}>
+                          style={{ ...actionBtn('rgba(244,81,30,0.07)', '#e0451a', 'rgba(244,81,30,0.15)'), flex: 1 }}>
                           {ICONS.relist} Relisten
                         </button>
                         <button onClick={() => setDeleteConfirm(l.id)}
@@ -818,7 +818,7 @@ export default function Listings() {
                     {l.status === 'entwurf' && (
                       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--divider)', display: 'flex', gap: 8 }}>
                         <button onClick={() => { setSelPlatforms(l.platforms.length ? [...l.platforms] : ['vinted','kleinanzeigen','ebay']); setSelAccounts(l.account_ids || {}); setModal({ type: 'crosspost', id: l.id }) }}
-                          style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 1 }}>
+                          style={{ ...actionBtn('rgba(244,81,30,0.07)', '#e0451a', 'rgba(244,81,30,0.15)'), flex: 1 }}>
                           {ICONS.crosspost} Hochladen
                         </button>
                         <button onClick={() => setDeleteConfirm(l.id)}
@@ -839,7 +839,7 @@ export default function Listings() {
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button onClick={() => openRelistModal(l.id)}
-                            style={{ ...actionBtn('rgba(99,102,241,0.07)', '#4f46e5', 'rgba(99,102,241,0.15)'), flex: 1 }}>
+                            style={{ ...actionBtn('rgba(244,81,30,0.07)', '#e0451a', 'rgba(244,81,30,0.15)'), flex: 1 }}>
                             {ICONS.relist} Erneut verkaufen
                           </button>
                           <button onClick={() => setDeleteConfirm(l.id)}
@@ -875,11 +875,11 @@ export default function Listings() {
               return (
                 <div key={opt.id} onClick={()=>setCrosspostMode(opt.id)}
                   style={{ padding:'12px 10px', borderRadius:14, cursor:'pointer', textAlign:'center',
-                    border:`2px solid ${sel?(opt.id==='publish'?'#6366f1':'#f59e0b'):'var(--border)'}`,
-                    background:sel?(opt.id==='publish'?'rgba(99,102,241,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
+                    border:`2px solid ${sel?(opt.id==='publish'?'#f4511e':'#f59e0b'):'var(--border)'}`,
+                    background:sel?(opt.id==='publish'?'rgba(244,81,30,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
                     transition:'all .15s' }}>
                   <div style={{ fontSize:22, marginBottom:4 }}>{opt.icon}</div>
-                  <p style={{ fontSize:12.5, fontWeight:700, margin:'0 0 2px', color:sel?(opt.id==='publish'?'#6366f1':'#d97706'):'var(--text-1)' }}>{opt.label}</p>
+                  <p style={{ fontSize:12.5, fontWeight:700, margin:'0 0 2px', color:sel?(opt.id==='publish'?'#f4511e':'#d97706'):'var(--text-1)' }}>{opt.label}</p>
                   <p style={{ fontSize:10.5, color:'var(--text-3)', margin:0 }}>{opt.desc}</p>
                 </div>
               )
@@ -906,7 +906,7 @@ export default function Listings() {
             <button onClick={() => doRelist(modalListing.id)} disabled={selPlatforms.length === 0}
               style={{ flex: 1, padding: '13px', borderRadius: 13, fontSize: 14, fontWeight: 700, border: 'none', fontFamily: 'inherit',
                 cursor: selPlatforms.length === 0 ? 'default' : 'pointer',
-                background: selPlatforms.length === 0 ? 'var(--modal-close)' : (crosspostMode === 'draft' ? 'rgba(245,158,11,0.15)' : 'linear-gradient(135deg,#6366f1,#818cf8)'),
+                background: selPlatforms.length === 0 ? 'var(--modal-close)' : (crosspostMode === 'draft' ? 'rgba(245,158,11,0.15)' : 'linear-gradient(135deg,#f4511e,#ff8a5c)'),
                 color: selPlatforms.length === 0 ? 'var(--text-3)' : (crosspostMode === 'draft' ? '#d97706' : '#fff') }}>
               {selPlatforms.length === 0
                 ? 'Plattform wählen'
@@ -934,11 +934,11 @@ export default function Listings() {
               return (
                 <div key={opt.id} onClick={()=>setCrosspostMode(opt.id)}
                   style={{ padding:'12px 10px', borderRadius:14, cursor:'pointer', textAlign:'center',
-                    border:`2px solid ${sel?(opt.id==='publish'?'#6366f1':'#f59e0b'):'var(--border)'}`,
-                    background:sel?(opt.id==='publish'?'rgba(99,102,241,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
+                    border:`2px solid ${sel?(opt.id==='publish'?'#f4511e':'#f59e0b'):'var(--border)'}`,
+                    background:sel?(opt.id==='publish'?'rgba(244,81,30,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
                     transition:'all .15s' }}>
                   <div style={{ fontSize:22, marginBottom:4 }}>{opt.icon}</div>
-                  <p style={{ fontSize:12.5, fontWeight:700, margin:'0 0 2px', color:sel?(opt.id==='publish'?'#6366f1':'#d97706'):'var(--text-1)' }}>{opt.label}</p>
+                  <p style={{ fontSize:12.5, fontWeight:700, margin:'0 0 2px', color:sel?(opt.id==='publish'?'#f4511e':'#d97706'):'var(--text-1)' }}>{opt.label}</p>
                   <p style={{ fontSize:10.5, color:'var(--text-3)', margin:0 }}>{opt.desc}</p>
                 </div>
               )
@@ -953,14 +953,14 @@ export default function Listings() {
                 <div key={id} style={{ marginBottom: 8 }}>
                   <div onClick={() => setSelPlatforms(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id])}
                     style={{
-                      border: `2px solid ${sel ? '#818cf8' : 'var(--border)'}`, borderRadius: 14, padding: '12px 14px',
-                      cursor: 'pointer', background: sel ? 'rgba(99,102,241,0.07)' : 'var(--surface)',
+                      border: `2px solid ${sel ? '#ff8a5c' : 'var(--border)'}`, borderRadius: 14, padding: '12px 14px',
+                      cursor: 'pointer', background: sel ? 'rgba(244,81,30,0.07)' : 'var(--surface)',
                       display: 'flex', alignItems: 'center', gap: 12, transition: 'all .15s',
                     }}>
                     <div style={{
                       width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                      border: `2px solid ${sel ? '#6366f1' : 'var(--border)'}`,
-                      background: sel ? '#6366f1' : 'transparent',
+                      border: `2px solid ${sel ? '#f4511e' : 'var(--border)'}`,
+                      background: sel ? '#f4511e' : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
                       {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
@@ -984,9 +984,9 @@ export default function Listings() {
                                     onClick={() => setSelAccounts(s => ({ ...s, [id]: isSelAcc ? undefined : acc.id }))}
                                     style={{
                                       padding: '5px 11px', borderRadius: 9, fontSize: 12, fontWeight: 700,
-                                      border: `1.5px solid ${isSelAcc ? (PLATFORMS[id]?.dot || '#6366f1') : 'var(--border)'}`,
-                                      background: isSelAcc ? `${PLATFORMS[id]?.dot || '#6366f1'}18` : 'var(--surface)',
-                                      color: isSelAcc ? (PLATFORMS[id]?.dot || '#6366f1') : 'var(--text-2)',
+                                      border: `1.5px solid ${isSelAcc ? (PLATFORMS[id]?.dot || '#f4511e') : 'var(--border)'}`,
+                                      background: isSelAcc ? `${PLATFORMS[id]?.dot || '#f4511e'}18` : 'var(--surface)',
+                                      color: isSelAcc ? (PLATFORMS[id]?.dot || '#f4511e') : 'var(--text-2)',
                                       cursor: 'pointer', fontFamily: 'inherit', transition: 'all .12s',
                                     }}>
                                     {isSelAcc && '✓ '}{acc.name}
@@ -1015,7 +1015,7 @@ export default function Listings() {
           <button onClick={() => doPost(modalListing.id)} disabled={selPlatforms.length === 0}
             style={{ width:'100%', padding:'13px', borderRadius:14, fontSize:14, fontWeight:700,
               border:'none', cursor:selPlatforms.length===0?'default':'pointer', fontFamily:'inherit',
-              background: crosspostMode==='draft' ? 'rgba(245,158,11,0.15)' : 'linear-gradient(135deg,#6366f1,#818cf8)',
+              background: crosspostMode==='draft' ? 'rgba(245,158,11,0.15)' : 'linear-gradient(135deg,#f4511e,#ff8a5c)',
               color: crosspostMode==='draft' ? '#d97706' : '#fff',
               border: crosspostMode==='draft' ? '2px solid #f59e0b' : 'none',
               opacity: selPlatforms.length===0 ? 0.5 : 1 }}>
@@ -1231,9 +1231,9 @@ export default function Listings() {
                   const sel = bPlatforms.includes(id)
                   return (
                     <div key={id} onClick={() => setBPlatforms(prev => prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])}
-                      style={{ flex:1, padding:'10px 6px', borderRadius:12, border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,.08)':'var(--surface)', cursor:'pointer', textAlign:'center' }}>
+                      style={{ flex:1, padding:'10px 6px', borderRadius:12, border:`2px solid ${sel?'#ff8a5c':'var(--border)'}`, background:sel?'rgba(244,81,30,.08)':'var(--surface)', cursor:'pointer', textAlign:'center' }}>
                       <div style={{ width:8, height:8, borderRadius:'50%', background:p.dot, margin:'0 auto 4px' }}/>
-                      <p style={{ fontSize:11, fontWeight:700, color:sel?'#6366f1':'var(--text-3)', margin:0 }}>{p.name}</p>
+                      <p style={{ fontSize:11, fontWeight:700, color:sel?'#f4511e':'var(--text-3)', margin:0 }}>{p.name}</p>
                     </div>
                   )
                 })}
@@ -1248,7 +1248,7 @@ export default function Listings() {
                   setBulkModal(false); setBulkMode(false); setBulkSelected(new Set())
                   showToast(`🚀 ${selectedListings.length} Listings werden crossgepostet`)
                 }} disabled={bPlatforms.length===0}
-                  style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:bPlatforms.length===0?'var(--modal-close)':'#6366f1', color:bPlatforms.length===0?'var(--text-3)':'#fff', fontWeight:700, fontSize:13, cursor:bPlatforms.length===0?'default':'pointer', fontFamily:'inherit' }}>
+                  style={{ flex:1, padding:'11px', borderRadius:12, border:'none', background:bPlatforms.length===0?'var(--modal-close)':'#f4511e', color:bPlatforms.length===0?'var(--text-3)':'#fff', fontWeight:700, fontSize:13, cursor:bPlatforms.length===0?'default':'pointer', fontFamily:'inherit' }}>
                   🚀 Alle crossposten
                 </button>
               </div>
@@ -1308,7 +1308,7 @@ export default function Listings() {
 
               <div style={{ display:'flex', gap:10, marginTop:18 }}>
                 <button onClick={() => { setScoreListing(null); openEdit(scoreListing) }}
-                  style={{ flex:1, padding:'10px', borderRadius:12, border:'none', background:'#6366f1', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
+                  style={{ flex:1, padding:'10px', borderRadius:12, border:'none', background:'#f4511e', color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer', fontFamily:'inherit' }}>
                   ✏️ Verbessern
                 </button>
                 <button onClick={() => setScoreListing(null)}
@@ -1333,13 +1333,13 @@ export default function Listings() {
               <p style={{ fontSize:16,fontWeight:800,color:'var(--text-1)',margin:'0 0 2px' }}>QR-Code</p>
               <p style={{ fontSize:12,color:'var(--text-3)',margin:'0 0 4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{qrListing.title}</p>
               {qrListing.lagerplatz
-                ? <p style={{ fontSize:12,fontWeight:700,color:'#6366f1',margin:'0 0 16px' }}>📦 {qrListing.lagerplatz}</p>
-                : <p style={{ fontSize:11,color:'var(--text-3)',margin:'0 0 16px' }}>Kein Lagerplatz — im <span style={{ color:'#6366f1',cursor:'pointer' }} onClick={()=>{ setQrListing(null); window.location.href='/lager' }}>Lager</span> zuweisen</p>
+                ? <p style={{ fontSize:12,fontWeight:700,color:'#f4511e',margin:'0 0 16px' }}>📦 {qrListing.lagerplatz}</p>
+                : <p style={{ fontSize:11,color:'var(--text-3)',margin:'0 0 16px' }}>Kein Lagerplatz — im <span style={{ color:'#f4511e',cursor:'pointer' }} onClick={()=>{ setQrListing(null); window.location.href='/lager' }}>Lager</span> zuweisen</p>
               }
               <img src={qrUrl} alt="" style={{ width:220,height:220,borderRadius:12,border:'1px solid var(--border)',marginBottom:16 }}/>
               <div style={{ display:'flex',gap:10 }}>
                 <button onClick={()=>window.open(qrUrl,'_blank')} style={{ flex:1,padding:'10px',borderRadius:12,border:'1px solid var(--border)',background:'var(--modal-close)',color:'var(--text-1)',fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>🖨️ Drucken</button>
-                <button onClick={()=>setQrListing(null)} style={{ flex:1,padding:'10px',borderRadius:12,border:'none',background:'#6366f1',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>Schließen</button>
+                <button onClick={()=>setQrListing(null)} style={{ flex:1,padding:'10px',borderRadius:12,border:'none',background:'#f4511e',color:'#fff',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit' }}>Schließen</button>
               </div>
             </div>
           </div>

@@ -203,8 +203,8 @@ function DonutGauge({ pct, label, sub }) {
       <svg width="140" height="78" viewBox="0 0 140 78" style={{ display: 'block', margin: '0 auto', overflow: 'visible' }}>
         <defs>
           <linearGradient id="gaugeGrad" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#6366f1"/>
-            <stop offset="55%" stopColor="#8b5cf6"/>
+            <stop offset="0%" stopColor="#f4511e"/>
+            <stop offset="55%" stopColor="#ff7a4d"/>
             <stop offset="100%" stopColor="#22c55e"/>
           </linearGradient>
           <filter id="gaugeGlow" x="-50%" y="-50%" width="200%" height="200%">
@@ -225,7 +225,7 @@ function DonutGauge({ pct, label, sub }) {
 
 // ── Stat Card with period chips ───────────────────────────────────────────────
 
-function StatCard({ title, icon, accent = '#6366f1', compute, format, computeSub, sold, primary }) {
+function StatCard({ title, icon, accent = '#f4511e', compute, format, computeSub, sold, primary }) {
   const [period, setPeriod] = useState(30)
   const filtered = filterByPeriod(sold, period)
   const raw      = compute(filtered)
@@ -377,7 +377,7 @@ export default function Dashboard() {
             </div>
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: '#6366f1', animation: 'spin 0.7s linear infinite' }}/>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid var(--border)', borderTopColor: '#f4511e', animation: 'spin 0.7s linear infinite' }}/>
                 <span style={{ fontSize: 12, color: 'var(--text-3)' }}>Lädt…</span>
               </div>
             ) : (
@@ -430,7 +430,7 @@ export default function Dashboard() {
               title="Einnahmen"
               sold={sold}
               primary
-              accent="#6366f1"
+              accent="#f4511e"
               icon={<IcSm><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></IcSm>}
               compute={f => f.reduce((s, l) => s + l.price, 0)}
               format={v => fmt(v)}
@@ -637,7 +637,7 @@ export default function Dashboard() {
                   <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
                     {topCats.map(([cat, data], i) => {
                       const maxRev = topCats[0][1].revenue
-                      const colors = ['#6366f1','#8b5cf6','#3b82f6','#10b981']
+                      const colors = ['#f4511e','#ff7a4d','#3b82f6','#10b981']
                       return (
                         <div key={cat}>
                           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
@@ -782,7 +782,7 @@ export default function Dashboard() {
                             </div>
                           </div>
                           <div style={{ height:4, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
-                            <div style={{ height:'100%', width:`${(r.count/maxRangeCount)*100}%`, background:'#6366f1', borderRadius:2, transition:'width .5s' }}/>
+                            <div style={{ height:'100%', width:`${(r.count/maxRangeCount)*100}%`, background:'#f4511e', borderRadius:2, transition:'width .5s' }}/>
                           </div>
                         </div>
                       ))}

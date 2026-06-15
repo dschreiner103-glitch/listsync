@@ -13,7 +13,7 @@ const GATE = '/pricing'
 function Loader() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg, #07070f)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div style={{ width: 28, height: 28, border: '3px solid rgba(127,127,127,0.25)', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
+      <div style={{ width: 28, height: 28, border: '3px solid rgba(127,127,127,0.25)', borderTopColor: '#f4511e', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
     </div>
   )
 }

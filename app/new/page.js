@@ -438,8 +438,8 @@ export default function NewListing() {
   const CheckBox = ({ checked }) => (
     <div style={{
       width:20, height:20, borderRadius:6, flexShrink:0,
-      border:`2px solid ${checked?'#6366f1':'var(--border)'}`,
-      background:checked?'#6366f1':'transparent',
+      border:`2px solid ${checked?'#f4511e':'var(--border)'}`,
+      background:checked?'#f4511e':'transparent',
       display:'flex', alignItems:'center', justifyContent:'center',
     }}>
       {checked && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
@@ -495,10 +495,10 @@ export default function NewListing() {
                     <div style={{
                       width:32, height:32, borderRadius:'50%', display:'flex', alignItems:'center', justifyContent:'center',
                       fontSize:13, fontWeight:700,
-                      background: done?'#22c55e':active?'#6366f1':'var(--modal-close)',
+                      background: done?'#22c55e':active?'#f4511e':'var(--modal-close)',
                       color: (done||active)?'#fff':'var(--text-3)',
                     }}>{done?'✓':s}</div>
-                    <span style={{ fontSize:11, fontWeight:600, color:active?'#6366f1':'var(--text-3)', whiteSpace:'nowrap' }}>{label}</span>
+                    <span style={{ fontSize:11, fontWeight:600, color:active?'#f4511e':'var(--text-3)', whiteSpace:'nowrap' }}>{label}</span>
                   </div>
                   {s<3 && <div style={{ flex:1, height:2, margin:'0 4px 16px', background:done?'#22c55e':'var(--border)' }}/>}
                 </div>
@@ -511,10 +511,10 @@ export default function NewListing() {
             <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
 
               {/* ─ KI-Assistent ─ */}
-              <div style={{ background:'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.06))', border:'1.5px solid rgba(99,102,241,0.25)', borderRadius:18, padding:'16px 16px 14px', display:'flex', flexDirection:'column', gap:12 }}>
+              <div style={{ background:'linear-gradient(135deg,rgba(244,81,30,0.08),rgba(139,92,246,0.06))', border:'1.5px solid rgba(244,81,30,0.25)', borderRadius:18, padding:'16px 16px 14px', display:'flex', flexDirection:'column', gap:12 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                   <span style={{ fontSize:18 }}>✨</span>
-                  <span style={{ fontSize:13, fontWeight:800, color:'#6366f1', letterSpacing:'-0.01em' }}>KI-Assistent</span>
+                  <span style={{ fontSize:13, fontWeight:800, color:'#f4511e', letterSpacing:'-0.01em' }}>KI-Assistent</span>
                   <span style={{ fontSize:11, color:'var(--text-3)', marginLeft:'auto' }}>Titel & Beschreibung automatisch generieren</span>
                 </div>
                 <textarea
@@ -530,7 +530,7 @@ export default function NewListing() {
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--text-3)', textTransform:'uppercase', letterSpacing:'.05em' }}>Keywords</span>
                     <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
                       {aiKeywords.map((kw,i) => (
-                        <span key={i} style={{ fontSize:11.5, fontWeight:600, color:'#6366f1', background:'rgba(99,102,241,0.1)', border:'1px solid rgba(99,102,241,0.2)', borderRadius:20, padding:'3px 10px' }}>{kw}</span>
+                        <span key={i} style={{ fontSize:11.5, fontWeight:600, color:'#f4511e', background:'rgba(244,81,30,0.1)', border:'1px solid rgba(244,81,30,0.2)', borderRadius:20, padding:'3px 10px' }}>{kw}</span>
                       ))}
                     </div>
                   </div>
@@ -538,7 +538,7 @@ export default function NewListing() {
                 <button
                   onClick={handleAiGenerate}
                   disabled={aiLoading || !aiBullets.trim()}
-                  style={{ alignSelf:'flex-end', padding:'9px 18px', borderRadius:12, border:'none', background: aiLoading||!aiBullets.trim() ? 'var(--modal-close)' : 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: aiLoading||!aiBullets.trim() ? 'var(--text-3)' : '#fff', fontWeight:700, fontSize:13, cursor: aiLoading||!aiBullets.trim() ? 'default' : 'pointer', fontFamily:'inherit', transition:'all .15s' }}>
+                  style={{ alignSelf:'flex-end', padding:'9px 18px', borderRadius:12, border:'none', background: aiLoading||!aiBullets.trim() ? 'var(--modal-close)' : 'linear-gradient(135deg,#f4511e,#ff7a4d)', color: aiLoading||!aiBullets.trim() ? 'var(--text-3)' : '#fff', fontWeight:700, fontSize:13, cursor: aiLoading||!aiBullets.trim() ? 'default' : 'pointer', fontFamily:'inherit', transition:'all .15s' }}>
                   {aiLoading ? '⏳ Generiert…' : '✨ Generieren'}
                 </button>
               </div>
@@ -554,8 +554,8 @@ export default function NewListing() {
                       title="Titel mit Suchbegriffen anreichern (max. 80 Zeichen)"
                       style={{
                         display:'flex', alignItems:'center', gap:5, padding:'5px 11px', borderRadius:9,
-                        border:'1px solid rgba(99,102,241,0.3)', background:'rgba(99,102,241,0.08)',
-                        color:'#6366f1', fontSize:12, fontWeight:700, cursor: form.title.trim()?'pointer':'not-allowed',
+                        border:'1px solid rgba(244,81,30,0.3)', background:'rgba(244,81,30,0.08)',
+                        color:'#f4511e', fontSize:12, fontWeight:700, cursor: form.title.trim()?'pointer':'not-allowed',
                         opacity: form.title.trim()?1:0.5, fontFamily:'inherit',
                       }}>
                       ✨ SEO-optimieren
@@ -741,7 +741,7 @@ export default function NewListing() {
                       const sel = form.shipping.includes(opt.id)
                       return (
                         <div key={opt.id} onClick={()=>toggleShip(opt.id)}
-                          style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.07)':'var(--surface)', transition:'all .15s' }}>
+                          style={{ display:'flex', alignItems:'center', gap:12, padding:'11px 14px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#ff8a5c':'var(--border)'}`, background:sel?'rgba(244,81,30,0.07)':'var(--surface)', transition:'all .15s' }}>
                           <CheckBox checked={sel}/>
                           <div>
                             <p style={{ fontSize:13, fontWeight:600, color:'var(--text-1)', margin:0 }}>{opt.label}</p>
@@ -762,8 +762,8 @@ export default function NewListing() {
                       return (
                         <button type="button" key={c} onClick={()=>toggleCarrier(c)}
                           style={{ padding:'9px 16px', borderRadius:11, cursor:'pointer', fontSize:13, fontWeight:700, fontFamily:'inherit',
-                            border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.1)':'var(--surface)',
-                            color:sel?'#6366f1':'var(--text-2)', transition:'all .15s' }}>
+                            border:`2px solid ${sel?'#ff8a5c':'var(--border)'}`, background:sel?'rgba(244,81,30,0.1)':'var(--surface)',
+                            color:sel?'#f4511e':'var(--text-2)', transition:'all .15s' }}>
                           {sel ? '✓ ' : ''}{c}
                         </button>
                       )
@@ -787,9 +787,9 @@ export default function NewListing() {
                       const sel = form.shipSize===sz.id
                       return (
                         <div key={sz.id} onClick={()=>set('shipSize',sel?'':sz.id)}
-                          style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'11px 8px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.07)':'var(--surface)', textAlign:'center', transition:'all .15s' }}>
+                          style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:2, padding:'11px 8px', borderRadius:14, cursor:'pointer', border:`2px solid ${sel?'#ff8a5c':'var(--border)'}`, background:sel?'rgba(244,81,30,0.07)':'var(--surface)', textAlign:'center', transition:'all .15s' }}>
                           <span style={{ fontSize:20 }}>{sz.id==='S'?'📦':sz.id==='M'?'🗃️':'🏗️'}</span>
-                          <p style={{ fontSize:12.5, fontWeight:700, color:sel?'#6366f1':'var(--text-1)', margin:0 }}>{sz.label}</p>
+                          <p style={{ fontSize:12.5, fontWeight:700, color:sel?'#f4511e':'var(--text-1)', margin:0 }}>{sz.label}</p>
                           <p style={{ fontSize:10.5, color:'var(--text-3)', margin:0, lineHeight:1.3 }}>{sz.desc}</p>
                         </div>
                       )
@@ -805,9 +805,9 @@ export default function NewListing() {
             <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
               <input ref={fileRef} type="file" accept="image/*" multiple style={{ display:'none' }} onChange={handleFileChange}/>
               <div onClick={()=>!uploading&&imgs.length<8&&fileRef.current.click()}
-                style={{ border:`2px dashed ${uploading?'#818cf8':'var(--border)'}`, borderRadius:20, padding:'40px 20px', textAlign:'center', cursor:imgs.length>=8?'default':'pointer', userSelect:'none', background:uploading?'rgba(99,102,241,0.04)':'var(--surface)', transition:'all .15s' }}>
+                style={{ border:`2px dashed ${uploading?'#ff8a5c':'var(--border)'}`, borderRadius:20, padding:'40px 20px', textAlign:'center', cursor:imgs.length>=8?'default':'pointer', userSelect:'none', background:uploading?'rgba(244,81,30,0.04)':'var(--surface)', transition:'all .15s' }}>
                 {uploading ? (
-                  <><p style={{ fontSize:36, margin:'0 0 10px' }}>⏳</p><p style={{ fontWeight:600, color:'#818cf8', margin:0 }}>Wird hochgeladen…</p></>
+                  <><p style={{ fontSize:36, margin:'0 0 10px' }}>⏳</p><p style={{ fontWeight:600, color:'#ff8a5c', margin:0 }}>Wird hochgeladen…</p></>
                 ) : (
                   <><p style={{ fontSize:42, margin:'0 0 10px' }}>📷</p>
                   <p style={{ fontWeight:600, color:'var(--text-1)', margin:'0 0 4px' }}>Tippe zum Hochladen</p>
@@ -821,7 +821,7 @@ export default function NewListing() {
                       <img src={img.preview||img.url} alt="" style={{ width:'100%', height:'100%', objectFit:'cover' }}/>
                       <button onClick={()=>removeImg(i)}
                         style={{ position:'absolute', top:6, right:6, width:28, height:28, borderRadius:'50%', background:'rgba(0,0,0,0.55)', color:'#fff', border:'none', cursor:'pointer', fontSize:12, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button>
-                      {i===0 && <span style={{ position:'absolute', bottom:6, left:6, fontSize:10, background:'#6366f1', color:'#fff', padding:'2px 7px', borderRadius:6, fontWeight:700 }}>Haupt</span>}
+                      {i===0 && <span style={{ position:'absolute', bottom:6, left:6, fontSize:10, background:'#f4511e', color:'#fff', padding:'2px 7px', borderRadius:6, fontWeight:700 }}>Haupt</span>}
                     </div>
                   ))}
                   {imgs.length<8&&!uploading && (
@@ -835,10 +835,10 @@ export default function NewListing() {
               {/* ── KI-Anprobe (Virtual Try-On) ── */}
               <div style={{ border:'1px solid var(--border)', borderRadius:18, overflow:'hidden', background:'var(--surface)' }}>
                 <div onClick={()=>setT({ open:!tryon.open })}
-                  style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px', cursor:'pointer', background:'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.05))' }}>
+                  style={{ display:'flex', alignItems:'center', gap:10, padding:'14px 16px', cursor:'pointer', background:'linear-gradient(135deg,rgba(244,81,30,0.08),rgba(139,92,246,0.05))' }}>
                   <span style={{ fontSize:20 }}>🪄</span>
                   <div style={{ flex:1 }}>
-                    <p style={{ fontSize:13.5, fontWeight:800, color:'var(--text-1)', margin:0 }}>KI-Anprobe <span style={{ fontSize:10, color:'#6366f1', background:'rgba(99,102,241,0.12)', padding:'1px 6px', borderRadius:6, marginLeft:4 }}>BETA</span></p>
+                    <p style={{ fontSize:13.5, fontWeight:800, color:'var(--text-1)', margin:0 }}>KI-Anprobe <span style={{ fontSize:10, color:'#f4511e', background:'rgba(244,81,30,0.12)', padding:'1px 6px', borderRadius:6, marginLeft:4 }}>BETA</span></p>
                     <p style={{ fontSize:11.5, color:'var(--text-3)', margin:'2px 0 0' }}>Modell trägt dein Kleidungsstück — ohne Wasserzeichen</p>
                   </div>
                   <span style={{ fontSize:14, color:'var(--text-3)', transform:tryon.open?'rotate(180deg)':'none', transition:'transform .2s' }}>▾</span>
@@ -853,7 +853,7 @@ export default function NewListing() {
                       ].map(slot => (
                         <div key={slot.key}>
                           <p style={{ fontSize:12, fontWeight:700, color:'var(--text-2)', margin:'0 0 6px' }}>{slot.label}</p>
-                          <label style={{ display:'block', aspectRatio:'1', borderRadius:14, border:`2px dashed ${tryon[slot.key]?'#818cf8':'var(--border)'}`, overflow:'hidden', cursor:'pointer', position:'relative', background:'var(--modal-close)' }}>
+                          <label style={{ display:'block', aspectRatio:'1', borderRadius:14, border:`2px dashed ${tryon[slot.key]?'#ff8a5c':'var(--border)'}`, overflow:'hidden', cursor:'pointer', position:'relative', background:'var(--modal-close)' }}>
                             <input type="file" accept="image/*" style={{ display:'none' }}
                               onChange={e=>pickTryonImg(slot.key, e.target.files[0])}/>
                             {tryon[slot.key]
@@ -880,8 +880,8 @@ export default function NewListing() {
                           return (
                             <button type="button" key={t.id} onClick={()=>setT({ type:t.id, result:null })}
                               style={{ flex:1, padding:'9px 6px', borderRadius:11, cursor:'pointer', fontSize:12.5, fontWeight:700, fontFamily:'inherit',
-                                border:`2px solid ${sel?'#818cf8':'var(--border)'}`, background:sel?'rgba(99,102,241,0.1)':'var(--surface)',
-                                color:sel?'#6366f1':'var(--text-2)', transition:'all .15s' }}>
+                                border:`2px solid ${sel?'#ff8a5c':'var(--border)'}`, background:sel?'rgba(244,81,30,0.1)':'var(--surface)',
+                                color:sel?'#f4511e':'var(--text-2)', transition:'all .15s' }}>
                               {t.label}
                             </button>
                           )
@@ -894,7 +894,7 @@ export default function NewListing() {
                     {!tryon.result && (
                       <button type="button" onClick={generateTryon} disabled={tryon.loading||!tryon.piece||!tryon.model}
                         style={{ padding:'13px', borderRadius:13, border:'none', cursor:(tryon.loading||!tryon.piece||!tryon.model)?'default':'pointer',
-                          background:(tryon.loading||!tryon.piece||!tryon.model)?'var(--border)':'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                          background:(tryon.loading||!tryon.piece||!tryon.model)?'var(--border)':'linear-gradient(135deg,#f4511e,#ff7a4d)',
                           color:(tryon.loading||!tryon.piece||!tryon.model)?'var(--text-3)':'#fff', fontSize:14.5, fontWeight:700, fontFamily:'inherit' }}>
                         {tryon.loading ? `🪄 Generiere… ${tryon.elapsed > 0 ? `(${tryon.elapsed}s)` : ''}` : '🪄 Anprobe generieren'}
                       </button>
@@ -938,11 +938,11 @@ export default function NewListing() {
                     return (
                       <div key={opt.id} onClick={()=>setPublishMode(opt.id)}
                         style={{ padding:'16px 12px', borderRadius:18, cursor:'pointer', textAlign:'center',
-                          border:`2px solid ${sel?(opt.id==='publish'?'#6366f1':'#f59e0b'):'var(--border)'}`,
-                          background:sel?(opt.id==='publish'?'rgba(99,102,241,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
+                          border:`2px solid ${sel?(opt.id==='publish'?'#f4511e':'#f59e0b'):'var(--border)'}`,
+                          background:sel?(opt.id==='publish'?'rgba(244,81,30,0.08)':'rgba(245,158,11,0.08)'):'var(--surface)',
                           transition:'all .15s' }}>
                         <div style={{ fontSize:28, marginBottom:6 }}>{opt.icon}</div>
-                        <p style={{ fontSize:13, fontWeight:700, color: sel?(opt.id==='publish'?'#6366f1':'#d97706'):'var(--text-1)', margin:'0 0 3px' }}>{opt.title}</p>
+                        <p style={{ fontSize:13, fontWeight:700, color: sel?(opt.id==='publish'?'#f4511e':'#d97706'):'var(--text-1)', margin:'0 0 3px' }}>{opt.title}</p>
                         <p style={{ fontSize:11, color:'var(--text-3)', margin:0, lineHeight:1.4, whiteSpace:'pre-line' }}>{opt.desc}</p>
                       </div>
                     )
@@ -966,9 +966,9 @@ export default function NewListing() {
                     const sel = form.platforms.includes(id)
                     return (
                       <div key={id} onClick={()=>{ togglePlt(id); setErrors({}) }}
-                        style={{ border:`2px solid ${sel?'#818cf8':'var(--border)'}`, borderRadius:20, padding:16, cursor:'pointer', background:sel?'rgba(99,102,241,0.06)':'var(--surface)', transition:'all .15s' }}>
+                        style={{ border:`2px solid ${sel?'#ff8a5c':'var(--border)'}`, borderRadius:20, padding:16, cursor:'pointer', background:sel?'rgba(244,81,30,0.06)':'var(--surface)', transition:'all .15s' }}>
                         <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                          <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0, border:`2px solid ${sel?'#6366f1':'var(--border)'}`, background:sel?'#6366f1':'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                          <div style={{ width:20, height:20, borderRadius:'50%', flexShrink:0, border:`2px solid ${sel?'#f4511e':'var(--border)'}`, background:sel?'#f4511e':'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>
                             {sel && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
                           </div>
                           <PlatformBadge plt={id}/>

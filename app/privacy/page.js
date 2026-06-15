@@ -12,7 +12,7 @@ export default function PrivacyPage() {
       <div style={{ maxWidth: 720, margin: '0 auto', background: dark ? '#161b22' : '#fff', borderRadius: 16, padding: '48px', border: dark ? '1px solid #30363d' : '1px solid #e8ecf2', boxShadow: '0 4px 24px rgba(0,0,0,0.08)' }}>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 32 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #6366f1, #4f46e5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 40, height: 40, borderRadius: 10, background: 'linear-gradient(135deg, #f4511e, #e0451a)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ color: '#fff', fontSize: 20, fontWeight: 700 }}>L</span>
           </div>
           <span style={{ fontSize: 22, fontWeight: 700, color: dark ? '#e6edf3' : '#111827', fontFamily: 'Inter, sans-serif' }}>ListSync</span>
@@ -69,11 +69,11 @@ export default function PrivacyPage() {
 
         <Section dark={dark} title="7. Kontakt">
           Bei Fragen zur Datenschutzerklärung wende dich an:{' '}
-          <a href="mailto:support@listsync.app" style={{ color: '#6366f1' }}>support@listsync.app</a>
+          <a href="mailto:support@listsync.app" style={{ color: '#f4511e' }}>support@listsync.app</a>
         </Section>
 
         <div style={{ marginTop: 48, paddingTop: 24, borderTop: dark ? '1px solid #30363d' : '1px solid #e8ecf2', textAlign: 'center' }}>
-          <a href="/" style={{ color: '#6366f1', textDecoration: 'none', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>← Zurück zu ListSync</a>
+          <a href="/" style={{ color: '#f4511e', textDecoration: 'none', fontSize: 14, fontFamily: 'Inter, sans-serif' }}>← Zurück zu ListSync</a>
         </div>
       </div>
     </div>
@@ -92,7 +92,7 @@ function Section({ dark, title, children }) {
 function PermRow({ dark, perm, reason }) {
   return (
     <div style={{ display: 'flex', gap: 12, marginBottom: 10, alignItems: 'flex-start' }}>
-      <span style={{ background: dark ? '#21262d' : '#f3f4f6', border: dark ? '1px solid #30363d' : '1px solid #e5e7eb', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontFamily: 'monospace', color: dark ? '#79c0ff' : '#4f46e5', whiteSpace: 'nowrap', marginTop: 2 }}>{perm}</span>
+      <span style={{ background: dark ? '#21262d' : '#f3f4f6', border: dark ? '1px solid #30363d' : '1px solid #e5e7eb', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontFamily: 'monospace', color: dark ? '#79c0ff' : '#e0451a', whiteSpace: 'nowrap', marginTop: 2 }}>{perm}</span>
       <span style={{ fontSize: 14, color: dark ? '#b1bac4' : '#6b7280', lineHeight: 1.5 }}>{reason}</span>
     </div>
   )

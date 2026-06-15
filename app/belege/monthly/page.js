@@ -50,7 +50,7 @@ function MonthlyReceiptInner() {
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #f3f4f6; }
         .page { max-width: 740px; margin: 40px auto; background: white; padding: 48px; box-shadow: 0 4px 24px rgba(0,0,0,.08); border-radius: 12px; }
         .header { display: flex; justify-content: space-between; margin-bottom: 36px; padding-bottom: 24px; border-bottom: 2px solid #f3f4f6; }
-        .brand { font-size: 24px; font-weight: 900; color: #4f46e5; }
+        .brand { font-size: 24px; font-weight: 900; color: #e0451a; }
         .brand span { font-size: 11px; font-weight: 600; color: #6b7280; display: block; }
         .meta { text-align: right; }
         .meta h2 { font-size: 18px; font-weight: 800; color: #111; }
@@ -64,7 +64,7 @@ function MonthlyReceiptInner() {
         tbody td { padding: 10px 8px; border-bottom: 1px solid #f9fafb; color: #374151; vertical-align: middle; }
         tbody td:last-child, thead th:last-child { text-align: right; }
         tfoot td { padding: 10px 8px; font-weight: 700; color: #111; font-size: 13px; border-top: 2px solid #e5e7eb; }
-        tfoot td:last-child { text-align: right; color: #4f46e5; }
+        tfoot td:last-child { text-align: right; color: #e0451a; }
         .summary { display: flex; justify-content: flex-end; gap: 40px; margin-top: 8px; padding: 16px; background: #f9fafb; border-radius: 10px; }
         .summary div { text-align: right; }
         .summary .lbl { font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing:.05em; }
@@ -75,7 +75,7 @@ function MonthlyReceiptInner() {
         .footer { margin-top: 28px; padding-top: 18px; border-top: 1px solid #f3f4f6; display: flex; justify-content: space-between; font-size: 11px; color: #9ca3af; }
         .print-bar { position: fixed; bottom: 24px; right: 24px; display: flex; gap: 10px; }
         .print-bar button { padding: 11px 20px; border-radius: 12px; border: none; font-size: 13px; font-weight: 700; cursor: pointer; }
-        .btn-p { background: #4f46e5; color: white; }
+        .btn-p { background: #e0451a; color: white; }
         .btn-c { background: #f3f4f6; color: #374151; }
         @media print { body { background: white; } .page { margin:0; padding:32px; box-shadow:none; border-radius:0; max-width:none; } .print-bar { display:none; } }
       `}</style>

@@ -1,7 +1,9 @@
 'use client'
 import { usePathname, useRouter } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
-import { useDark } from '@/lib/theme'
+
+const CREAM = '#ece7df'
+const ACC = '#f4511e'
 
 function Ic({ children, size = 17 }) {
   return (
@@ -44,7 +46,6 @@ export default function Sidebar({ activeCount = 0 }) {
   const pathname = usePathname()
   const router   = useRouter()
   const { data: session } = useSession()
-  const { dark, toggle } = useDark()
 
   const userName  = session?.user?.name  || session?.user?.email || 'User'
   const userInit  = userName.charAt(0).toUpperCase()
@@ -52,37 +53,40 @@ export default function Sidebar({ activeCount = 0 }) {
 
   return (
     <aside className="hidden md:flex flex-col w-60 fixed inset-y-0 left-0 z-20"
-      style={{ background: '#111827', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
+      style={{ background: '#0a0a0c', borderRight: '1px solid rgba(236,231,223,0.08)' }}>
 
       {/* ── Logo ── */}
-      <div style={{ padding: '18px 16px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ padding: '20px 16px 18px', borderBottom: '1px solid rgba(236,231,223,0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
-          width: 32, height: 32, borderRadius: 8, flexShrink: 0,
-          background: '#22c55e',
+          width: 32, height: 32, borderRadius: 9, flexShrink: 0,
+          background: ACC,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#111827', fontWeight: 900, fontSize: 13, letterSpacing: '-0.04em',
+          color: '#fff', fontWeight: 900, fontSize: 13, letterSpacing: '-0.04em',
+          boxShadow: '0 4px 14px rgba(244,81,30,.4)',
         }}>LS</div>
-        <span style={{ fontWeight: 800, fontSize: 15.5, color: '#f9fafb', letterSpacing: '-0.02em' }}>ListSync</span>
+        <span style={{ fontWeight: 800, fontSize: 16, color: CREAM, letterSpacing: '-0.03em' }}>ListSync</span>
         <span style={{
-          marginLeft: 'auto', fontSize: 10, fontWeight: 700, letterSpacing: '0.03em',
-          padding: '2px 7px', borderRadius: 20,
-          background: 'rgba(34,197,94,0.15)', color: '#22c55e',
+          marginLeft: 'auto', fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+          padding: '2px 8px', borderRadius: 20,
+          background: 'rgba(244,81,30,0.15)', color: '#ff8a5c', border: '1px solid rgba(244,81,30,0.25)',
         }}>BETA</span>
       </div>
 
       {/* ── Nav ── */}
-      <nav style={{ flex: 1, padding: '10px 10px', overflowY: 'auto' }}>
+      <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto' }}>
 
-        {/* New Listing CTA */}
-        <button onClick={() => router.push('/new')}
+        {/* New Listing CTA — magnetisch */}
+        <button data-magnetic onClick={() => router.push('/new')}
           style={{
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-            width: '100%', padding: '9px 16px', margin: '4px 0 14px', borderRadius: 10,
-            background: '#22c55e', color: '#111827', fontWeight: 700, fontSize: 13.5,
-            border: 'none', cursor: 'pointer', transition: 'opacity .15s',
+            width: '100%', padding: '11px 16px', margin: '4px 0 16px', borderRadius: 12,
+            background: 'linear-gradient(135deg, #ff6a3d, #f4511e)', color: '#fff', fontWeight: 700, fontSize: 13.5,
+            border: 'none', cursor: 'pointer', willChange: 'transform',
+            boxShadow: '0 6px 20px rgba(244,81,30,.4)',
+            transition: 'transform .25s cubic-bezier(.2,.8,.2,1), box-shadow .25s, filter .2s',
           }}
-          onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
-          onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+          onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(1.07)'; e.currentTarget.style.boxShadow = '0 10px 30px rgba(244,81,30,.55)' }}
+          onMouseLeave={e => { e.currentTarget.style.filter = 'brightness(1)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(244,81,30,.4)' }}>
           {ICONS.plus}
           Neues Listing
         </button>
@@ -90,39 +94,41 @@ export default function Sidebar({ activeCount = 0 }) {
         {NAV.map((n, i) => {
           if (n.section) return (
             <p key={i} style={{
-              fontSize: 10.5, fontWeight: 700, letterSpacing: '0.09em',
-              color: 'var(--text-2)', textTransform: 'uppercase',
-              padding: '12px 12px 5px', margin: 0,
+              fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em',
+              color: 'rgba(236,231,223,0.40)', textTransform: 'uppercase',
+              padding: '14px 12px 6px', margin: 0,
             }}>{n.section}</p>
           )
           const active = pathname.startsWith(n.href)
           return (
             <button key={n.href} onClick={() => router.push(n.href)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 10,
-                width: '100%', padding: '8.5px 12px', marginBottom: 2, borderRadius: 9,
+                display: 'flex', alignItems: 'center', gap: 11,
+                width: '100%', padding: '9px 12px', marginBottom: 2, borderRadius: 10,
                 fontSize: 13.5, fontWeight: active ? 600 : 500, textAlign: 'left',
-                cursor: 'pointer', border: 'none',
-                background: active ? 'rgba(255,255,255,0.07)' : 'transparent',
-                color: active ? '#f9fafb' : '#6b7280',
-                transition: 'background .12s, color .12s',
+                cursor: 'pointer', border: '1px solid transparent',
+                background: active ? 'rgba(244,81,30,0.10)' : 'transparent',
+                color: active ? CREAM : 'rgba(236,231,223,0.52)',
+                borderColor: active ? 'rgba(244,81,30,0.22)' : 'transparent',
+                transition: 'background .12s, color .12s, border-color .12s',
                 position: 'relative',
               }}
-              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = '#d1d5db' }}}
-              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6b7280' }}}>
-              {ICONS[n.icon]}
+              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = 'rgba(236,231,223,0.05)'; e.currentTarget.style.color = CREAM }}}
+              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgba(236,231,223,0.52)' }}}>
+              <span style={{ color: active ? ACC : 'inherit', display: 'flex' }}>{ICONS[n.icon]}</span>
               {n.label}
               {n.showCount && activeCount > 0 && (
                 <span style={{
                   marginLeft: 'auto', fontSize: 11, fontWeight: 700,
                   padding: '1px 7px', borderRadius: 10,
-                  background: 'rgba(34,197,94,0.15)', color: '#22c55e',
+                  background: 'rgba(244,81,30,0.16)', color: '#ff8a5c',
                 }}>{activeCount}</span>
               )}
               {active && (
                 <span style={{
                   position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
-                  width: 6, height: 6, borderRadius: '50%', background: '#22c55e',
+                  width: 6, height: 6, borderRadius: '50%', background: ACC,
+                  boxShadow: '0 0 8px rgba(244,81,30,.8)',
                   ...(n.showCount && activeCount > 0 ? { display: 'none' } : {}),
                 }}/>
               )}
@@ -132,30 +138,21 @@ export default function Sidebar({ activeCount = 0 }) {
       </nav>
 
       {/* ── User ── */}
-      <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(236,231,223,0.08)', display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
-          width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-          background: '#1f2937', border: '1px solid rgba(255,255,255,0.1)',
+          width: 30, height: 30, borderRadius: 9, flexShrink: 0,
+          background: 'rgba(236,231,223,0.06)', border: '1px solid rgba(236,231,223,0.12)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#9ca3af', fontWeight: 700, fontSize: 12,
+          color: CREAM, fontWeight: 700, fontSize: 12,
         }}>{userInit}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{userName}</p>
-          <p style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{userEmail}</p>
+          <p style={{ fontSize: 13, fontWeight: 600, color: CREAM, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{userName}</p>
+          <p style={{ fontSize: 11, color: 'rgba(236,231,223,0.45)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}>{userEmail}</p>
         </div>
-        <button onClick={toggle} title={dark ? 'Light Mode' : 'Dark Mode'}
-          style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 5, borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color .12s' }}
-          onMouseEnter={e => e.currentTarget.style.color = '#9ca3af'}
-          onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}>
-          {dark
-            ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-            : <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-          }
-        </button>
         <button onClick={() => signOut({ callbackUrl: '/login' })} title="Abmelden"
-          style={{ background: 'none', border: 'none', color: 'var(--text-2)', cursor: 'pointer', padding: 5, borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color .12s' }}
-          onMouseEnter={e => e.currentTarget.style.color = '#9ca3af'}
-          onMouseLeave={e => e.currentTarget.style.color = '#4b5563'}>
+          style={{ background: 'none', border: 'none', color: 'rgba(236,231,223,0.45)', cursor: 'pointer', padding: 5, borderRadius: 6, display: 'flex', alignItems: 'center', transition: 'color .12s' }}
+          onMouseEnter={e => e.currentTarget.style.color = CREAM}
+          onMouseLeave={e => e.currentTarget.style.color = 'rgba(236,231,223,0.45)'}>
           {ICONS.logout}
         </button>
       </div>

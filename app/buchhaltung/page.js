@@ -78,9 +78,9 @@ function EditCell({ value, type='text', placeholder='—', onSave }) {
       onBlur={save}
       onKeyDown={e => { if (e.key==='Enter') save(); if (e.key==='Escape') cancel() }}
       style={{
-        width: '100%', background: 'var(--input-bg)', border: '1px solid #818cf8',
+        width: '100%', background: 'var(--input-bg)', border: '1px solid #ff8a5c',
         borderRadius: 6, padding: '3px 6px', fontSize: 13, color: 'var(--text-1)',
-        fontFamily: 'inherit', boxShadow: '0 0 0 2px rgba(99,102,241,0.15)',
+        fontFamily: 'inherit', boxShadow: '0 0 0 2px rgba(244,81,30,0.15)',
       }}
       step={type==='number'?'0.01':undefined}
     />
@@ -89,7 +89,7 @@ function EditCell({ value, type='text', placeholder='—', onSave }) {
   return (
     <span onClick={start} title="Klicken zum Bearbeiten"
       style={{ cursor: 'pointer', borderRadius: 4, padding: '1px 4px', transition: 'background .1s' }}
-      onMouseOver={e => e.currentTarget.style.background='rgba(99,102,241,0.07)'}
+      onMouseOver={e => e.currentTarget.style.background='rgba(244,81,30,0.07)'}
       onMouseOut={e => e.currentTarget.style.background='transparent'}
     >{isEmpty ? <span style={{ color: 'var(--text-3)' }}>{placeholder}</span> : value} <span style={{ fontSize: 10, opacity: 0.4 }}>✏</span></span>
   )
@@ -101,11 +101,11 @@ function SortTh({ label, col, sort, setSort }) {
   return (
     <th onClick={() => setSort(s => ({ col, dir: s.col===col && s.dir==='asc' ? 'desc' : 'asc' }))}
       style={{
-        padding: '12px 10px', fontSize: 11, fontWeight: 700, color: active ? '#818cf8' : 'var(--text-3)',
+        padding: '12px 10px', fontSize: 11, fontWeight: 700, color: active ? '#ff8a5c' : 'var(--text-3)',
         textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap',
         cursor: 'pointer', userSelect: 'none', transition: 'color .12s',
       }}>
-      {label} <span style={{ color: active ? '#818cf8' : 'var(--border)' }}>{active ? (sort.dir==='asc'?'↑':'↓') : '↕'}</span>
+      {label} <span style={{ color: active ? '#ff8a5c' : 'var(--border)' }}>{active ? (sort.dir==='asc'?'↑':'↓') : '↕'}</span>
     </th>
   )
 }
@@ -172,8 +172,8 @@ function MobileCard({ l, i, onDelete, deleting, onPatch }) {
             onClick={() => window.open(`/belege/${l.id}`, '_blank')}
             style={{
               fontSize: 12, padding: '5px 12px', borderRadius: 9,
-              background: 'rgba(99,102,241,0.07)', color: '#6366f1',
-              border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+              background: 'rgba(244,81,30,0.07)', color: '#f4511e',
+              border: '1px solid rgba(244,81,30,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
             }}>
             Beleg
           </button>
@@ -500,7 +500,7 @@ export default function Buchhaltung() {
                 Abbrechen
               </button>
               <button onClick={addListing} disabled={addSaving || !addForm.title.trim()}
-                style={{ flex: 1, padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: addSaving || !addForm.title.trim() ? 'default' : 'pointer', fontFamily: 'inherit', opacity: addSaving || !addForm.title.trim() ? 0.6 : 1, boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>
+                style={{ flex: 1, padding: '12px', borderRadius: 12, background: 'linear-gradient(135deg,#f4511e,#e0451a)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 14, cursor: addSaving || !addForm.title.trim() ? 'default' : 'pointer', fontFamily: 'inherit', opacity: addSaving || !addForm.title.trim() ? 0.6 : 1, boxShadow: '0 4px 14px rgba(244,81,30,0.3)' }}>
                 {addSaving ? 'Speichern…' : 'Anlegen'}
               </button>
             </div>
@@ -522,7 +522,7 @@ export default function Buchhaltung() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <button onClick={() => setAddOpen(true)}
-                style={{ padding: '9px 16px', borderRadius: 12, background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(99,102,241,0.3)' }}>
+                style={{ padding: '9px 16px', borderRadius: 12, background: 'linear-gradient(135deg,#f4511e,#e0451a)', color: '#fff', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 14px rgba(244,81,30,0.3)' }}>
                 + Listing
               </button>
               <button onClick={() => downloadCSV(sorted)}
@@ -530,7 +530,7 @@ export default function Buchhaltung() {
                 ⬇ CSV
               </button>
               <button onClick={() => router.push('/belege')}
-                style={{ padding: '9px 16px', borderRadius: 12, background: 'rgba(99,102,241,0.07)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                style={{ padding: '9px 16px', borderRadius: 12, background: 'rgba(244,81,30,0.07)', color: '#f4511e', border: '1px solid rgba(244,81,30,0.15)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
                 🧾 Belege
               </button>
               <button onClick={() => setConfirmClear(true)}
@@ -546,7 +546,7 @@ export default function Buchhaltung() {
               { id: 'verkauft', label: 'Verkauft', color: '#10b981' },
               { id: 'aktiv',    label: 'Aktiv',    color: '#2563eb' },
               { id: 'inaktiv',  label: 'Inaktiv',  color: '#6b7280' },
-              { id: 'alle',     label: 'Alle',     color: '#6366f1' },
+              { id: 'alle',     label: 'Alle',     color: '#f4511e' },
             ].map(t => {
               const active = statusFilter === t.id
               return (
@@ -573,7 +573,7 @@ export default function Buchhaltung() {
           {/* ── Summary cards ── */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }} className="md:grid-cols-4">
             {[
-              { label: 'Umsatz',        val: fmtEur(totals.revenue),  bg: 'rgba(99,102,241,0.07)',  color: '#6366f1'  },
+              { label: 'Umsatz',        val: fmtEur(totals.revenue),  bg: 'rgba(244,81,30,0.07)',  color: '#f4511e'  },
               { label: 'Einkauf',       val: fmtEur(totals.purchase), bg: 'rgba(239,68,68,0.07)',   color: '#ef4444'  },
               { label: 'Gebühren',      val: fmtEur(totals.fees),     bg: 'rgba(245,158,11,0.07)',  color: '#d97706'  },
               { label: 'Netto-Gewinn',  val: fmtEur(totals.profit),   bg: totals.profit>=0 ? 'rgba(16,185,129,0.07)' : 'rgba(239,68,68,0.07)', color: totals.profit>=0 ? '#10b981' : '#ef4444' },
@@ -611,7 +611,7 @@ export default function Buchhaltung() {
                     <div key={a.id} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: PLATFORMS[a.account.platform]?.dot || '#6366f1', flexShrink: 0 }} />
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: PLATFORMS[a.account.platform]?.dot || '#f4511e', flexShrink: 0 }} />
                           <span style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text-1)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {a.account.name}
                           </span>
@@ -628,7 +628,7 @@ export default function Buchhaltung() {
                       </div>
                       {/* Umsatz-Balken relativ zum stärksten Account */}
                       <div style={{ height: 6, borderRadius: 4, background: 'var(--row-hover)', overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.max(2, (a.revenue/maxAccRevenue)*100)}%`, background: PLATFORMS[a.account.platform]?.dot || '#6366f1', borderRadius: 4 }} />
+                        <div style={{ height: '100%', width: `${Math.max(2, (a.revenue/maxAccRevenue)*100)}%`, background: PLATFORMS[a.account.platform]?.dot || '#f4511e', borderRadius: 4 }} />
                       </div>
                     </div>
                   ))}
@@ -817,7 +817,7 @@ export default function Buchhaltung() {
                           <td style={{ padding: '10px', position: 'sticky', right: 0, background: 'var(--surface)', boxShadow: '-6px 0 8px -6px rgba(0,0,0,0.18)' }}>
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                               <button onClick={() => window.open(`/belege/${l.id}`, '_blank')}
-                                style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, background: 'rgba(99,102,241,0.07)', color: '#6366f1', border: '1px solid rgba(99,102,241,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                                style={{ fontSize: 12, padding: '4px 10px', borderRadius: 8, background: 'rgba(244,81,30,0.07)', color: '#f4511e', border: '1px solid rgba(244,81,30,0.15)', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
                                 Beleg
                               </button>
                               <button onClick={() => deleteRow(l.id)} disabled={deleting === l.id}

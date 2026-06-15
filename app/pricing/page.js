@@ -26,7 +26,7 @@ const plans = [
     sub: 'Flexibel, jederzeit kündbar',
     price: '9,99 €',
     period: '/ Monat',
-    accent: '#6366f1',
+    accent: '#f4511e',
     features: [
       'Unlimitierte Listings',
       'Alle 3 Plattformen (Vinted, KA, eBay)',
